@@ -1,0 +1,78 @@
+/* src/styles/tv-mode.css */
+
+/* TV Mode - Hide cursor and add focus styles */
+body.tv-mode {
+  cursor: none !important;
+  user-select: none;
+}
+
+body.tv-mode * {
+  cursor: none !important;
+}
+
+/* Focusable elements in TV mode */
+body.tv-mode [data-focusable="true"] {
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+/* Focus ring style - Netflix-like */
+body.tv-mode [data-focusable="true"]:focus,
+body.tv-mode [data-focusable="true"].focused {
+  outline: 4px solid hsl(0 0% 100%);
+  outline-offset: 4px;
+  transform: scale(1.05);
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Smooth focus transitions */
+body.tv-mode [data-focusable="true"] {
+  position: relative;
+}
+
+/* Content cards focus effect */
+body.tv-mode .content-card:focus,
+body.tv-mode .content-card.focused {
+  transform: scale(1.1);
+  z-index: 20;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Navigation items focus */
+body.tv-mode nav button:focus,
+body.tv-mode nav button.focused {
+  background-color: hsl(0 0% 100%);
+  color: white;
+  transform: scale(1.1);
+}
+
+/* Disable hover effects in TV mode */
+body.tv-mode *:hover {
+  /* Remove all hover effects */
+}
+
+/* Show TV mode indicator */
+body.tv-mode::after {
+  content: "TV MODE";
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  color: lime;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Hide scrollbars in TV mode */
+body.tv-mode ::-webkit-scrollbar {
+  display: none;
+}
+
+body.tv-mode {
+  scrollbar-width: none;
+}
