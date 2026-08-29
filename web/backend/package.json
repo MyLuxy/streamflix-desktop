@@ -1,0 +1,33 @@
+{
+  "name": "vetoweb-backend",
+  "version": "1.0.0",
+  "description": "Backend API for VetoWeb streaming app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.4",
+    "cheerio": "^1.0.0-rc.12",
+    "cloudscraper": "^4.6.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "i18next": "^25.8.0",
+    "i18next-browser-languagedetector": "^8.2.0",
+    "libsodium-wrappers": "^0.8.4",
+    "playwright": "^1.61.0",
+    "puppeteer": "^25.2.0",
+    "react-i18next": "^16.5.4",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

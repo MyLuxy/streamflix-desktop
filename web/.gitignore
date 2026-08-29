@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.local
+
+# Local dev artifacts
+dev_log.txt
+backend/backend/
+backend/fu.wasm
+backend/scraper-script.js
+
+# Test/automation artifacts
+.playwright-mcp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
