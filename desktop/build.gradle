@@ -1,0 +1,32 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+// standalone proof-of-concept for a browser-based (hls.js + native <video controls>) player -
+// see WebPlayerTest.kt. Separate entry point/task so it never gets bundled into the real app.
+tasks.register('runWebPlayerTest', JavaExec) {
+    group = 'application'
+    mainClass = 'com.streamflixreborn.streamflix.desktop.WebPlayerTestKt'
+    classpath = sourceSets.main.runtimeClasspath
+    standardInput = System.in
+}
+
+// the real HTTP API + HLS proxy backing the web UI (VetoWeb) - see Backend.kt.
+tasks.register('runBackend', JavaExec) {
+    group = 'application'
+    mainClass = 'com.streamflixreborn.streamflix.desktop.BackendKt'
+    classpath = sourceSets.main.runtimeClasspath
+    standardInput = System.in
+}
+
+dependencies {
+    implementation project(':shared')
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0'
+}
