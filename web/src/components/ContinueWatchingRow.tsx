@@ -1,0 +1,197 @@
+import { Play, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { IMAGE_SIZES, imageUrl as resolveImageUrl } from "@/lib/constants";
+import type { WatchedItem } from "@/hooks/useContinueWatching";
+import { useTranslation } from "react-i18next";
+import { useContinueWatching } from "@/hooks/useContinueWatching";
+
+interface ContinueWatchingRowProps {
+  items: WatchedItem[];
+  onItemClick: (item: WatchedItem) => void;
+}
+
+const STORAGE_KEY = "rowscroll:continue-watching";
+
+export function ContinueWatchingRow({
+  items,
+  onItemClick,
+}: ContinueWatchingRowProps) {
+  const { t } = useTranslation();
+  const { removeItem } = useContinueWatching();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  // Ripristina lo scroll orizzontale salvato al montaggio, istantaneo.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const prev = el.style.scrollBehavior;
+        el.style.scrollBehavior = "auto";
+        el.scrollLeft = Number(saved);
+        el.style.scrollBehavior = prev;
+      }
+    } catch { /* ignore */ }
+    checkScroll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (items.length === 0) return null;
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+      try {
+        sessionStorage.setItem(STORAGE_KEY, String(scrollLeft));
+      } catch { /* ignore */ }
+    }
+  };
+
+  const scroll = (direction: "left" | "right") => {
+    if (scrollRef.current) {
+      const amount = scrollRef.current.clientWidth * 0.75;
+      scrollRef.current.scrollBy({
+        left: direction === "left" ? -amount : amount,
+        behavior: "smooth",
+      });
+    }
+  };
+
+  const handleRemove = (e: React.MouseEvent, item: WatchedItem) => {
+    e.stopPropagation();
+    removeItem(item.provider, item.realId, item.mediaType);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="py-4 group/row"
+    >
+      <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4 px-6 md:px-10 select-none">
+        {t("home.continueWatching")}
+      </h2>
+
+      <div className="relative">
+        {/* Scroll buttons — fuori dal wrapper pointer-events-none */}
+        <button
+          onClick={() => scroll("left")}
+          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-lg transition-all duration-300 hover:bg-background/90 hover:scale-110 ${
+            canScrollLeft
+              ? "opacity-0 group-hover/row:opacity-100"
+              : "opacity-0 pointer-events-none"
+          }`}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="w-7 h-7" />
+        </button>
+
+        <button
+          onClick={() => scroll("right")}
+          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-lg transition-all duration-300 hover:bg-background/90 hover:scale-110 ${
+            canScrollRight
+              ? "opacity-0 group-hover/row:opacity-100"
+              : "opacity-0 pointer-events-none"
+          }`}
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="w-7 h-7" />
+        </button>
+
+        {/* Wrapper pointer-events-none: i wheel event passano attraverso
+            e scrollano la pagina. Le card dentro hanno pointer-events:auto
+            per rimanere cliccabili. overflow-x-auto serve solo per scrollBy(). */}
+        <div className="pointer-events-none">
+          <div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth px-6 md:px-10"
+          >
+            {items.map((item) => {
+              const imageUrl =
+                resolveImageUrl(item.backdropPath, IMAGE_SIZES.backdrop.medium) ??
+                resolveImageUrl(item.posterPath, IMAGE_SIZES.poster.medium);
+
+              return (
+                <div
+                  key={`${item.provider}-${item.mediaType}-${item.realId}`}
+                  className="flex-shrink-0 w-72 md:w-[360px] pointer-events-auto cursor-pointer group/card"
+                  onClick={() => onItemClick(item)}
+                >
+                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted shadow-card">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-muted flex items-center justify-center">
+                        <span className="text-6xl">🎬</span>
+                      </div>
+                    )}
+
+                    {/* Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                    {/* Progress bar */}
+                    {(item.progress ?? 0) > 0 && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-10">
+                        <div
+                          className="h-full bg-primary"
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                    )}
+                    {item.currentTime !== undefined && item.duration && item.duration > 0 && (
+                      <div className="absolute bottom-2 right-2 z-10 bg-black/70 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+                        {Math.floor(item.currentTime / 60)}:{String(Math.floor(item.currentTime % 60)).padStart(2, "0")} / {Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, "0")}
+                      </div>
+                    )}
+
+                    {/* Season/Episode badge */}
+                    {item.mediaType === "tv" && item.season && item.episode && (
+                      <div className="absolute top-2 left-2 z-20 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                        S{item.season} E{item.episode}
+                      </div>
+                    )}
+
+                    {/* Remove button */}
+                    <div
+                      onClick={(e) => handleRemove(e, item)}
+                      className="absolute top-2 right-2 z-20 w-9 h-9 rounded-full bg-black/70 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity"
+                    >
+                      <X className="w-5 h-5 text-white" />
+                    </div>
+
+                    {/* Play overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                      <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+                        <Play className="w-5 h-5 text-primary-foreground fill-current ml-0.5" />
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="absolute bottom-2 left-3 right-3">
+                      <p className="text-sm font-medium text-white truncate">
+                        {item.title}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
