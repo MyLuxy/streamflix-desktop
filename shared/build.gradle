@@ -1,0 +1,38 @@
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+kotlin {
+    jvmToolchain(17)
+    jvm()
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
+            }
+        }
+        jvmMain {
+            dependencies {
+                implementation project(':retrofit-jsoup-converter')
+
+                implementation 'com.squareup.retrofit2:retrofit:2.11.0'
+                implementation 'com.squareup.retrofit2:converter-gson:2.11.0'
+                implementation 'com.squareup.retrofit2:converter-scalars:2.11.0'
+                implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+                implementation 'com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0'
+                implementation 'com.squareup.okhttp3:logging-interceptor:4.12.0'
+                implementation 'org.jsoup:jsoup:1.19.1'
+                implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0'
+                implementation 'org.json:json:20260814'
+                implementation 'com.microsoft.playwright:playwright:1.62.0'
+            }
+        }
+        jvmTest {
+            dependencies {
+                implementation 'org.jetbrains.kotlin:kotlin-test'
+            }
+        }
+    }
+}
