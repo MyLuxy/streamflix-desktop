@@ -320,7 +320,15 @@ private fun handleStream(exchange: HttpExchange) {
                     season = Video.Type.Episode.Season(season.number, season.title),
                 )
             }
-            val itemIdForServers = if (request.type == "movie") request.itemId else (request.episodeId ?: request.itemId)
+            // usa l'id RISOLTO da videoType (episode.id per le serie), non request.episodeId - che
+            // arriva null ogni volta che si riprende da "continua a guardare" o da un bare
+            // ?watch=sXeY (mai passato dal picker episodi) - altrimenti per le serie si ripiegava
+            // su request.itemId, cioe l'id dello SHOW, mai un episodio valido: getServers riceveva
+            // un id senza senso e la pagina finiva per mostrare il contenuto sbagliato
+            val itemIdForServers = when (videoType) {
+                is Video.Type.Movie -> videoType.id
+                is Video.Type.Episode -> videoType.id
+            }
             val server = provider.getServers(itemIdForServers, videoType).firstOrNull() ?: error("no server available")
             provider.getVideo(server)
         }
