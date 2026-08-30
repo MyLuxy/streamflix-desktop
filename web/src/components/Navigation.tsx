@@ -19,15 +19,17 @@ const tabs: { path: string; labelKey: string; icon: typeof Home }[] = [
   { path: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
-export function Navigation() {
+interface NavigationProps {
+  // mobile bottom bar collides with player controls while playing, so we hide just that one
+  hideMobileBar?: boolean;
+}
+
+export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
   const { t } = useTranslation();
   const pathname = usePathname();
   const locale = useLocale();
 
-  // logo del provider attivo, mostrato al posto del vecchio toggle tema - letto lato client
-  // (cookie) dopo il mount per evitare disallineamenti tra render server e client, e riletto ad
-  // ogni cambio provider (Navigation resta montata tra le navigazioni, non si accorgerebbe
-  // altrimenti di un cambio fatto dalle Impostazioni finché non viene rimontata)
+  // reread after mount to avoid ssr mismatch, listens for changes since nav stays mounted across pages
   const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
   useEffect(() => {
     setSelectedProviderName(getSelectedProviderClient());
@@ -45,11 +47,9 @@ export function Navigation() {
 
   return (
     <>
-      {/* Top navbar (desktop) */}
-      <nav className="fixed top-0 left-0 right-0 z-50 hidden md:block">
+      <nav className="fixed top-0 left-0 right-0 z-[65] hidden md:block">
         <div className="glass border-b border-border/50">
           <div className="flex items-center justify-between px-8 py-1">
-            {/* Logo */}
             <div className="flex items-center gap-10">
               <Link href={localePath(locale, "/")} aria-label={t("nav.home")}>
                 <img
@@ -59,18 +59,17 @@ export function Navigation() {
                 />
               </Link>
 
-              {/* Nav links */}
               <div className="flex items-center gap-2">
                 {tabs.map((tab) => (
                   <Button
                     key={tab.path}
                     asChild
                     variant={isActive(tab.path) ? "secondary" : "ghost"}
-                    size="default"
-                    className="gap-2 text-base hover:bg-secondary hover:text-secondary-foreground"
+                    size="lg"
+                    className="gap-2 text-lg hover:bg-secondary hover:text-secondary-foreground"
                   >
                     <Link href={localePath(locale, tab.path)}>
-                      <tab.icon className="w-5 h-5" />
+                      <tab.icon className="w-6 h-6" />
                       {t(tab.labelKey)}
                     </Link>
                   </Button>
@@ -78,21 +77,19 @@ export function Navigation() {
               </div>
             </div>
 
-            {/* Right side - fonte contenuti attiva, porta alle impostazioni per cambiarla.
-                Stesso Button/variant/hover dei tab di navigazione, per lo stesso overlay */}
             <div className="flex items-center gap-2">
               <Button
                 asChild
                 variant="ghost"
-                size="default"
-                className="gap-2 text-base hover:bg-secondary hover:text-secondary-foreground"
+                size="lg"
+                className="gap-2 text-lg hover:bg-secondary hover:text-secondary-foreground"
               >
                 <Link href={localePath(locale, "/settings")}>
                   {currentProviderLogo ? (
                     <img
                       src={proxyImage(currentProviderLogo)}
                       alt=""
-                      className="w-5 h-5 rounded object-cover flex-shrink-0 bg-muted"
+                      className="w-6 h-6 rounded object-cover flex-shrink-0 bg-muted"
                       onError={(e) => {
                         const img = e.target as HTMLImageElement;
                         if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
@@ -100,7 +97,7 @@ export function Navigation() {
                       }}
                     />
                   ) : (
-                    <Server className="w-5 h-5" />
+                    <Server className="w-6 h-6" />
                   )}
                   Provider
                 </Link>
@@ -110,10 +107,9 @@ export function Navigation() {
         </div>
       </nav>
 
-      {/* Bottom navbar (mobile) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <nav className={`fixed bottom-0 left-0 right-0 z-[65] md:hidden ${hideMobileBar ? "hidden" : ""}`}>
         <div className="glass border-t border-border/50">
-          {/* pb con safe-area: solleva i comandi sopra la barra gesture del telefono */}
+          {/* extra bottom padding for phones with a gesture bar */}
           <div className="flex items-center justify-around px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {tabs.map((tab) => {
               const active = isActive(tab.path);
@@ -124,12 +120,12 @@ export function Navigation() {
                   className="flex flex-col items-center gap-1 py-2 px-4"
                 >
                   <tab.icon
-                    className={`w-5 h-5 ${
+                    className={`w-7 h-7 ${
                       active ? "text-primary" : "text-muted-foreground"
                     }`}
                   />
                   <span
-                    className={`text-xs ${
+                    className={`text-sm ${
                       active ? "text-primary font-medium" : "text-muted-foreground"
                     }`}
                   >

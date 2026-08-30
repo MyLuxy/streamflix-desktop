@@ -25,16 +25,11 @@ interface HlsPlayerProps {
   episodeId?: string;
   episodeNumber?: number;
   title: string;
-  // "S2:Ep1" - solo serie, mostrato accanto al titolo nella barra controlli
   seasonEpisodeLabel?: string;
-  // secondi da cui riprendere ("continua a guardare") - ignorato se non impostato o troppo
-  // vicino all'inizio, così non si "salta" per un progresso trascurabile
+  // ignored if too close to zero, not worth resuming from
   startTime?: number;
-  // riportato periodicamente (ogni ~5s) e alla pausa/smontaggio, con la posizione REALE del
-  // video - prima di questo il progresso salvato non seguiva mai la riproduzione effettiva
   onProgress?: (currentTime: number, duration: number) => void;
   onBack: () => void;
-  // solo serie: se c'è un episodio successivo, mostra il pulsante in alto a destra
   nextEpisodeAvailable?: boolean;
   onNextEpisode?: () => void;
 }
@@ -48,11 +43,8 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// StreamFlix's own player: a plain <video> element with hls.js feeding it, instead of an embed
-// iframe (VixSrc/VidSrc/...) - native browser chrome è sostituito da controlli custom (vedi sotto)
-// così l'esperienza è coerente su tutti i provider. Il backend risolve lo stream reale e proxa
-// ogni richiesta di segmento/chiave (spoofando Referer/User-Agent richiesti da alcuni provider,
-// cosa che un browser non può mai fare da sé su una richiesta cross-origin) - vedi Backend.kt.
+// custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs
+// headers browsers cant set on a cross origin request
 export function HlsPlayer({
   provider,
   itemId,
@@ -83,14 +75,11 @@ export function HlsPlayer({
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // barra di avanzamento: durante il drag mostra la posizione provvisoria, non ancora applicata
-  // al video (evita un seek per ogni pixel di movimento del puntatore)
+  // shows a temp position while dragging, not a seek per pixel moved
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [dragTime, setDragTime] = useState<number | null>(null);
 
-  // controlli overlay: sempre visibili in pausa/caricamento, altrimenti si nascondono dopo
-  // qualche secondo di inattività - il comportamento standard di ogni player "da salotto"
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,8 +108,7 @@ export function HlsPlayer({
     };
   }, [isPlaying, scheduleHide]);
 
-  // riporta la posizione reale del <video> - al massimo ogni 5s mentre riproduce, e sempre alla
-  // pausa/smontaggio (cambio episodio, navigazione via, ecc), così l'ultima posizione non si perde
+  // real position, saved every ~5s and on pause/unmount
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -169,8 +157,7 @@ export function HlsPlayer({
   }, []);
 
   useEffect(() => {
-    // catturato una volta qui, non riletto da videoRef.current nella cleanup - per il momento in
-    // cui quella gira React potrebbe già aver scollegato il ref dal nodo DOM
+    // captured once here, cleanup runs after react may have already unset the ref
     const video = videoRef.current;
     if (!video) return;
     let cancelled = false;
@@ -180,15 +167,15 @@ export function HlsPlayer({
     resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber).then((result) => {
       if (cancelled) return;
       if (!result.success || !result.manifestUrl) {
+        // raw backend errors arent user friendly, log em and show a generic message
+        console.error("[StreamFlix] stream error:", result.error);
         setStatus("error");
-        setErrorMessage(result.error || "Stream non disponibile");
+        setErrorMessage(t("player.streamUnavailable"));
         return;
       }
 
       const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
 
-      // "continua a guardare": riprende da dove interrotto, ignorando progressi trascurabili
-      // (vicini a zero) per cui riprendere da capo non fa differenza
       const applyStartTime = () => {
         if (startTime && startTime > 5) {
           video.currentTime = startTime;
@@ -200,8 +187,9 @@ export function HlsPlayer({
         hlsRef.current = hls;
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
+            console.error("[StreamFlix] hls fatal error:", data.type, data.details);
             setStatus("error");
-            setErrorMessage(`${data.type}: ${data.details}`);
+            setErrorMessage(t("player.streamError"));
           }
         });
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -220,7 +208,7 @@ export function HlsPlayer({
         });
       } else {
         setStatus("error");
-        setErrorMessage("HLS non supportato in questo browser");
+        setErrorMessage(t("player.hlsUnsupported"));
       }
     });
 
@@ -228,18 +216,13 @@ export function HlsPlayer({
       cancelled = true;
       hlsRef.current?.destroy();
       hlsRef.current = null;
-      // hls.destroy() ferma il caricamento dei segmenti ma non mette in pausa il <video> -
-      // se c'era gia buffer scaricato l'elemento continua a riprodurre (e quindi a far scattare
-      // timeupdate, quindi onProgress) anche a smontaggio avvenuto, salvando minutaggio sul
-      // titolo sbagliato quando nel frattempo si e navigato altrove. load() dopo aver tolto
-      // il src interrompe subito qualunque riproduzione/decodifica in corso dal buffer.
+      // destroy() doesnt pause the video, buffered content keeps playing (and saving
+      // progress onto the wrong title) unless we stop it here too
       video.pause();
       video.removeAttribute("src");
       video.load();
     };
-    // startTime deliberatamente escluso: va letto solo al caricamento iniziale (seek una tantum).
-    // onProgress lo aggiorna ogni ~5s mentre si guarda - tenerlo nelle dep avrebbe ricaricato
-    // l'intero stream da capo ad ogni tick, il loop di "va in caricamento ogni 2 secondi"
+    // startTime and onProgress excluded on purpose, or this reloads the stream every tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber]);
 
@@ -249,8 +232,7 @@ export function HlsPlayer({
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  // drag della barra di avanzamento: ascolta pointermove/pointerup su tutta la finestra così il
-  // trascinamento resta fluido anche se il puntatore esce dalla barra stessa
+  // listens on the whole window so dragging stays smooth off the bar
   useEffect(() => {
     if (!dragging) return;
     const seekToClientX = (clientX: number) => {
@@ -325,13 +307,11 @@ export function HlsPlayer({
       }`}
       onMouseMove={wake}
       onClick={(e) => {
-        // click sul video stesso (non sui controlli) fa play/pause, come su ogni player nativo
         if (e.target === videoRef.current) togglePlay();
         wake();
       }}
     >
-      {/* niente attributo title: il tooltip nativo del browser comparirebbe da solo tenendo
-          il cursore fermo sopra il player, il titolo lo mostriamo già noi nella barra controlli */}
+      {/* no title attr, the native tooltip would fight our own label in the controls bar */}
       <video ref={videoRef} className="w-full h-full" playsInline />
 
       {status === "loading" && (
@@ -340,17 +320,24 @@ export function HlsPlayer({
         </div>
       )}
       {status === "error" && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/90 text-center px-4">
-          <TriangleAlert className="w-8 h-8 text-amber-400" />
-          <p className="text-sm text-white/80">{errorMessage}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-black/90 text-center px-4">
+          <TriangleAlert className="w-14 h-14 text-amber-400" />
+          <p className="text-lg md:text-xl text-white/90 max-w-md">{errorMessage}</p>
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 bg-white hover:bg-white/90 text-black text-sm md:text-base font-semibold rounded-full px-6 py-3 shadow-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            {t("player.back")}
+          </button>
         </div>
       )}
 
       {status === "playing" && (
         <>
-          {/* Overlay superiore: indietro + prossimo episodio */}
+          {/* pt-24 on desktop so this doesnt hide under the navbar */}
           <div
-            className={`absolute top-0 inset-x-0 flex items-center justify-between px-4 md:px-8 pt-4 md:pt-6 pb-16 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${
+            className={`absolute top-0 inset-x-0 flex items-center justify-between px-4 md:px-8 pt-4 md:pt-24 pb-16 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${
               showControls ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
@@ -378,7 +365,6 @@ export function HlsPlayer({
             )}
           </div>
 
-          {/* Tasto play/pausa centrale - icona nuda, nessun cerchio attorno */}
           <button
             onClick={togglePlay}
             aria-label={isPlaying ? "Pause" : "Play"}
@@ -395,13 +381,11 @@ export function HlsPlayer({
             )}
           </button>
 
-          {/* Barra controlli inferiore */}
           <div
             className={`absolute bottom-0 inset-x-0 px-4 md:px-8 pb-3 md:pb-5 pt-20 bg-gradient-to-t from-black/85 to-transparent transition-opacity duration-300 ${
               showControls ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
-            {/* Linea di riproduzione */}
             <div
               ref={progressBarRef}
               onPointerDown={(e) => {
@@ -424,7 +408,6 @@ export function HlsPlayer({
               </div>
             </div>
 
-            {/* Riga controlli - icone nude, nessuno sfondo a pillola */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-4 md:gap-5 min-w-0">
                 <button onClick={togglePlay} className="text-white/90 hover:text-white transition-colors flex-shrink-0">

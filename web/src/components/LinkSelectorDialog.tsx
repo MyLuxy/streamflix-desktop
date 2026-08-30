@@ -33,15 +33,13 @@ export function LinkSelectorDialog({
 }: LinkSelectorDialogProps) {
   const [globalSources, setGlobalSources] = useState<StreamingSource[]>([]);
 
-  // Load global sources
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const sources = JSON.parse(saved);
-        // Filter only enabled sources and exclude YouTube trailer
         setGlobalSources(
           sources.filter((s: StreamingSource) => s.enabled && s.id !== "yt-trailer")
         );
@@ -54,8 +52,6 @@ export function LinkSelectorDialog({
   const handleGlobalSourceSelect = (source: StreamingSource) => {
   const searchQuery = encodeURIComponent(title);
   const streamUrl = `${source.baseUrl}`;
-  
-  // Apri nella stessa scheda
   window.location.href = streamUrl;
 };
 
@@ -79,7 +75,6 @@ export function LinkSelectorDialog({
           onClick={(e) => e.stopPropagation()}
           className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md"
         >
-          {/* Header */}
           <div className="p-6 border-b border-border">
             <h3 className="text-xl font-bold text-foreground mb-2">
               Select Source
@@ -89,10 +84,8 @@ export function LinkSelectorDialog({
             </p>
           </div>
 
-          {/* Content */}
           <ScrollArea className="max-h-[60vh]">
             <div className="p-6 space-y-3">
-              {/* YouTube Trailer Option */}
               {trailerUrl && (
                 <button
   onClick={() => {
@@ -113,7 +106,6 @@ export function LinkSelectorDialog({
                 </button>
               )}
 
-              {/* Global Sources Section */}
               {globalSources.length > 0 && (
                 <>
                   {(trailerUrl || customLinks.length > 0) && (
@@ -150,7 +142,6 @@ export function LinkSelectorDialog({
                 </>
               )}
 
-              {/* Custom Links for this specific content */}
               {customLinks.length > 0 && (
                 <>
                   <div className="relative my-4">
@@ -188,7 +179,6 @@ export function LinkSelectorDialog({
                 </>
               )}
 
-              {/* Empty State */}
               {totalSources === 0 && (
                 <div className="text-center py-12">
                   <ExternalLink className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
@@ -201,7 +191,6 @@ export function LinkSelectorDialog({
             </div>
           </ScrollArea>
 
-          {/* Footer */}
           <div className="p-6 border-t border-border">
             <Button
               variant="ghost"

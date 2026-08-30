@@ -9,7 +9,6 @@ export interface SubtitleTrack {
   label: string;
 }
 
-// Supported subtitle languages
 export const SUBTITLE_LANGUAGES: SubtitleTrack[] = [
   { language: "English", languageCode: "en", label: "English" },
   { language: "Italian", languageCode: "it", label: "Italiano" },

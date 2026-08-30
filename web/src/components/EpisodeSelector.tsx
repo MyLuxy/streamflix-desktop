@@ -56,7 +56,6 @@ export function EpisodeSelector({
         className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg flex flex-col"
         style={{ maxHeight: "80vh" }}
       >
-        {/* Header */}
         <div className="p-5 border-b border-border flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
@@ -78,11 +77,9 @@ export function EpisodeSelector({
           </div>
         </div>
 
-        {/* Seasons List - scrollabile */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredSeasons.map((season) => (
             <div key={season.id} className="border border-border rounded-lg overflow-hidden">
-              {/* Season Header */}
               <button
                 onClick={() =>
                   setExpandedSeason(
@@ -113,7 +110,6 @@ export function EpisodeSelector({
                 )}
               </button>
 
-              {/* Episodes Grid */}
               {expandedSeason === season.season_number && (
                 <div className="p-3 bg-muted/30 grid grid-cols-5 sm:grid-cols-6 gap-2">
                   {Array.from(
@@ -134,7 +130,6 @@ export function EpisodeSelector({
           ))}
         </div>
 
-        {/* Footer */}
         <div className="p-4 border-t border-border flex-shrink-0">
           <Button variant="ghost" onClick={onClose} className="w-full">
             Cancel

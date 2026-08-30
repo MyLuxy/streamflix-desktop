@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-// traccia il progresso di OGNI episodio guardato, non solo l'ultimo - useContinueWatching tiene
-// una sola voce per show (l'ultima posizione, per il resume e la riga "Continua a guardare" in
-// home), quindi passando a un episodio diverso quella voce si sposta in avanti e la cronologia
-// dell'episodio precedente andrebbe persa. Questo store separato non viene mai sovrascritto dal
-// cambio episodio - serve solo a mostrare lo stato "visto"/percentuale nel picker episodi.
+// separate from useContinueWatching, that one only keeps the latest episode per show
 export interface EpisodeProgress {
   provider: string;
   realId: string;
@@ -19,8 +15,6 @@ export interface EpisodeProgress {
 }
 
 const STORAGE_KEY = "streamflix_episode_progress";
-// tante voci quante ne servono per una cronologia reale (più show, più episodi ciascuno) senza
-// crescere all'infinito - le più vecchie vengono scartate quando si supera il limite
 const MAX_ITEMS = 500;
 
 function sameEpisode(
@@ -63,9 +57,7 @@ export function useEpisodeProgress() {
   ) => {
     setItems((prev) => {
       const idx = prev.findIndex((i) => sameEpisode(i, { provider, realId, season, episode }));
-      // una duration non valida/0 dal player non deve cancellare una durata già nota per questo
-      // episodio, altrimenti "progress" diventerebbe inutilizzabile - stesso motivo di
-      // useContinueWatching.updateProgress
+      // same dur=0 guard as useContinueWatching
       const dur =
         (updates.duration && updates.duration > 0 ? updates.duration : idx !== -1 ? prev[idx].duration : 0) || 1;
       const newItem: EpisodeProgress = {
@@ -83,7 +75,7 @@ export function useEpisodeProgress() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
       } catch {
-        /* storage piena o non disponibile - il progresso resta solo in memoria per questa sessione */
+        // storage full or blocked, progress just wont persist this session
       }
       return trimmed;
     });

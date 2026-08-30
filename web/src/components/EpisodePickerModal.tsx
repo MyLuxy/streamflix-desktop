@@ -9,10 +9,9 @@ import { useSeasonEpisodes, type StreamflixEpisode } from "@/hooks/useStreamflix
 import type { EpisodeProgress } from "@/hooks/useEpisodeProgress";
 import { useTranslation } from "react-i18next";
 import type { Season } from "@/lib/types";
+import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
-// da questa percentuale in su l'episodio è considerato "visto" (checkmark) invece che "in corso"
-// (barra di avanzamento) - stessa soglia usata altrove per non contare i titoli di coda come "da
-// finire"
+// past this % counts as watched instead of in progress
 const WATCHED_THRESHOLD = 90;
 
 interface EpisodePickerModalProps {
@@ -25,9 +24,7 @@ interface EpisodePickerModalProps {
   onSelect: (season: number, episodeNumber: number, episodeId: string) => void;
   currentSeason?: number;
   currentEpisode?: number;
-  // undefined quando non c'è nessun progresso salvato per quell'episodio
   getEpisodeProgress?: (season: number, episode: number) => EpisodeProgress | undefined;
-  // sfondo decorativo a sinistra (splashscreen della serie) - null/undefined nasconde il pannello
   backdropUrl?: string | null;
 }
 
@@ -45,7 +42,8 @@ export function EpisodePickerModal({
   backdropUrl,
 }: EpisodePickerModalProps) {
   const { t } = useTranslation();
-  const validSeasons = seasons.filter((s) => s.season_number > 0);
+  // >=0 not >0, some providers (AnimeUnity) number their first season 0
+  const validSeasons = seasons.filter((s) => s.season_number >= 0);
   const [selectedSeason, setSelectedSeason] = useState(
     currentSeason ?? validSeasons[0]?.season_number ?? 1
   );
@@ -58,14 +56,12 @@ export function EpisodePickerModal({
     isOpen ? selectedSeason : null
   );
 
-  // Mantiene gli episodi vecchi visibili durante il caricamento della nuova
-  // stagione, così non si vede il flash scheletro → contenuto.
+  // keeps old episodes visible while new season loads, no flash to skeleton
   const [displayedEpisodes, setDisplayedEpisodes] = useState<StreamflixEpisode[]>([]);
   useEffect(() => {
     if (data) setDisplayedEpisodes(data);
   }, [data]);
 
-  // Auto-scroll all'episodio corrente appena caricato
   useEffect(() => {
     if (!currentEpisode || displayedEpisodes.length === 0) return;
     const btn = episodeRefs.current.get(currentEpisode);
@@ -74,9 +70,7 @@ export function EpisodePickerModal({
     }
   }, [displayedEpisodes, currentEpisode]);
 
-  // Cambio stagione: riparte sempre dall'alto (episodio 1), non resta a metà scroll di dov'era
-  // rimasta la stagione precedente. Non confligge con l'auto-scroll qui sopra: quello scatta solo
-  // se si riapre la stagione che sta effettivamente riproducendo ora.
+  // season switch resets scroll to top, doesnt fight the auto-scroll above
   useEffect(() => {
     if (episodesContainerRef.current) episodesContainerRef.current.scrollTop = 0;
   }, [selectedSeason]);
@@ -99,11 +93,8 @@ export function EpisodePickerModal({
   const episodes = displayedEpisodes;
 
   return (
-    // A schermo intero (non un dialog centrato) - stesso approccio del player: più spazio per
-    // sfogliare episodi con titolo/descrizione leggibili invece di una lista stretta compressa
-    // in un riquadro
+    // full screen not a centered dialog, more room for episode titles/descriptions
     <div className="fixed inset-0 z-[90] bg-background flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-6 md:px-10 py-4 md:py-6 border-b border-border flex-shrink-0">
         <div className="min-w-0">
           <h3 className="text-lg sm:text-xl md:text-3xl font-bold text-foreground truncate">{title}</h3>
@@ -119,9 +110,7 @@ export function EpisodePickerModal({
         </Button>
       </div>
 
-      {/* Body: splashscreen serie, poi stagioni, poi episodi */}
       <div className="flex flex-col md:flex-row min-h-0 flex-1">
-        {/* Splashscreen: solo decorativo, sfuma nello sfondo verso destra */}
         {backdropUrl && (
           <div className="hidden md:block md:w-96 lg:w-[28rem] flex-shrink-0 relative overflow-hidden">
             <img src={backdropUrl} alt="" className="w-full h-full object-cover" />
@@ -131,7 +120,6 @@ export function EpisodePickerModal({
           </div>
         )}
 
-        {/* Stagioni */}
         <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:w-80 lg:w-96 flex-shrink-0 border-b md:border-b-0 md:border-r border-border p-3 md:p-6 scrollbar-hide">
           {validSeasons.map((s) => (
             <button
@@ -148,7 +136,6 @@ export function EpisodePickerModal({
           ))}
         </div>
 
-        {/* Episodi */}
         <div ref={episodesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 relative">
           <div className="max-w-6xl space-y-3 md:space-y-4">
             {isFetching
@@ -182,10 +169,9 @@ export function EpisodePickerModal({
                           : "hover:bg-secondary/60"
                       }`}
                     >
-                      {/* Thumbnail */}
                       <div className="relative w-40 sm:w-64 md:w-80 aspect-video rounded-lg overflow-hidden bg-muted flex-shrink-0">
                         {ep.poster ? (
-                          <img
+                          <ImageWithSpinner
                             src={ep.poster}
                             alt={ep.title ?? ""}
                             loading="lazy"
@@ -196,14 +182,12 @@ export function EpisodePickerModal({
                             <Film className="w-10 h-10 text-muted-foreground" />
                           </div>
                         )}
-                        {/* Play overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
                             <Play className="w-6 h-6 text-primary-foreground fill-current ml-0.5" />
                           </div>
                         </div>
 
-                        {/* Stato di visione: spunta se visto, barra di avanzamento se a metà */}
                         {isWatched ? (
                           <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-primary flex items-center justify-center">
                             <Check className="w-4 h-4 text-primary-foreground" />
@@ -220,7 +204,6 @@ export function EpisodePickerModal({
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0 py-1 md:py-2">
                         <div className="flex items-baseline gap-2 md:gap-3">
                           <span className="text-lg md:text-2xl font-semibold text-foreground">

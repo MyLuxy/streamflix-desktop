@@ -55,7 +55,6 @@ export function PlayerSelector({
         onClick={(e) => e.stopPropagation()}
         className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md"
       >
-        {/* Header */}
         <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between">
             <div>
@@ -77,7 +76,6 @@ export function PlayerSelector({
           </div>
         </div>
 
-        {/* Player List */}
         <div className="p-6 space-y-3">
           {players.map((player) => (
             <button
@@ -100,7 +98,6 @@ export function PlayerSelector({
           ))}
         </div>
 
-        {/* Footer */}
         <div className="p-5 border-t border-border bg-muted/30">
           <p className="text-xs text-muted-foreground text-center">
            ⚠️ If a player doesn't work, try another one.

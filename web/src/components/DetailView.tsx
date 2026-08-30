@@ -29,20 +29,14 @@ interface DetailViewProps {
   recommendations?: (Movie | TVShow)[];
 }
 
-// titoli lunghi altrimenti si schiacciano/escono dal layout a queste taglie enormi - scala verso
-// il basso via via che il titolo si allunga, invece di una taglia fissa unica per tutti
+// scales down as title length grows so long ones dont overflow
 function titleSizeClass(title: string): string {
   if (title.length > 50) return "text-base sm:text-xl md:text-4xl";
   if (title.length > 30) return "text-lg sm:text-2xl md:text-5xl";
   return "text-xl sm:text-3xl md:text-7xl";
 }
 
-// Prossimo episodio: stesso episode+1 se resta dentro la stagione corrente, altrimenti il primo
-// della stagione successiva (se esiste) - null quando non c'è altro da guardare dopo questo.
-// episode_count nella lista stagioni di TVShowDetails è sempre 0 (l'endpoint di dettaglio show
-// non porta i conteggi reali, solo useSeasonEpisodes li fetcha per singola stagione) - qui si usa
-// il conteggio VERO della stagione corrente passato da fuori, la lista stagioni serve solo a
-// sapere SE esiste una stagione successiva (season_number è invece affidabile lì)
+// episode_count in the seasons list is always 0, real count comes from useSeasonEpisodes
 function getNextEpisode(
   seasons: Season[],
   currentSeason: number,
@@ -52,7 +46,7 @@ function getNextEpisode(
   if (currentSeasonEpisodeCount !== null && currentEpisode < currentSeasonEpisodeCount) {
     return { season: currentSeason, episode: currentEpisode + 1 };
   }
-  const valid = seasons.filter((s) => s.season_number > 0).sort((a, b) => a.season_number - b.season_number);
+  const valid = seasons.filter((s) => s.season_number >= 0).sort((a, b) => a.season_number - b.season_number);
   const idx = valid.findIndex((s) => s.season_number === currentSeason);
   if (idx === -1) return null;
   const next = valid[idx + 1];
@@ -60,8 +54,7 @@ function getNextEpisode(
   return null;
 }
 
-// Interpreta il parametro ?watch dell'URL: "s2e5" → {season:2, episode:5},
-// qualsiasi altro valore non vuoto (es. "1" per i film) → riproduzione dall'inizio.
+// s2e5 means season 2 ep 5, anything else just starts from the top
 function parseWatchParam(w: string | null): { season: number; episode: number } | null {
   if (!w) return null;
   const m = /^s(\d+)e(\d+)$/i.exec(w);
@@ -72,32 +65,29 @@ function parseWatchParam(w: string | null): { season: number; episode: number } 
 export function DetailView({ data, mediaType, provider, realId, recommendations = [] }: DetailViewProps) {
   const id = data.id;
   const searchParams = useSearchParams();
-  // Stato iniziale del player ricavato dall'URL: così un reload mantiene il player
-  // aperto sulla stagione/episodio corretti invece di tornare alla pagina info.
+  // keeps player state in the url so reload doesnt lose it
   const initialWatch = parseWatchParam(searchParams.get("watch"));
   const { addItem: addToContinueWatching, updateProgress, items: watchedItems } = useContinueWatching();
   const { updateEpisodeProgress, getEpisodeProgress } = useEpisodeProgress();
   const watchedItem = watchedItems.find((i) => i.provider === provider && i.realId === realId && i.mediaType === mediaType);
+  const seasons = mediaType === "tv" && "seasons" in data ? data.seasons : [];
 
   const [playing, setPlaying] = useState(!!initialWatch);
   const [showTrailer, setShowTrailer] = useState(false);
   const [showEpisodePicker, setShowEpisodePicker] = useState(false);
-  // Usa il watch param dall'URL, oppure il progress salvato, default 1
+  // season 0 is a real thing for some providers (AnimeUnity), cant just default to 1
   const [startSeason, setStartSeason] = useState(
-    initialWatch?.season ?? watchedItem?.season ?? 1
+    initialWatch?.season ?? watchedItem?.season ?? seasons[0]?.season_number ?? 1
   );
   const [startEpisode, setStartEpisode] = useState(
     initialWatch?.episode ?? watchedItem?.episode ?? 1
   );
-  // real episode id, known only once the user actually picks an episode from the modal (or
-  // undefined when resuming from a bare ?watch=sXeY URL) - HlsPlayer/the backend fall back to
-  // matching by season+episode NUMBER in that case, see Backend.kt's handleStream
+  // undefined when resuming from a bare url, backend falls back to season+episode match
   const [startEpisodeId, setStartEpisodeId] = useState<string | undefined>(undefined);
   const [overviewExpanded, setOverviewExpanded] = useState(false);
   const [genresExpanded, setGenresExpanded] = useState(false);
 
-  // player a schermo intero (non Fullscreen API, solo layout): blocca lo scroll della pagina
-  // sotto, altrimenti resterebbe scrollabile via touch/rotellina dietro l'overlay fisso
+  // locks body scroll behind the fixed player overlay
   useEffect(() => {
     if (!playing) return;
     document.body.style.overflow = "hidden";
@@ -106,7 +96,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     };
   }, [playing]);
 
-  // Stile condiviso tag generi (riusato dal pulsante "+N")
   const tagClass =
     "text-xs md:text-base font-medium bg-secondary text-secondary-foreground px-2 md:px-3 py-0.5 sm:py-1 md:py-1.5 rounded-md";
 
@@ -115,8 +104,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const locale = useLocale();
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
 
-  const seasons = mediaType === "tv" && "seasons" in data ? data.seasons : [];
-  // conteggio reale episodi della stagione in riproduzione - vedi commento su getNextEpisode
   const { data: currentSeasonEpisodes } = useSeasonEpisodes(
     provider,
     realId,
@@ -127,9 +114,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       ? getNextEpisode(seasons, startSeason, startEpisode, currentSeasonEpisodes?.length ?? null)
       : null;
 
-  // "Torna indietro": in riproduzione torna alla scheda info dello stesso
-  // titolo; altrimenti usa la cronologia nativa del browser (semplice e sempre
-  // corretta — porta alla pagina effettivamente precedente).
+  // back from player returns to the info page, otherwise normal browser history
   const handleBack = () => {
     if (playing) {
       setPlaying(false);
@@ -143,8 +128,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     else router.push(`/${locale}`, { scroll: false });
   };
 
-  // Aggiorna il parametro ?watch nell'URL senza navigare (replaceState), così un
-  // reload riapre il player; non sporca lo stack del "Torna indietro".
+  // replaceState so reload reopens the player without messing up back history
   const setWatchParam = (value: string | null) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -180,12 +164,9 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     toggleWatchlist({ id, mediaType, title, posterPath: data.poster_path, provider, realId });
   };
 
-  // Avvia la riproduzione (eventualmente su una stagione/episodio specifici)
   const beginPlayback = (season?: number, episode?: number, episodeId?: string) => {
-    // Il progresso salvato (currentTime/duration) va portato avanti SOLO se si sta riprendendo
-    // lo stesso episodio già salvato - altrimenti (episodio scelto dal picker, "prossimo
-    // episodio", ecc) apparteneva a un episodio diverso e va scartato, altrimenti il nuovo
-    // episodio erediterebbe il minutaggio di quello vecchio pur avendo season/episode aggiornati
+    // only carry over saved progress if resuming the same episode, otherwise the new
+    // one would inherit the old minutes while showing updated season/episode numbers
     const isResumingSameEpisode =
       mediaType === "movie" ||
       (season === undefined && episode === undefined) ||
@@ -202,7 +183,8 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       season: season ?? watchedItem?.season,
       episode: episode ?? watchedItem?.episode,
     });
-    if (season && episode) {
+    // season 0 is valid for some providers, cant just check truthiness here
+    if (season !== undefined && episode !== undefined) {
       setStartSeason(season);
       setStartEpisode(episode);
       setStartEpisodeId(episodeId);
@@ -213,7 +195,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     setPlaying(true);
   };
 
-  // Play: per le serie apre prima il selettore episodi; per i film parte subito
   const handlePlayClick = () => {
     if (mediaType === "tv" && seasons.length > 0) {
       setShowEpisodePicker(true);
@@ -227,20 +208,18 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     beginPlayback(season, episode, episodeId);
   };
 
-  // Aggiorna la cronologia quando si cambia episodio dal player
   const backButton = (className: string) => (
     <Button
       onClick={handleBack}
       variant="secondary"
       size="sm"
-      className={`back-btn h-9 md:h-11 px-3 md:px-5 text-sm md:text-base md:[&_svg]:size-5 ${className}`}
+      className={`back-btn h-auto py-2 bg-transparent hover:bg-transparent text-white text-lg md:text-2xl font-semibold [&_svg]:size-7 md:[&_svg]:size-9 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] [&_svg]:drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] ${className}`}
     >
       <ArrowLeft />
       {t("content.goBack")}
     </Button>
   );
 
-  // ── Sezioni riutilizzabili ──
   const overviewSection = (
     <div className="mb-6">
       <h2 className="text-base sm:text-lg md:text-xl font-semibold text-foreground mb-2">
@@ -271,7 +250,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       </div>
     ) : null;
 
-  // Blocco azioni (riproduci / trailer / watchlist)
   const actionButtons = (
     <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
       <Button
@@ -316,11 +294,11 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
 
   return (
     <div className="min-h-screen bg-background">
-      {!playing && <Navigation />}
+      {/* mobile bar hides during playback, collides with player controls down there */}
+      <Navigation hideMobileBar={playing} />
 
       {playing ? (
-        // ===== MODALITÀ RIPRODUZIONE: player a schermo intero (layout, non Fullscreen API -
-        // quella resta un'azione esplicita dal tasto dedicato dentro HlsPlayer) =====
+        // layout fullscreen, not the real Fullscreen API (thats a button inside HlsPlayer)
         <div className="fixed inset-0 z-[60] bg-black">
           <HlsPlayer
             key={`${startSeason}-${startEpisode}`}
@@ -333,8 +311,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
             episodeId={startEpisodeId}
             episodeNumber={mediaType === "tv" ? startEpisode : undefined}
             startTime={
-              // riprende solo se il progresso salvato è per QUESTO stesso episodio/film -
-              // un episodio/film diverso parte sempre da capo
+              // only resume if saved progress matches this exact episode
               watchedItem &&
               (mediaType === "movie" || (watchedItem.season === startSeason && watchedItem.episode === startEpisode))
                 ? watchedItem.currentTime
@@ -360,7 +337,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         </div>
       ) : (
         <main className="pb-24">
-          {/* ===== MODALITÀ INFO: backdrop, dettagli, consigliati ===== */}
           <div className="relative w-full">
               <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[62vh]">
                 {backdropUrl ? (
@@ -374,9 +350,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
                 )}
                 <div className="detail-backdrop-fade absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
               </div>
-              {backButton(
-                "absolute top-3 left-3 z-30 gap-1.5 bg-background/60 backdrop-blur-sm hover:bg-background/80 md:top-28 md:left-6"
-              )}
+              {backButton("fixed top-3 left-3 z-30 gap-2 md:top-28 md:left-6")}
             </div>
 
             <div className="detail-info max-w-5xl mx-auto px-4 sm:px-6 relative z-10 -mt-24 md:-mt-[31vh]">
@@ -464,7 +438,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         </main>
       )}
 
-      {/* Selettore episodi stile Netflix (solo serie) */}
       {showEpisodePicker && (
         <EpisodePickerModal
           isOpen={showEpisodePicker}

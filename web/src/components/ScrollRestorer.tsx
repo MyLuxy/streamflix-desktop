@@ -10,7 +10,7 @@ import {
   clearBackNav,
 } from "@/lib/scroll-history";
 
-// All'interno di un componente React che usa useSearchParams serve Suspense.
+// needs a Suspense boundary around it somewhere cause of useSearchParams
 export function ScrollRestorer() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -19,24 +19,17 @@ export function ScrollRestorer() {
     ? `${pathname}?${searchParams.toString()}`
     : pathname;
 
-  // Il back/forward del browser deve ripristinare lo scroll: segna l'intento
-  // (markRestoreIntent imposta anche il flag back per saltare le animazioni hero).
   useEffect(() => {
     const onPop = () => markRestoreIntent();
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // Le hero leggono isBackNav() durante il render: dopo il commit azzeriamo il
-  // flag, così la prossima navigazione in avanti torna ad animare normalmente.
   useEffect(() => {
     clearBackNav();
   }, [pathKey]);
 
-  // Salva la posizione di scorrimento al momento del CLICK (fase di cattura,
-  // quindi PRIMA che Next intercetti il link e navighi). Così catturiamo lo
-  // scroll reale della pagina che stiamo lasciando, senza un listener continuo
-  // che rischierebbe di salvare lo 0 del reset di Next per la pagina sbagliata.
+  // saving on click capture, before Next navigates away, so we grab the real scroll spot
   useEffect(() => {
     const onClickCapture = () => saveScrollPosition(pathKey);
     const onVisibility = () => {
@@ -53,20 +46,17 @@ export function ScrollRestorer() {
     };
   }, [pathKey]);
 
-  // Ripristina la posizione salvata quando si arriva sulla pagina (sia via
-  // popstate che via router.push da DetailView).
   useEffect(() => {
     restored.current = false;
-    // Ripristina lo scroll solo se si sta tornando indietro (back/forward o
-    // tasto "Torna indietro"). Le navigazioni in avanti partono dall'alto.
+    // only restore on actual back nav, forward nav starts at top
     if (!consumeRestoreIntent()) return;
     const target = getScrollPosition(pathKey);
     if (target <= 0) return;
 
-    // Tentativi progressivi per aspettare che layout + immagini siano pronti.
+    // retries while waiting for layout/images to settle
     const tryScroll = (attempt = 0) => {
       if (restored.current) return;
-      if (attempt > 15) return; // rinuncia dopo ~3.5 secondi
+      if (attempt > 15) return;
       const maxY = Math.max(
         document.body.scrollHeight,
         document.documentElement.scrollHeight
@@ -78,7 +68,6 @@ export function ScrollRestorer() {
         setTimeout(() => tryScroll(attempt + 1), 200 + attempt * 50);
       }
     };
-    // Fallback su un load event per immagini ritardatarie
     const onLoad = () => { if (!restored.current) tryScroll(10); };
     window.addEventListener("load", onLoad);
     tryScroll();

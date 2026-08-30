@@ -30,7 +30,6 @@ export function VideoPlayer({ title, videoUrl, isYouTube, onClose }: VideoPlayer
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-black flex flex-col"
     >
-      {/* Header */}
       <div className="relative z-10 p-4 bg-gradient-to-b from-black/80 to-transparent">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <h2 className="text-xl md:text-2xl font-bold text-white">{title}</h2>
@@ -43,7 +42,6 @@ export function VideoPlayer({ title, videoUrl, isYouTube, onClose }: VideoPlayer
         </div>
       </div>
 
-      {/* Video Container */}
       <div className="flex-1">
         <iframe
           ref={iframeRef}
