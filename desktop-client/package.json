@@ -1,0 +1,51 @@
+{
+  "name": "streamflix-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StreamFlix desktop app (Electron shell around the Kotlin backend + Next.js frontend)",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "copy:backend": "node scripts/copy-backend.mjs",
+    "copy:frontend": "node scripts/copy-frontend.mjs",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.streamflixreborn.desktop",
+    "productName": "StreamFlix",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "resources/backend", "to": "backend" },
+      { "from": "resources/web", "to": "web" }
+    ],
+    "asarUnpack": [],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}
