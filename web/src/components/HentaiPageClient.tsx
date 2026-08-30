@@ -14,7 +14,7 @@ interface Props {
   slug: string;
 }
 
-// Cache client per i dettagli hentaimama (slug → episodi)
+// slug to episodes cache
 interface EpCacheEntry {
   episodes: HentaiDetail["episodes"];
   url: string;
@@ -28,9 +28,8 @@ export function HentaiPageClient({ slug }: Props) {
   const router = useRouter();
   const locale = useLocale();
   const searchParams = useSearchParams();
-  const itemName = searchParams.get("n"); // nome passato dalla card
+  const itemName = searchParams.get("n");
 
-  // Stato: metadata da AniList (istantaneo)
   const [meta, setMeta] = useState<{
     name: string;
     poster: string | null;
@@ -43,19 +42,16 @@ export function HentaiPageClient({ slug }: Props) {
   const [metaLoading, setMetaLoading] = useState(true);
   const [metaError, setMetaError] = useState(false);
 
-  // Stato: episodi da hentaimama (lento)
   const [episodes, setEpisodes] = useState<HentaiDetail["episodes"]>([]);
   const [epUrl, setEpUrl] = useState("");
   const [epLoading, setEpLoading] = useState(true);
   const [epError, setEpError] = useState(false);
 
-  // Stato player
   const [playing, setPlaying] = useState(false);
   const [mp4, setMp4] = useState("");
   const [busy, setBusy] = useState(false);
   const [streamError, setStreamError] = useState(false);
 
-  // Fetch parallelo: metadata da AniList + episodi da hentaimama
   useEffect(() => {
     setMetaLoading(true);
     setMetaError(false);
@@ -65,7 +61,6 @@ export function HentaiPageClient({ slug }: Props) {
     setEpisodes([]);
     setPlaying(false);
 
-    // Metadata da AniList (nome passato dalla card)
     if (itemName) {
       fetch(`/api/hentai/detail/meta?name=${encodeURIComponent(itemName)}`)
         .then((r) => r.json())
@@ -80,7 +75,6 @@ export function HentaiPageClient({ slug }: Props) {
       setMetaLoading(false);
     }
 
-    // Episodi da hentaimama (slug)
     const cached = epCache.get(slug);
     if (cached && Date.now() - cached.time < EP_CACHE_TTL) {
       setEpisodes(cached.episodes);
@@ -138,7 +132,6 @@ export function HentaiPageClient({ slug }: Props) {
   const displayRating = meta?.rating || null;
   const single = episodes.length <= 1;
 
-  // ── Scheletro iniziale ──
   if (metaLoading && epLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -157,7 +150,6 @@ export function HentaiPageClient({ slug }: Props) {
     );
   }
 
-  // ── Errore totale ──
   if (metaError && epError) {
     return (
       <div className="min-h-screen bg-background">
@@ -174,9 +166,6 @@ export function HentaiPageClient({ slug }: Props) {
     );
   }
 
-  // ═══════════════════════════════════════
-  // MODALITÀ PLAYER
-  // ═══════════════════════════════════════
   if (playing) {
     return (
       <div className="min-h-screen bg-background">
@@ -203,15 +192,11 @@ export function HentaiPageClient({ slug }: Props) {
     );
   }
 
-  // ═══════════════════════════════════════
-  // MODALITÀ INFO
-  // ═══════════════════════════════════════
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
       <main className="pb-24">
-        {/* Hero backdrop */}
         <div className="relative w-full">
           <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[55vh] overflow-hidden">
             {displayPoster ? (
@@ -236,7 +221,6 @@ export function HentaiPageClient({ slug }: Props) {
           </Button>
         </div>
 
-        {/* Info section */}
         <div className="detail-info max-w-5xl mx-auto px-4 sm:px-6 relative z-10 -mt-24">
           <div className="flex gap-4 sm:gap-6 mb-6">
             {displayPoster && (
@@ -281,7 +265,6 @@ export function HentaiPageClient({ slug }: Props) {
                 </div>
               )}
 
-              {/* Play button — visibile solo quando episodi pronti */}
               {single && !epLoading && (
                 <Button onClick={() => handlePlay(epUrl)} className="gap-1.5 sm:gap-2">
                   <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
@@ -297,7 +280,6 @@ export function HentaiPageClient({ slug }: Props) {
             </div>
           </div>
 
-          {/* Sinossi (da AniList — istantanea) */}
           {displaySynopsis && (
             <div className="mb-8 max-w-2xl">
               <h2 className="text-base sm:text-lg font-semibold text-foreground mb-2">
@@ -309,7 +291,6 @@ export function HentaiPageClient({ slug }: Props) {
             </div>
           )}
 
-          {/* Episodi — pulsanti (da hentaimama, caricamento separato) */}
           {!single && (
             <div>
               <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3">

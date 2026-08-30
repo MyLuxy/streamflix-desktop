@@ -4,18 +4,7 @@ import { getSelectedProviderClient, PROVIDER_CHANGED_EVENT } from "@/lib/provide
 
 const STORAGE_KEY = "streamify-watchlist";
 
-// ─────────────────────────────────────────────────────────────
-// Store condiviso (singleton a livello di modulo).
-// Tutti i componenti che usano useWatchlist leggono/scrivono lo stesso
-// stato: niente più istanze indipendenti che si sovrascrivono tra loro
-// (era la causa del "reset" al reload). Sincronizzato anche tra tab.
-//
-// Lo store tiene TUTTI gli item (di ogni provider, più gli hentai) in un
-// unico elenco - il filtro per provider attivo avviene solo in lettura
-// (vedi useWatchlist), così cambiare provider e tornare indietro non perde
-// nulla: gli item degli altri provider restano salvati, solo nascosti.
-// ─────────────────────────────────────────────────────────────
-
+// module level singleton so every useWatchlist() call shares one state, synced across tabs too
 let items: WatchlistItem[] = [];
 let initialized = false;
 const listeners = new Set<() => void>();
@@ -28,14 +17,10 @@ function loadOnce() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) items = JSON.parse(stored);
   } catch {
-    /* ignora JSON corrotto */
+    // corrupted json, whatever
   }
 
-  // pulizia una tantum: film/serie salvati prima che esistessero provider/realId (o ancora da
-  // prima, con l'id numerico del vecchio schema VetoX) non sono più risolvibili in un URL valido
-  // - provider+realId non è ricostruibile da un id hash, per lo stesso motivo per cui l'intero
-  // schema di slug è stato riscritto. Restano solo quelli con provider+realId, più gli hentai
-  // (che per loro natura non hanno mai avuto questi campi, non sono legati a nessun provider)
+  // drops old entries saved before provider/realId existed, cant resolve those to a url anymore
   const cleaned = items.filter((i) => i.mediaType === "hentai" || (i.provider && i.realId));
   if (cleaned.length !== items.length) {
     items = cleaned;
@@ -54,9 +39,6 @@ function persist() {
   emit();
 }
 
-// il numero id è già derivato da (provider, id-reale) - vedi stableNumericId in streamflix.ts -
-// quindi confrontare su (id, mediaType) distingue già correttamente lo stesso titolo su provider
-// diversi, senza bisogno di portare provider/realId dentro il matching
 function has(id: number, mediaType: WatchlistItem["mediaType"]) {
   return items.some((i) => i.id === id && i.mediaType === mediaType);
 }
@@ -97,8 +79,6 @@ const getServerSnapshot = () => EMPTY;
 export function useWatchlist() {
   const allItems = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  // riletto ad ogni cambio provider (evento sparato da setSelectedProviderClient) così la lista
-  // filtrata sotto si aggiorna subito, anche senza un reload di pagina
   const [activeProvider, setActiveProvider] = useState<string>(() => getSelectedProviderClient());
   useEffect(() => {
     setActiveProvider(getSelectedProviderClient());
@@ -107,8 +87,7 @@ export function useWatchlist() {
     return () => window.removeEventListener(PROVIDER_CHANGED_EVENT, onProviderChanged);
   }, []);
 
-  // gli hentai (senza campo provider) restano sempre visibili - non sono legati a nessuno dei
-  // provider StreamFlix, solo film/serie vengono filtrati sul provider attivo
+  // hentai items have no provider so they always stay visible, only movies/shows get filtered
   const watchlist = allItems.filter((i) => !i.provider || i.provider === activeProvider);
 
   const addToWatchlist = useCallback((item: Omit<WatchlistItem, "addedAt">) => add(item), []);
@@ -118,7 +97,6 @@ export function useWatchlist() {
   );
   const isInWatchlist = useCallback(
     (id: number, mediaType: WatchlistItem["mediaType"]) => has(id, mediaType),
-    // dipende da allItems così i componenti si riaggiornano al cambio
     [allItems]
   );
   const toggleWatchlist = useCallback((item: Omit<WatchlistItem, "addedAt">) => {

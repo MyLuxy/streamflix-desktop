@@ -1,21 +1,9 @@
-// ─────────────────────────────────────────────────────────────
-// Database della sezione hentai = il sito HOST (hentaimama.io).
-// Così OGNI titolo mostrato è garantito riproducibile (lo stream lo serve
-// lo stesso sito, vedi /api/hentai/resolve).
-// Il catalogo viene fatto via scraping degli archivi Dooplay:
-//   /tvshows/ (recenti) · /genre/{slug}/ · /studio/{slug}/ · /release/{anno}/
-//   ricerca: /?s=...   (paginazione: /.../page/{n}/)
-// Poster ufficiale + studio arrivano poi da AniList (vedi lib/anilist.ts),
-// perché le card d'archivio non hanno lo studio e usano frame come poster.
-// ─────────────────────────────────────────────────────────────
-
+// hentaimama.io is the source, scraped via its Dooplay archive pages
 const BASE = "https://hentaimama.io";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
-const FETCH_TIMEOUT_MS = 5000; // 5s max per richiesta — se hentaimama è lento, non blocchiamo il sito
+const FETCH_TIMEOUT_MS = 5000;
 
-// Helper con timeout: evita che hentaimama lento blocchi tutto il sito.
-// Accepta anche estensioni Next.js (next: { revalidate }).
 async function fetchWithTimeout(
   url: string | URL,
   init: RequestInit & { next?: { revalidate?: number } } = {}
@@ -39,14 +27,11 @@ async function fetchWithTimeout(
 export interface HentaiItem {
   id: number;
   slug: string;
-  /** URL della scheda /tvshows/ — usato per risolvere lo stream. */
   url: string;
   name: string;
   poster: string | null;
   year: number | null;
-  /** Voto del sito host (es. 8.7). */
   rating: number | null;
-  /** Studio: riempito da AniList lato client (vuoto di default). */
   brand: string;
 }
 
@@ -61,7 +46,7 @@ export interface HentaiQuery {
   genre?: string;
   studio?: string;
   year?: string;
-  page?: number; // 1-based
+  page?: number;
 }
 
 function hashId(s: string): number {
@@ -70,12 +55,10 @@ function hashId(s: string): number {
   return Math.abs(h);
 }
 
-/** Id numerico stabile di un titolo hentai dal suo slug (per la watchlist). */
 export function hentaiId(slug: string): number {
   return hashId(slug);
 }
 
-// Decodifica le entità HTML (numeriche &#8211; / &#x… e quelle nominate comuni).
 function decodeEntities(s: string): string {
   return s
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
@@ -88,8 +71,7 @@ function decodeEntities(s: string): string {
     .replace(/&nbsp;/g, " ");
 }
 
-// Ripulisce il titolo: decodifica le entità e toglie il tag "3D – " iniziale
-// (contenuti 3D, spesso fan-made, che il sito host etichetta così).
+// strips the "3D - " prefix the site tags fan-made content with
 function cleanName(raw: string): string {
   return decodeEntities(raw)
     .replace(/^\s*3D\s*[–—-]\s*/i, "")
@@ -97,7 +79,6 @@ function cleanName(raw: string): string {
     .trim();
 }
 
-// Estrae gli item dalle card d'archivio Dooplay (<article class="item tvshows">).
 function parseArticles(html: string): HentaiItem[] {
   const blocks = html.match(/<article[^>]*class="item[^"]*tvshows[^"]*"[\s\S]*?<\/article>/g) || [];
   const seen = new Set<string>();
@@ -134,7 +115,6 @@ function parseArticles(html: string): HentaiItem[] {
   return items;
 }
 
-// La ricerca Dooplay usa un markup diverso dagli archivi (<div class="result-item">).
 function parseSearchResults(html: string): HentaiItem[] {
   const blocks = html.match(/<div class="result-item">[\s\S]*?<\/article>/g) || [];
   const seen = new Set<string>();
@@ -181,7 +161,6 @@ function archivePath(q: HentaiQuery): string {
   return `/tvshows/${pg}`;
 }
 
-// ─── Scraping lato server (CORS-free). Usata da /api/hentai. ───
 export async function hentaimamaList(q: HentaiQuery): Promise<HentaiSearchResult> {
   const page = q.page && q.page > 1 ? q.page : 1;
   const res = await fetchWithTimeout(`${BASE}${archivePath(q)}`, {
@@ -191,19 +170,14 @@ export async function hentaimamaList(q: HentaiQuery): Promise<HentaiSearchResult
   const html = await res.text();
   const items =
     q.search && q.search.trim() ? parseSearchResults(html) : parseArticles(html);
-  // Heuristica "altri risultati": pagina piena ⇒ probabilmente c'è il next.
+  // guessing there's a next page if this one came back full
   const hasMore = items.length >= 18;
   return { items, page, hasMore };
 }
 
-// ─────────────────────────────────────────────────────────────
-// Scheda dettaglio (pagina /tvshows/{slug}) → metadati + lista episodi.
-// ─────────────────────────────────────────────────────────────
-
 export interface HentaiEpisode {
   url: string;
   n: number;
-  /** Thumbnail dell'episodio (snapshot del video su hentaimama). */
   thumb: string | null;
 }
 
@@ -220,8 +194,6 @@ export interface HentaiDetail {
   episodes: HentaiEpisode[];
 }
 
-// Cache in memoria lato server per evitare di scrapper hentaimama
-// a ogni click sulla card. Vale 30 minuti.
 const detailCache = new Map<string, { data: HentaiDetail | null; time: number }>();
 const DETAIL_CACHE_TTL = 30 * 60 * 1000;
 
@@ -229,8 +201,6 @@ function parseEpisodes(html: string): HentaiEpisode[] {
   const seen = new Set<string>();
   const eps: HentaiEpisode[] = [];
 
-  // Ogni episodio è un <article class="item se episodes"> con la sua thumbnail
-  // (data-src) e il link /episodes/.../ dentro <div class="season_m">.
   const blocks = html.match(/<article[^>]*class="item se episodes"[\s\S]*?<\/article>/g) || [];
   for (const b of blocks) {
     const url = b.match(/href="(https:\/\/hentaimama\.io\/episodes\/[a-z0-9-]+\/)"/)?.[1];
@@ -244,7 +214,7 @@ function parseEpisodes(html: string): HentaiEpisode[] {
     eps.push({ url, n, thumb });
   }
 
-  // Fallback: se il markup degli article cambia, prende almeno i link episodio.
+  // fallback if the article markup changes, at least grab the episode links
   if (eps.length === 0) {
     const re = /https:\/\/hentaimama\.io\/episodes\/[a-z0-9-]+\//g;
     for (const m of html.matchAll(re)) {
@@ -260,7 +230,6 @@ function parseEpisodes(html: string): HentaiEpisode[] {
 }
 
 export async function getHentaiDetail(slug: string): Promise<HentaiDetail | null> {
-  // Cache check
   const cached = detailCache.get(slug);
   if (cached && Date.now() - cached.time < DETAIL_CACHE_TTL) {
     return cached.data;
@@ -301,14 +270,10 @@ export async function getHentaiDetail(slug: string): Promise<HentaiDetail | null
   const episodes = parseEpisodes(html);
 
   const result: HentaiDetail = { slug, url, name, poster, synopsis, genres, studio, year, rating, episodes };
-
-  // Salva in cache
   detailCache.set(slug, { data: result, time: Date.now() });
-
   return result;
 }
 
-// ─── Wrapper lato client (passa per la route same-origin /api/hentai). ───
 export async function searchHentai(q: HentaiQuery): Promise<HentaiSearchResult> {
   const res = await fetch("/api/hentai", {
     method: "POST",
@@ -319,7 +284,6 @@ export async function searchHentai(q: HentaiQuery): Promise<HentaiSearchResult> 
   return res.json();
 }
 
-/** Filtro combinato: AND tra categorie, OR dentro studio/anno. */
 export interface HentaiCombinedFilter {
   genres?: string[];
   studios?: string[];
@@ -339,14 +303,9 @@ export async function filterHentai(
   return res.json();
 }
 
-/** URL della scheda sul sito host. */
 export function hostWatchUrl(item: { url: string }): string {
   return item.url;
 }
-
-// ─────────────────────────────────────────────────────────────
-// Configurazione UI
-// ─────────────────────────────────────────────────────────────
 
 export interface HentaiRowConfig {
   key: string;
@@ -367,14 +326,7 @@ export const HENTAI_ROWS: HentaiRowConfig[] = [
   { key: "maid", titleKey: "hentai.rows.maid", query: { genre: "maid" } },
 ];
 
-/**
- * Generi selezionabili nel filtro. Ogni voce è lo slug dell'archivio
- * hentaimama (/genre/{slug}/) — tutti verificati restituire 200.
- * Catalogo completo del sito host (ordine alfabetico).
- * Nota: alcuni slug del sito sono non standard (es. "cutefunny" attaccato,
- * "double-penatration" con refuso): vengono rimappati a etichetta corretta
- * in GENRE_LABEL_OVERRIDES.
- */
+// site's own genre slugs, some are misspelled (double-penatration) but thats how the archive urls work
 export const HENTAI_GENRES: string[] = [
   "3d", "action", "adventure", "ahegao", "anal", "animal-ears", "bdsm",
   "blackmail", "blowjob", "bondage", "brainwashed", "bukakke", "cat-girl",
@@ -396,7 +348,6 @@ export const HENTAI_GENRES: string[] = [
   "widow", "x-ray", "yuri",
 ];
 
-/** Studi (slug archivio /studio/{slug}/ → nome) — catalogo completo hentaimama. */
 export const HENTAI_STUDIOS: { slug: string; name: string }[] = [
   { slug: "8bit", name: "8bit" },
   { slug: "actas", name: "Actas" },
@@ -534,9 +485,7 @@ export const HENTAI_STUDIOS: { slug: string; name: string }[] = [
   { slug: "zyc", name: "Zyc" },
 ];
 
-/** Etichetta leggibile da uno slug genere ("large-breasts" → "Large Breasts"). */
-// Etichette speciali: sigle e nomi che la capitalizzazione automatica non
-// renderebbe bene (es. "bdsm" → "Bdsm"). Solo questi slug vengono sovrascritti.
+// acronyms/names that plain capitalization would mangle (bdsm -> Bdsm etc)
 const GENRE_LABEL_OVERRIDES: Record<string, string> = {
   "3d": "3D",
   bdsm: "BDSM",

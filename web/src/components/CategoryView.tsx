@@ -29,14 +29,12 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
   const { t } = useTranslation();
   const locale = useLocale();
   const router = useRouter();
-  // Ingresso hero: sfondo neutro poi rivela; niente animazione al back.
   const { revealed: heroRevealed, instant: heroInstant } = useHeroEntrance();
 
-  // La sezione hentai mostra solo "Hentai" come titolo.
+  // hentai category just hardcodes its title
   const title = slug === "hentai" ? "Hentai" : t(titleKey);
 
-  // Distribuisce le locandine nelle colonne (round-robin). Ogni colonna avrà
-  // poster duplicati per il loop invisibile.
+  // round robin into columns, dupe posters so the scroll loop looks seamless
   const columns = useMemo(() => {
     const posters = items
       .filter((i) => i.poster_path)
@@ -45,7 +43,6 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
     posters.forEach((url, idx) => {
       cols[idx % NUM_COLUMNS].push(url);
     });
-    // Garantisce abbastanza poster per riempire la colonna anche se pochi titoli
     return cols.map((col) => {
       let filled = col;
       while (filled.length < 6 && col.length > 0) filled = [...filled, ...col];
@@ -55,7 +52,7 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
 
   const handleBack = () => {
     markRestoreIntent();
-    // Stack di navigazione custom (coerente con DetailView), evita loop categoria↔film.
+    // custom nav stack avoids a category/film back loop
     const prev = popPreviousPath();
     if (prev) router.push(prev, { scroll: false });
     else router.push(`/${locale}`, { scroll: false });
@@ -66,11 +63,9 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
       <Navigation />
 
       <main className="pb-24">
-        {/* ===== Hero griglia animata (stile Crunchyroll) ===== */}
         <section
           className={`hero-grid relative w-full h-[56vh] min-h-[380px] md:h-[68vh] overflow-hidden bg-background ${heroRevealed ? "opacity-100" : "opacity-0"} ${heroInstant ? "" : "transition-opacity duration-700 ease-out"}`}
         >
-          {/* Griglia di colonne scorrevoli, inclinata in prospettiva */}
           <div className="hero-grid-tilt absolute inset-0 flex justify-center gap-2 md:gap-3">
             {columns.map((col, i) => (
               <div key={i} className="hero-col w-[90px] sm:w-[120px] md:w-[150px] flex-shrink-0 overflow-hidden">
@@ -92,12 +87,10 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
             ))}
           </div>
 
-          {/* Overlay scuro per leggibilità + blend in basso col background */}
           <div className="hero-grid-dim absolute inset-0 bg-black/55" />
           <div className="hero-grid-blend absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
           <div className="hero-grid-topdim absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
 
-          {/* Back button */}
           <Button
             onClick={handleBack}
             variant="secondary"
@@ -108,7 +101,6 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
             {t("content.goBack")}
           </Button>
 
-          {/* Contenuto hero centrato */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10 select-none">
             <motion.div
               initial={heroInstant ? false : { opacity: 0, y: 24 }}
@@ -125,12 +117,9 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
           </div>
         </section>
 
-        {/* Barra opaca (colore pagina) che sale a coprire il bordo inferiore
-            della hero: sta FUORI dalla hero, quindi non si deforma con lo
-            scroll e nasconde lo sfarfallio dei bordi delle colonne. */}
+        {/* hides the column-edge flicker on scroll */}
         <div aria-hidden className="relative z-20 -mt-5 h-5 bg-background" />
 
-        {/* ===== Griglia titoli ===== */}
         <div className="px-4 md:px-8 mt-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

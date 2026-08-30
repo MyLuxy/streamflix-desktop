@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Languages, Check, Server, ChevronLeft, ChevronRight, Globe } from "lucide-react";
+import { Languages, Check, Server, ChevronLeft, ChevronRight, Globe, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { usePathname } from "next/navigation";
@@ -19,8 +19,10 @@ export function WelcomeModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<"language" | "provider">("language");
   const [pendingLang, setPendingLang] = useState<string | null>(null);
-  const [langFilter, setLangFilter] = useState<string | null>(null); // null = tutte le lingue
+  const [langFilter, setLangFilter] = useState<string | null>(null); // null = all languages
   const [providerIndex, setProviderIndex] = useState(0);
+  // disables the button after click so a double click cant fire two navigations
+  const [isFinishing, setIsFinishing] = useState(false);
   const { i18n } = useTranslation();
   const pathname = usePathname();
   const { data: providers, isLoading: loadingProviders } = useProviders();
@@ -32,7 +34,6 @@ export function WelcomeModal() {
     }
   }, []);
 
-  // Blocca lo scroll del sito mentre il modale è aperto
   useEffect(() => {
     if (!isOpen) return;
     const prev = document.body.style.overflow;
@@ -50,7 +51,6 @@ export function WelcomeModal() {
     [providers, langFilter]
   );
 
-  // Il filtro riparte da 0 ogni volta che cambia (lista diversa = indici diversi)
   useEffect(() => {
     setProviderIndex(0);
   }, [langFilter]);
@@ -63,9 +63,10 @@ export function WelcomeModal() {
   };
 
   const finish = (providerName?: string) => {
+    if (isFinishing) return;
+    setIsFinishing(true);
     if (providerName) setSelectedProviderClient(providerName);
     localStorage.setItem(WELCOME_STORAGE_KEY, "true");
-    setIsOpen(false);
 
     const lng = pendingLang;
     if (lng) {
@@ -75,6 +76,8 @@ export function WelcomeModal() {
       setTimeout(() => {
         window.location.assign(parts.join("/") || "/");
       }, 300);
+    } else {
+      setIsOpen(false);
     }
   };
 
@@ -92,7 +95,6 @@ export function WelcomeModal() {
           exit={{ opacity: 0, scale: 0.95 }}
           className="relative w-full max-w-3xl my-8 bg-card rounded-xl shadow-2xl overflow-hidden"
         >
-          {/* Step 1: Language Selection */}
           {step === "language" && (
             <div className="p-6 md:p-8 lg:p-10">
               <div className="flex items-start gap-4 mb-6 md:mb-8">
@@ -127,7 +129,6 @@ export function WelcomeModal() {
             </div>
           )}
 
-          {/* Step 2: Provider Selection - carousel, filterable by content language */}
           {step === "provider" && (
             <div className="p-6 md:p-8 lg:p-10">
               <div className="flex items-start justify-between gap-3 mb-6 md:mb-8">
@@ -145,7 +146,6 @@ export function WelcomeModal() {
                   </div>
                 </div>
 
-                {/* Filtro lingua contenuti - in alto a destra */}
                 <LanguageFilterDropdown
                   value={langFilter}
                   onChange={setLangFilter}
@@ -162,6 +162,7 @@ export function WelcomeModal() {
                     size="icon"
                     className="rounded-full h-11 w-11 md:h-14 md:w-14 flex-shrink-0"
                     onClick={() => setProviderIndex((i) => (i - 1 + providerCount) % providerCount)}
+                    disabled={isFinishing}
                     aria-label="Previous provider"
                   >
                     <ChevronLeft className="w-6 h-6 md:w-7 md:h-7" />
@@ -169,10 +170,7 @@ export function WelcomeModal() {
 
                   <div className="flex flex-col items-center gap-3 border-2 border-border rounded-xl p-6 md:p-8 w-full max-w-sm">
                     <img
-                      // keyed by provider name so switching providers always mounts a fresh <img> -
-                      // without this React reuses the same DOM node and only swaps `src`, so the
-                      // onError handler's direct src mutation to the fallback would stick around
-                      // even after navigating to a different, perfectly working logo
+                      // fresh img per provider name, otherwise a stale onError fallback src sticks around
                       key={currentProvider.name}
                       src={proxyImage(currentProvider.logo)}
                       alt=""
@@ -201,6 +199,7 @@ export function WelcomeModal() {
                     size="icon"
                     className="rounded-full h-11 w-11 md:h-14 md:w-14 flex-shrink-0"
                     onClick={() => setProviderIndex((i) => (i + 1) % providerCount)}
+                    disabled={isFinishing}
                     aria-label="Next provider"
                   >
                     <ChevronRight className="w-6 h-6 md:w-7 md:h-7" />
@@ -219,9 +218,10 @@ export function WelcomeModal() {
 
               <Button
                 onClick={() => finish(currentProvider?.name)}
-                disabled={!currentProvider}
-                className="w-full h-12 md:h-14 text-base md:text-lg font-semibold"
+                disabled={!currentProvider || isFinishing}
+                className="w-full h-12 md:h-14 text-base md:text-lg font-semibold gap-2"
               >
+                {isFinishing && <Loader2 className="w-5 h-5 animate-spin" />}
                 Continue
               </Button>
             </div>

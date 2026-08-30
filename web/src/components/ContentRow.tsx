@@ -13,9 +13,7 @@ interface ContentRowProps {
   items: (Movie | TVShow | MediaItem)[];
   onItemClick?: (item: Movie | TVShow | MediaItem) => void;
   isLoading?: boolean;
-  /** Se presente, mostra una card "Vedi tutto" in coda che porta a questo href. */
   seeMoreHref?: string;
-  /** Se true, resetta lo scroll orizzontale a ogni montaggio (es. consigliati). */
   resetScroll?: boolean;
 }
 
@@ -33,12 +31,10 @@ export function ContentRow({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Chiave stabile per memorizzare lo scroll orizzontale della riga, così
-  // tornando indietro la riga resta nella stessa posizione (stessi titoli).
+  // stable key so back nav lands on the same scroll spot
   const storageKey = `rowscroll:${seeMoreHref || title}`;
 
-  // Ripristina lo scroll orizzontale salvato al montaggio, in modo ISTANTANEO
-  // (disabilita temporaneamente scroll-smooth per evitare l'animazione).
+  // instant restore, no smooth scroll animation on mount
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -98,7 +94,7 @@ export function ContentRow({
   if (isLoading) {
     return (
       <div className="py-4">
-        <div className="h-7 w-48 bg-muted rounded-md animate-pulse mb-4 ml-6 md:ml-10" />
+        <div className="h-8 w-52 bg-muted rounded-md animate-pulse mb-4 ml-6 md:ml-10" />
         <div className="flex gap-3 px-6 md:px-10 overflow-hidden">
           {Array.from({ length: 7 }).map((_, i) => (
             <div
@@ -120,14 +116,12 @@ export function ContentRow({
       transition={{ duration: 0.5 }}
       className="py-4 group/row"
     >
-      <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4 px-6 md:px-10 hover:text-secondary-foreground transition-colors duration-200 cursor-default select-none">
+      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 px-6 md:px-10 hover:text-secondary-foreground transition-colors duration-200 cursor-default select-none">
         {title}
       </h2>
 
       <div className="relative">
-        {/* Scroll buttons: fascia rettangolare a tutta altezza con sfumatura, non un cerchietto
-            piccolo - bersaglio molto più facile da colpire senza cliccare per sbaglio una card
-            adiacente durante lo scorrimento */}
+        {/* wide hit area so you dont misclick a card while scrolling */}
         <button
           onClick={() => scroll("left")}
           className={`absolute inset-y-0 left-0 z-10 w-16 md:w-28 flex items-center justify-start pl-3 md:pl-6 bg-gradient-to-r from-background/95 via-background/60 to-transparent transition-opacity duration-300 ${
@@ -152,7 +146,6 @@ export function ContentRow({
           <ChevronRight className="w-12 h-12 md:w-16 md:h-16 translate-x-px" />
         </button>
 
-        {/* Content scroll area */}
         <div
           ref={scrollRef}
           onScroll={checkScroll}
@@ -169,7 +162,6 @@ export function ContentRow({
             />
           ))}
 
-          {/* Card "Vedi tutto" in coda */}
           {seeMoreHref && (
             <Link
               href={seeMoreHref}

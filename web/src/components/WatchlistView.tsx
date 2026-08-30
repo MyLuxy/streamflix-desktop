@@ -14,14 +14,12 @@ export function WatchlistView() {
 
   const open = (item: WatchlistItem) => {
     if (item.mediaType === "hentai") {
-      // Riapre il titolo nel modale della pagina hentai (via ?watch=slug).
       const q = new URLSearchParams({ watch: item.slug || "", n: item.title });
       router.push(`/${locale}/category/hentai?${q.toString()}`);
       return;
     }
     if (item.provider && item.realId) {
-      // provider+realId reali (vedi slug.ts) - l'unico modo affidabile di risolvere l'item su
-      // una richiesta successiva; il fallback sotto (hash numerico) non è più risolvibile
+      // only reliable way to resolve the item later, the numeric hash fallback below isnt
       const slug = buildProviderSlug(item.provider, item.realId, item.title);
       router.push(`/${locale}/${typeSegment(item.mediaType)}/${slug}`);
       return;

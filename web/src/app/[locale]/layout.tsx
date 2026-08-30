@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { Providers } from "../providers";
 import { locales, isLocale } from "@/lib/i18n-config";
 
-// Pre-genera le 4 lingue
 export function generateStaticParams() {
   return locales.map((locale) => ({ locale }));
 }

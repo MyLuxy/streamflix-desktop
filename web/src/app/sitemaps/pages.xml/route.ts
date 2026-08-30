@@ -3,7 +3,6 @@ import { locales, defaultLocale, localeToHreflang } from "@/lib/i18n-config";
 
 export const revalidate = 86400;
 
-// Sitemap delle pagine statiche indicizzabili (home, una per lingua + hreflang).
 export async function GET() {
   const now = new Date().toISOString();
   const urlFor = (l: string) => `${SITE_URL}/${l}`;

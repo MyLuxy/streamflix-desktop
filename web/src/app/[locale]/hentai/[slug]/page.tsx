@@ -4,7 +4,6 @@ import { isLocale } from "@/lib/i18n-config";
 import { SITE_NAME } from "@/lib/site";
 import { HentaiPageClient } from "@/components/HentaiPageClient";
 
-// SSR minimale: nessuna fetch a hentaimama, renderizza subito uno scheletro.
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ locale: string; slug: string }> };

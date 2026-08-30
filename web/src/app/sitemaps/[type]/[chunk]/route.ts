@@ -7,12 +7,10 @@ import { PAGES_PER_CHUNK, CHUNKS_PER_TYPE } from "@/lib/sitemap-config";
 import { locales, defaultLocale, localeToHreflang } from "@/lib/i18n-config";
 import type { Movie, TVShow } from "@/lib/types";
 
-export const revalidate = 86400; // 24h, ogni blocco ha cache propria
+export const revalidate = 86400; // 24h
 
 type Params = { params: Promise<{ type: string; chunk: string }> };
 
-// Un blocco = PAGES_PER_CHUNK pagine di /discover TMDB. Per ogni contenuto si
-// emette un <url> (versione di default) con i link hreflang a tutte le lingue.
 export async function GET(_req: Request, { params }: Params) {
   const { type, chunk } = await params;
   const chunkNum = parseInt(String(chunk).replace(/\.xml$/, ""), 10);
@@ -30,8 +28,7 @@ export async function GET(_req: Request, { params }: Params) {
   const startPage = chunkNum * PAGES_PER_CHUNK + 1;
   const pages = Array.from({ length: PAGES_PER_CHUNK }, (_, i) => startPage + i);
 
-  // Lo slug è basato sul titolo (uguale in tutte le lingue: il provider non traduce), quindi
-  // basta un fetch solo.
+  // slug doesnt change per locale, one fetch covers every language
   const provider = await getSelectedProvider();
   const results = await Promise.allSettled(
     pages.map((p) => (isMovie ? discoverMoviesPage(p, provider) : discoverTVPage(p, provider)))

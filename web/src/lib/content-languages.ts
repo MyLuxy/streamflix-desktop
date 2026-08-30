@@ -1,7 +1,4 @@
-// decorative label/flag for a provider's content language - falls back gracefully to the bare
-// code for anything not in this list, so a provider in a language nobody's added yet still works.
-// flag images (not emoji) on purpose: Windows has no glyphs for regional-indicator emoji, so a
-// flag emoji renders there as literal "IT"/"DE" text instead of a flag
+// flag images not emoji, windows renders flag emoji as literal "IT"/"DE" text
 const LANGUAGE_META: Record<string, { label: string; flagUrl: string }> = {
   en: { label: "English", flagUrl: "/flags/gb.svg" },
   it: { label: "Italiano", flagUrl: "/flags/it.svg" },

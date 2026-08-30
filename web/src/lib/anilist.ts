@@ -1,10 +1,3 @@
-// ─────────────────────────────────────────────────────────────
-// Arricchimento hentai: cover ufficiale + studio da AniList.
-// Batch query con cache di processo e retry su 429.
-// NIENTE mutex globale o throttle fisso — si affida ai Retry-After
-// di AniList e batch da 20 titoli per non saturare il rate limit.
-// ─────────────────────────────────────────────────────────────
-
 const ANILIST_URL = "https://graphql.anilist.co";
 
 export interface AniMeta {
@@ -12,12 +5,11 @@ export interface AniMeta {
   studio: string | null;
 }
 
-// Cache di processo: titolo pulito → { cover, studio } (o null se nessun match).
 const metaCache = new Map<string, AniMeta | null>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Toglie il numero di episodio finale ("Master Piece 1" → "Master Piece"). */
+// strips a trailing episode number, "Master Piece 1" becomes "Master Piece"
 export function cleanForAniList(name: string): string {
   return name
     .replace(/\bthe animation\b/gi, "")
@@ -25,8 +17,6 @@ export function cleanForAniList(name: string): string {
     .trim();
 }
 
-// Esegue un batch verso AniList. Su 429 fa un retry con Retry-After.
-// Ritorna true se l'esito è definitivo e già messo in cache.
 async function fetchBatch(names: string[]): Promise<boolean> {
   const parts = names.map(
     (_, i) =>
@@ -70,14 +60,11 @@ async function fetchBatch(names: string[]): Promise<boolean> {
   return false;
 }
 
-/** Mappa titoli → { cover, studio } AniList (solo quelli trovati). */
 export async function anilistMeta(rawNames: string[]): Promise<Map<string, AniMeta>> {
   const cleaned = [...new Set(rawNames.map(cleanForAniList).filter(Boolean))];
   const missing = cleaned.filter((n) => !metaCache.has(n));
 
   const BATCH = 20;
-  // Batch concorrenti (Promise.all, niente mutex globale). AniList gestisce
-  // fino a 30 req/min; con batch da 20 titoli, un hub intero cabe in 1-2 req.
   await Promise.all(
     Array.from({ length: Math.ceil(missing.length / BATCH) }, (_, i) =>
       fetchBatch(missing.slice(i * BATCH, (i + 1) * BATCH))
@@ -91,8 +78,6 @@ export async function anilistMeta(rawNames: string[]): Promise<Map<string, AniMe
   }
   return out;
 }
-
-// ─── Dettaglio completo da AniList ──────────────────────────
 
 export interface AniDetailResult {
   name: string;
@@ -156,7 +141,6 @@ async function fetchDetail(name: string): Promise<AniDetailResult | null> {
   return null;
 }
 
-/** Dettaglio completo AniList per un titolo. Cache interna di 30 min. */
 export async function anilistDetail(name: string): Promise<AniDetailResult | null> {
   const cleaned = cleanForAniList(name);
   if (!cleaned) return null;

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { anilistMeta } from "@/lib/anilist";
 
-// Dato un elenco di titoli, ritorna cover art ufficiale + studio da AniList.
-// { names: string[] } → { meta: { [name]: { cover, studio } } }
 export async function POST(request: Request) {
   try {
     const { names } = (await request.json()) as { names?: string[] };

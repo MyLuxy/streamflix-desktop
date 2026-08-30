@@ -98,7 +98,6 @@ export function SearchBar({ onResultClick }: SearchBarProps) {
         )}
       </AnimatePresence>
 
-      {/* Search results dropdown */}
       <AnimatePresence>
         {isOpen && query.length >= 2 && (
           <motion.div

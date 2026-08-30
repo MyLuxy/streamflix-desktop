@@ -24,7 +24,6 @@ export function ManageLinksSection({ id, mediaType }: ManageLinksSectionProps) {
       return;
     }
 
-    // Basic URL validation
     try {
       new URL(trimmedUrl);
     } catch {
@@ -50,7 +49,6 @@ export function ManageLinksSection({ id, mediaType }: ManageLinksSectionProps) {
         Manage Streaming Links
       </h3>
 
-      {/* Add new link form */}
       <div className="space-y-3 mb-4">
         <div className="flex gap-2">
           <Input
@@ -74,7 +72,6 @@ export function ManageLinksSection({ id, mediaType }: ManageLinksSectionProps) {
         </div>
       </div>
 
-      {/* List of custom links */}
       {links.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground mb-2">

@@ -1,15 +1,21 @@
-import { Languages, Server, Check, Search } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { languages } from "@/i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "@/hooks/useLocale";
-import { useProviders } from "@/hooks/useStreamflix";
-import { getSelectedProviderClient, setSelectedProviderClient } from "@/lib/provider";
+import { useProviders, type StreamflixProvider } from "@/hooks/useStreamflix";
+import {
+  getSelectedProviderClient,
+  setSelectedProviderClient,
+  getSavedProviderLangFilter,
+  setSavedProviderLangFilter,
+} from "@/lib/provider";
 import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
+import { POPULAR_PROVIDERS_BY_LANGUAGE, ANIME_PROVIDERS } from "@/lib/popular-providers";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -19,26 +25,35 @@ export function SettingsPage() {
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [providerSearch, setProviderSearch] = useState("");
-  const [providerLangFilter, setProviderLangFilter] = useState<string | null>(null);
+  // null on first render to avoid a hydration mismatch, real value applied in the effect below
+  const [providerLangFilter, setProviderLangFilterState] = useState<string | null>(null);
+  // buttons stay disabled while pending so switching fast doesnt queue up scrape requests
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setSelectedProvider(getSelectedProviderClient());
+    setProviderLangFilterState(getSavedProviderLangFilter());
   }, []);
 
+  const setProviderLangFilter = (code: string | null) => {
+    setProviderLangFilterState(code);
+    setSavedProviderLangFilter(code);
+  };
+
   const changeProvider = (name: string) => {
-    if (name === selectedProvider) return;
+    if (name === selectedProvider || isPending) return;
     setSelectedProviderClient(name);
     setSelectedProvider(name);
-    router.refresh();
+    startTransition(() => {
+      router.refresh();
+    });
   };
 
   const changeLanguage = (lng: string) => {
     if (lng === currentLocale) return;
-    // Memorizza la preferenza e ricarica la STESSA pagina nella nuova lingua
-    // (reload completo: tutto viene rigenerato lato server, niente residui)
     document.cookie = `NEXT_LOCALE=${lng};path=/;max-age=31536000;samesite=lax`;
     const parts = pathname.split("/");
-    parts[1] = lng; // sostituisce il prefisso lingua
+    parts[1] = lng;
     window.location.assign(parts.join("/") || "/");
   };
 
@@ -56,6 +71,23 @@ export function SettingsPage() {
     });
   }, [providers, providerSearch, providerLangFilter]);
 
+  // also filtered by search, otherwise it looks like search only works on the "all" section
+  const popularProviders = useMemo(() => {
+    const names = POPULAR_PROVIDERS_BY_LANGUAGE[providerLangFilter ?? "all"];
+    if (!names) return [];
+    const q = providerSearch.trim().toLowerCase();
+    return names
+      .map((name) => providers?.find((p) => p.name === name))
+      .filter((p): p is StreamflixProvider => !!p && (!q || p.name.toLowerCase().includes(q)));
+  }, [providers, providerLangFilter, providerSearch]);
+
+  const animeProviders = useMemo(() => {
+    const q = providerSearch.trim().toLowerCase();
+    return ANIME_PROVIDERS
+      .map((name) => providers?.find((p) => p.name === name))
+      .filter((p): p is StreamflixProvider => !!p && (!q || p.name.toLowerCase().includes(q)));
+  }, [providers, providerSearch]);
+
   return (
     <div className="max-w-6xl mx-auto px-1 md:px-0 -mt-6 md:mt-0">
       <motion.div
@@ -66,7 +98,6 @@ export function SettingsPage() {
           {t('settings.title')}
         </h1>
 
-        {/* Language setting - FIRST */}
         <section className="bg-card rounded-2xl p-5 md:p-8 mb-6 md:mb-8">
           <div className="flex items-center gap-3 mb-5 md:mb-6">
             <Languages className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
@@ -92,7 +123,6 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* Provider setting - quale sito fa da fonte per catalogo e streaming */}
         <section className="bg-card rounded-2xl p-5 md:p-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 md:mb-6">
             <div className="flex items-center gap-3">
@@ -106,7 +136,6 @@ export function SettingsPage() {
               </div>
             </div>
 
-            {/* Ricerca + filtro lingua - così scegliere tra ~76 provider resta comodo */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className="relative flex-1 lg:flex-initial">
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -131,44 +160,112 @@ export function SettingsPage() {
           ) : filteredProviders.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">{t('settings.noProvidersFound')}</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 max-h-[36rem] overflow-y-auto pr-1">
-              {filteredProviders.map((p) => {
-                const isSelected = selectedProvider === p.name;
-                return (
-                  <button
-                    key={p.name}
-                    onClick={() => changeProvider(p.name)}
-                    className={`flex flex-col items-center gap-2.5 rounded-xl border-2 px-3 py-4 text-center transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50 hover:bg-secondary/60"
-                    }`}
-                  >
-                    <div className="relative">
-                      <img
-                        src={proxyImage(p.logo)}
-                        alt=""
-                        className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover bg-muted"
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                          img.src = PROVIDER_LOGO_FALLBACK;
-                        }}
-                      />
-                      {isSelected && (
-                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                        </span>
-                      )}
+            <div className="relative">
+              <div
+                className={`space-y-6 md:space-y-8 transition-opacity ${isPending ? "opacity-50 pointer-events-none" : ""}`}
+              >
+                {popularProviders.length > 0 && (
+                  <div>
+                    <p className="text-xl md:text-2xl font-bold text-foreground mb-3">{t('settings.popularProviders')}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                      {popularProviders.map((p) => (
+                        <ProviderTile
+                          key={p.name}
+                          provider={p}
+                          isSelected={selectedProvider === p.name}
+                          disabled={isPending}
+                          onClick={() => changeProvider(p.name)}
+                        />
+                      ))}
                     </div>
-                    <span className="text-sm font-medium text-foreground truncate w-full">{p.name}</span>
-                  </button>
-                );
-              })}
+                  </div>
+                )}
+
+                {animeProviders.length > 0 && (
+                  <div>
+                    <p className="text-xl md:text-2xl font-bold text-foreground mb-3">{t('settings.animeProviders')}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                      {animeProviders.map((p) => (
+                        <ProviderTile
+                          key={p.name}
+                          provider={p}
+                          isSelected={selectedProvider === p.name}
+                          disabled={isPending}
+                          onClick={() => changeProvider(p.name)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xl md:text-2xl font-bold text-foreground mb-3">{t('settings.allProviders')}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+                    {filteredProviders.map((p) => (
+                      <ProviderTile
+                        key={p.name}
+                        provider={p}
+                        isSelected={selectedProvider === p.name}
+                        disabled={isPending}
+                        onClick={() => changeProvider(p.name)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {isPending && (
+                <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  {t('settings.switchingProvider')}
+                </div>
+              )}
             </div>
           )}
         </section>
       </motion.div>
     </div>
+  );
+}
+
+function ProviderTile({
+  provider,
+  isSelected,
+  disabled,
+  onClick,
+}: {
+  provider: StreamflixProvider;
+  isSelected: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-2.5 rounded-xl border-2 px-3 py-4 text-center transition-colors ${
+        isSelected
+          ? "border-primary bg-primary/10"
+          : "border-border hover:border-primary/50 hover:bg-secondary/60"
+      }`}
+    >
+      <div className="relative">
+        <img
+          src={proxyImage(provider.logo)}
+          alt=""
+          className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover bg-muted"
+          onError={(e) => {
+            const img = e.target as HTMLImageElement;
+            if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
+            img.src = PROVIDER_LOGO_FALLBACK;
+          }}
+        />
+        {isSelected && (
+          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+            <Check className="w-3.5 h-3.5 text-primary-foreground" />
+          </span>
+        )}
+      </div>
+      <span className="text-sm font-medium text-foreground truncate w-full">{provider.name}</span>
+    </button>
   );
 }

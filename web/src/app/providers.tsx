@@ -13,8 +13,7 @@ import { createI18n } from "@/i18n";
 import { recordPath } from "@/lib/nav-history";
 import type { Locale } from "@/lib/i18n-config";
 
-// Registra ogni cambio di pagina (query inclusa) per il "Torna indietro"
-// affidabile, così tornando da una scheda si ripristina la ricerca fatta.
+// tracks page changes so back nav can restore stuff like search state
 function PathRecorder() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -33,10 +32,9 @@ export function Providers({
   locale: Locale;
 }) {
   const [queryClient] = useState(() => new QueryClient());
-  // Istanza i18n inizializzata sul locale dell'URL (server e client coincidono)
   const [i18n] = useState(() => createI18n(locale));
 
-  // Se si naviga tra lingue lato client, allinea l'istanza e l'attributo lang
+  // keeps i18n and the lang attr in sync if locale changes client side
   useEffect(() => {
     if (i18n.language !== locale) i18n.changeLanguage(locale);
     if (typeof document !== "undefined") document.documentElement.lang = locale;

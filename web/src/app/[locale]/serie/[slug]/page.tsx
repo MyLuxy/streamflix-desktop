@@ -102,9 +102,7 @@ export default async function SeriePage({ params }: Params) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }}
       />
       <DetailView
-        // vedi commento gemello in film/[slug]/page.tsx: senza key React riusa la stessa
-        // istanza di DetailView passando da una serie all'altra, lasciando playing/
-        // startSeason/startEpisode (quindi il minutaggio di resume) del titolo precedente
+        // key forces remount so state doesnt leak between shows on this same route
         key={`${provider}:${realId}`}
         data={data}
         mediaType="tv"

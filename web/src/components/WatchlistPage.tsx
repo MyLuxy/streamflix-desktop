@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { WatchlistItem } from "@/lib/types";
+import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
 interface WatchlistPageProps {
   onItemClick: (item: WatchlistItem) => void;
@@ -62,15 +63,13 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
               transition={{ delay: index * 0.05 }}
               className="relative"
             >
-              {/* Il box ombra sta SOLO qui, attorno alla sola locandina - prima si estendeva
-                  (shadow-card è un'ombra larga, 8px offset + 32px blur) fin dentro al titolo sotto */}
               <div className="rounded-lg overflow-hidden shadow-md">
                 <button
                   onClick={() => onItemClick(item)}
                   className="group relative w-full aspect-[2/3] block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
                   {posterSrc(item) ? (
-                    <img
+                    <ImageWithSpinner
                       src={posterSrc(item)!}
                       alt={item.title}
                       className="w-full h-full object-cover"
@@ -83,10 +82,8 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
                     </div>
                   )}
 
-                  {/* Hover overlay più leggero */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                  {/* Remove button — sopra la locandina, sfondo nero, hover rosso */}
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
@@ -99,7 +96,6 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
                 </button>
               </div>
 
-              {/* Title — nessun hover, solo testo */}
               <p className="mt-3 text-base font-medium text-foreground line-clamp-2">
                 {item.title}
               </p>

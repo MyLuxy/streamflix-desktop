@@ -9,52 +9,14 @@ import type {
   CastMember,
 } from "@/lib/types";
 import { tagProvider, providerTagOf } from "@/lib/provider-tag";
+import {
+  stableNumericId,
+  toMediaItem,
+  type BackendShow,
+  type BackendPerson,
+} from "@/lib/streamflix-mapping";
 
-// ─── stable numeric id for object identity only (React keys, equality checks) ─────────────────
-// NOT used for routing - see slug.ts's encodeProviderId/buildProviderSlug for that. A hash can't
-// be reversed, so it can never survive a real page navigation (home page and detail page are two
-// separate requests); routing carries provider+id directly in the URL instead. This hash only
-// needs to be a stable indeed-a-number for whatever `.id` a TMDB-shaped object is expected to have.
-function stableNumericId(...parts: string[]): number {
-  const key = parts.join("::");
-  let h = 0;
-  for (let i = 0; i < key.length; i++) {
-    h = (Math.imul(h, 31) + key.charCodeAt(i)) | 0;
-  }
-  return h & 0x7fffffff;
-}
-
-// ─── backend DTOs (mirrors Backend.kt's Show/Category/Provider DTOs) ───────────────────────────
-interface BackendGenre {
-  id: string;
-  name: string;
-}
-interface BackendPerson {
-  id: string;
-  name: string;
-  image: string | null;
-}
-interface BackendSeason {
-  id: string;
-  number: number;
-  title: string | null;
-}
-interface BackendShow {
-  id: string;
-  title: string;
-  type: "movie" | "tv";
-  poster: string | null;
-  banner: string | null;
-  logo: string | null;
-  overview: string | null;
-  rating: number | null;
-  released: string | null;
-  runtime: number | null;
-  genres: BackendGenre[];
-  cast: BackendPerson[];
-  seasons: BackendSeason[];
-  recommendations: BackendShow[];
-}
+// mirrors Backend.kt's Show/Category/Provider DTOs
 interface BackendCategory {
   name: string;
   items: BackendShow[];
@@ -81,44 +43,6 @@ async function api<T>(path: string, revalidate = 300): Promise<T> {
 }
 
 export const getProviders = () => api<BackendProvider[]>("/api/providers", 3600);
-
-// ─── mapping backend shows into the TMDB-shaped types the rest of the app uses ─────────────────
-function toMediaItem(dto: BackendShow, provider: string): MediaItem {
-  const id = stableNumericId(provider, dto.id);
-  const shared = {
-    id,
-    overview: dto.overview ?? "",
-    poster_path: dto.poster,
-    backdrop_path: dto.banner,
-    logo_path: dto.logo,
-    vote_average: dto.rating ?? 0,
-    vote_count: 0,
-    popularity: 0,
-    genre_ids: dto.genres.map((g) => stableNumericId("genre", g.id)),
-    original_language: "",
-  };
-  if (dto.type === "movie") {
-    const movie: Movie = {
-      ...shared,
-      title: dto.title,
-      original_title: dto.title,
-      release_date: dto.released ?? "",
-      adult: false,
-      video: false,
-      media_type: "movie",
-    };
-    return tagProvider(movie, provider, dto.id) as MediaItem;
-  }
-  const tv: TVShow = {
-    ...shared,
-    name: dto.title,
-    original_name: dto.title,
-    first_air_date: dto.released ?? "",
-    origin_country: [],
-    media_type: "tv",
-  };
-  return tagProvider(tv, provider, dto.id) as MediaItem;
-}
 
 function toCastMembers(cast: BackendPerson[]): CastMember[] {
   return cast.map((p, i) => ({
@@ -164,10 +88,7 @@ function toTVShowDetails(dto: BackendShow, provider: string): TVShowDetails {
     networks: [],
     number_of_episodes: 0,
     number_of_seasons: dto.seasons.length,
-    // `id` here is deliberately the season NUMBER, not a hash of the backend's own season id -
-    // getSeasonEpisodes() below needs to ask the backend for "season N of show X", and a season
-    // number is something the client already has in hand (right here) with no lookup required,
-    // unlike an opaque id that would hit the same cross-request problem the slug rework fixed
+    // id is the season NUMBER on purpose, getSeasonEpisodes needs that not an opaque backend id
     seasons: dto.seasons.map((s) => ({
       id: s.number,
       name: s.title || `Stagione ${s.number}`,
@@ -184,10 +105,8 @@ function toTVShowDetails(dto: BackendShow, provider: string): TVShowDetails {
   };
 }
 
-// ─── home page: dynamic rows straight from whatever the selected provider curates ──────────────
-// no TMDB-style fixed trending/popular/horror/anime rows - the provider's own home feed already
-// comes pre-organized into named sections (however many, whatever they're called), which is what
-// actually gets rendered
+// no fixed trending/popular/horror rows like TMDB, the provider's own home feed is already
+// organized into named sections and we just render those
 export interface HomeRow {
   name: string;
   items: MediaItem[];
@@ -195,16 +114,22 @@ export interface HomeRow {
 
 export async function getHomeRows(provider: string): Promise<HomeRow[]> {
   const categories = await api<BackendCategory[]>(`/api/home?provider=${encodeURIComponent(provider)}`, 900);
-  const rows = categories
-    .filter((c) => c.items.length > 0)
-    .map((c) => ({
-      name: c.name || "In evidenza",
-      items: c.items.map((item) => toMediaItem(item, provider)),
-    }));
+  const nonEmpty = categories.filter((c) => c.items.length > 0);
 
-  // il primo blocco alimenta l'hero banner (vedi HomeView) - le pagine elenco dei provider non
-  // portano mai la trama (solo titolo/poster), quella esiste solo sulla pagina di dettaglio, quindi
-  // per i pochi item che finiscono davvero nell'hero la recuperiamo con una fetch di dettaglio in più
+  // prefer the first category that actually has a real banner, not just the first category,
+  // poster-only stuff (AnimeUnity's "Ultimi Episodi") looked stretched and grainy in the hero
+  const heroIndex = nonEmpty.findIndex((c) => c.items.some((it) => it.banner));
+  const ordered =
+    heroIndex > 0
+      ? [nonEmpty[heroIndex], ...nonEmpty.slice(0, heroIndex), ...nonEmpty.slice(heroIndex + 1)]
+      : nonEmpty;
+
+  const rows = ordered.map((c) => ({
+    name: c.name || "In evidenza",
+    items: c.items.map((item) => toMediaItem(item, provider)),
+  }));
+
+  // list pages never carry an overview, only the detail page does, so fetch it for the hero items
   const heroRow = rows[0];
   if (heroRow) {
     const heroItems = heroRow.items.slice(0, 5);
@@ -235,7 +160,7 @@ export async function search(provider: string, query: string): Promise<MediaItem
   return dtos.map((d) => toMediaItem(d, provider));
 }
 
-// ─── detail pages - provider+id come straight from the URL (see slug.ts), no registry needed ───
+// provider+id come straight from the url (slug.ts), no registry lookup needed
 export async function getMovieDetails(provider: string, id: string): Promise<MovieDetails> {
   const dto = await api<BackendShow>(
     `/api/movie?provider=${encodeURIComponent(provider)}&id=${encodeURIComponent(id)}`,
@@ -275,7 +200,6 @@ export async function getSeasonEpisodes(provider: string, tvId: string, seasonNu
   );
 }
 
-// ─── catalog-wide pagination (sitemap) ──────────────────────────────────────
 export async function discoverMoviesPage(page: number, provider: string): Promise<{ results: Movie[] }> {
   const dtos = await api<BackendShow[]>(`/api/movies?provider=${encodeURIComponent(provider)}&page=${page}`, 3600);
   return { results: dtos.map((d) => toMediaItem(d, provider) as Movie) };
@@ -286,11 +210,7 @@ export async function discoverTVPage(page: number, provider: string): Promise<{ 
   return { results: dtos.map((d) => toMediaItem(d, provider) as TVShow) };
 }
 
-// ─── hub/category pages (TMDB genre+keyword taxonomy) ───────────────────────────────────────────
-// dropped: the provider catalog has no equivalent of TMDB's discover API (arbitrary
-// genre+keyword+sort queries across its whole database), so the elaborate themed sub-category
-// pages this used to power (dozens of rows per hub: "zombie", "isekai", "Studio Ghibli", ...)
-// have no honest way to be rebuilt. Callers treat a null/empty return as "not found".
+// dropped, providers have nothing like TMDB's discover api to power these themed hub pages
 export function isHubSlug(_slug: string): boolean {
   return false;
 }

@@ -4,8 +4,7 @@ import { isLocale } from "@/lib/i18n-config";
 import { SITE_NAME } from "@/lib/site";
 import { HentaiHubView } from "@/components/HentaiHubView";
 
-// SSR leggero: passa solo la config delle righe, niente fetch bloccante.
-// I dati veri arrivano lato client via /api/hentai.
+// real data loads client side via /api/hentai
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ locale: string }> };

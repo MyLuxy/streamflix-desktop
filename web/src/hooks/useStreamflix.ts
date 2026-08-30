@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { BACKEND_URL } from "@/lib/backend";
+import type { BackendShow } from "@/lib/streamflix-mapping";
 
 export interface StreamflixEpisode {
   id: string;
@@ -26,6 +27,23 @@ export function useSeasonEpisodes(provider: string, tvId: string, seasonNumber: 
     },
     enabled: seasonNumber !== null && seasonNumber >= 0,
     staleTime: 1000 * 60 * 5,
+  });
+}
+
+// each custom genre row (custom-home-sections.ts) gets its own query, loads/fails independently
+export function useGenreItems(provider: string, genreId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["streamflix", "genre", provider, genreId],
+    queryFn: async (): Promise<BackendShow[]> => {
+      const res = await fetch(
+        `${BACKEND_URL}/api/genre?provider=${encodeURIComponent(provider)}&id=${encodeURIComponent(genreId)}&page=1`,
+      );
+      if (!res.ok) throw new Error(`genre fetch failed: ${res.status}`);
+      const data = await res.json();
+      return data.items ?? [];
+    },
+    enabled,
+    staleTime: 1000 * 60 * 15,
   });
 }
 

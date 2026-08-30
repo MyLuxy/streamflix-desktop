@@ -1,20 +1,9 @@
 import { NextResponse } from "next/server";
 import { hentaimamaList, type HentaiItem, type HentaiQuery } from "@/lib/hentai";
 
-// ─────────────────────────────────────────────────────────────
-// Filtro combinato su più tassonomie.
-//   • AND tra categorie diverse (un genere E uno studio E …)
-//   • AND tra più generi (il titolo deve averli tutti)
-//   • OR dentro studio e anno (un titolo ha un solo studio/anno, quindi
-//     selezionarne più d'uno allarga: studio X O Y, anno 2023 O 2024)
-// Gli archivi del sito host gestiscono una sola faccetta per volta
-// (/genre/{slug}/, /studio/{slug}/, /release/{anno}/, /?s=…): qui le
-// scarichiamo e le combiniamo per slug.
-// ─────────────────────────────────────────────────────────────
-
+// AND across categories, OR within one (multiple genres = must match all, multiple studios = any)
 export const dynamic = "force-dynamic";
 
-// Pagine massime scaricate per faccetta (ogni pagina ≈ 24 item).
 const MAX_PAGES = 4;
 
 interface FilterBody {
@@ -27,7 +16,6 @@ interface FilterBody {
 const arr = (v: unknown): string[] =>
   Array.isArray(v) ? (v as string[]).filter(Boolean) : [];
 
-// Scarica tutte le pagine (fino a MAX_PAGES) di una faccetta → mappa slug→item.
 async function facetItems(q: HentaiQuery): Promise<Map<string, HentaiItem>> {
   const map = new Map<string, HentaiItem>();
   for (let p = 1; p <= MAX_PAGES; p++) {
@@ -38,7 +26,6 @@ async function facetItems(q: HentaiQuery): Promise<Map<string, HentaiItem>> {
   return map;
 }
 
-// Unione (OR) di più mappe slug→item.
 function unionMaps(maps: Map<string, HentaiItem>[]): Map<string, HentaiItem> {
   const u = new Map<string, HentaiItem>();
   for (const m of maps) for (const [k, v] of m) if (!u.has(k)) u.set(k, v);
@@ -53,8 +40,7 @@ export async function POST(request: Request) {
     const years = arr(body.years);
     const search = (body.search || "").trim();
 
-    // Se ci sono faccette "AND" (generi/studio/ricerca), l'anno filtra sui
-    // metadati e non serve scaricare l'archivio /release/.
+    // year filters on already-fetched items when other facets exist, skip /release/ then
     const hasAnd = genres.length > 0 || studios.length > 0 || search !== "";
 
     const [genreMaps, studioMaps, searchMap, yearBaseMaps] = await Promise.all([
@@ -66,7 +52,6 @@ export async function POST(request: Request) {
         : Promise.all(years.map((y) => facetItems({ year: y }))),
     ]);
 
-    // Faccette da intersecare (AND): ogni genere, l'unione studi, la ricerca.
     const andFacets: Map<string, HentaiItem>[] = [...genreMaps];
     if (studioMaps.length) andFacets.push(unionMaps(studioMaps));
     if (searchMap) andFacets.push(searchMap);

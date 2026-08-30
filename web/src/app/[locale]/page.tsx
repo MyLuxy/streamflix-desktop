@@ -7,11 +7,11 @@ import { isLocale, type Locale } from "@/lib/i18n-config";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { hreflangAlternates } from "@/lib/seo";
 
-export const revalidate = 900;
+// force-dynamic cause home depends on the provider cookie, cant prerender that
+export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ locale: string }> };
 
-// Titolo/descrizione home localizzati
 const homeMeta: Record<Locale, { title: string; description: string }> = {
   en: {
     title: `${SITE_NAME} — Watch Movies & TV Shows in HD`,
@@ -59,7 +59,14 @@ export default async function HomePage({ params }: Params) {
   if (!isLocale(locale)) notFound();
 
   const provider = await getSelectedProvider();
-  const rows = await getHomeRows(provider).catch(() => []);
+  let rows: Awaited<ReturnType<typeof getHomeRows>> = [];
+  let error: string | null = null;
+  try {
+    rows = await getHomeRows(provider);
+  } catch (e) {
+    console.error(`getHomeRows failed for provider "${provider}":`, e);
+    error = e instanceof Error ? e.message : String(e);
+  }
 
-  return <HomeView rows={rows} />;
+  return <HomeView rows={rows} error={error} provider={provider} />;
 }

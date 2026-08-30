@@ -12,10 +12,9 @@ import { toMediaItemClient } from "@/lib/streamflix-client";
 import { getSelectedProviderClient } from "@/lib/provider";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { MediaItem } from "@/lib/types";
+import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
-// Union mantenuta per compatibilità con SearchView.tsx (gestisce ancora il caso "hentai" per un
-// click su un vecchio risultato salvato altrove) - questa pagina però non produce più risultati
-// hentai: niente più filtro categoria per attivarla, quindi niente più sorgente da cui arrivino.
+// kept the hentai variant for SearchView.tsx compat, this page doesnt produce those results anymore
 export type SearchClickPayload =
   | { kind: "tmdb"; item: MediaItem }
   | { kind: "hentai"; slug: string; name: string };
@@ -24,9 +23,6 @@ interface SearchPageProps {
   onItemClick: (payload: SearchClickPayload) => void;
 }
 
-// Quanti risultati mostrare per "scaglione" - anche quando la query ne restituisce centinaia
-// tutti in una volta (il backend non pagina la ricerca testuale), il DOM cresce a piccoli passi
-// invece che tutto insieme, evitando un jank di rendering su ricerche molto popolate.
 const PAGE_SIZE = 30;
 
 export function SearchPage({ onItemClick }: SearchPageProps) {
@@ -42,15 +38,12 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
     inputRef.current?.focus();
   }, []);
 
-  // Query "debounced": la ricerca resta "live" (parte da sola mentre scrivi, nessun tasto invio)
-  // ma non interroga il backend a ogni singolo carattere digitato.
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   useEffect(() => {
     const h = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(h);
   }, [query]);
 
-  // URL sync, per poter condividere/ricaricare la ricerca
   useEffect(() => {
     const h = setTimeout(() => {
       const qs = query ? `?q=${encodeURIComponent(query)}` : "";
@@ -67,8 +60,6 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
   };
   const getTitle = (item: MediaItem) => ("title" in item ? item.title : item.name);
 
-  // Normalizza i risultati grezzi del provider: media_type sempre presente, via gli adulti e le
-  // voci senza poster (locandina mancante rende la card inutile in una griglia visuale)
   const processResults = useCallback((raw: MediaItem[]): MediaItem[] => {
     return raw
       .map((it) => ({
@@ -80,9 +71,7 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
       .filter((it) => it.poster_path) as MediaItem[];
   }, []);
 
-  // Il backend non pagina la ricerca testuale (nessun equivalente del total_pages di TMDB) -
-  // una sola risposta con tutti i risultati per query, il "poco alla volta" richiesto avviene
-  // sul rendering (vedi visibleCount sotto), non sul fetch.
+  // backend doesnt paginate text search, gets everything in one go, chunking happens on render only
   const fetchResults = useCallback(async (): Promise<MediaItem[]> => {
     if (!hasQuery) return [];
     const provider = getSelectedProviderClient();
@@ -109,16 +98,12 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
     });
   }, [data]);
 
-  // "in attesa": l'utente ha scritto qualcosa che non è ancora stato cercato (siamo ancora nei
-  // 300ms di debounce) - senza questo lo spinner comparirebbe solo DOPO il debounce, quando la
-  // vera richiesta parte, lasciando quei 300ms iniziali senza alcun feedback visivo
+  // catches the 300ms debounce gap so the spinner shows right away, not just after the fetch starts
   const isPending = query.trim().length >= 2 && query !== debouncedQuery;
   const loading = hasQuery && isLoading;
   const isSearching = isPending || loading;
   const isEmpty = !isSearching && hasQuery && results.length === 0;
 
-  // Rendering progressivo: rivela altri PAGE_SIZE risultati man mano che si scorre, invece di
-  // buttare giù in un colpo solo l'intera lista arrivata dal backend.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -149,7 +134,6 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
           {t("search.title")}
         </h1>
 
-        {/* Search input */}
         <div className="relative mb-8 md:mb-10">
           <Search className="absolute left-5 md:left-6 top-1/2 -translate-y-1/2 w-6 h-6 md:w-7 md:h-7 text-muted-foreground" />
           <Input
@@ -174,8 +158,6 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
           )}
         </div>
 
-        {/* Stato inattivo: nessuna query ancora digitata (e non si sta per cercarne una -
-            altrimenti comparirebbe insieme allo skeleton durante i 300ms di debounce) */}
         {!hasQuery && !isSearching && (
           <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
             <Search className="w-10 h-10 text-muted-foreground/40 mb-4" />
@@ -183,7 +165,6 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
           </div>
         )}
 
-        {/* Risultati */}
         {isSearching ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -215,7 +196,7 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
                 >
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-card mb-2">
                     {item.poster_path ? (
-                      <img
+                      <ImageWithSpinner
                         src={imageUrl(item.poster_path, IMAGE_SIZES.poster.medium) ?? undefined}
                         alt={getTitle(item)}
                         loading="lazy"
@@ -242,7 +223,6 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
               ))}
             </div>
 
-            {/* Sentinel: rivela altri risultati man mano che si scorre */}
             {hasMoreToReveal && (
               <div ref={loadMoreRef} className="h-12 flex items-center justify-center mt-6">
                 <Loader2 className="w-7 h-7 animate-spin text-primary" />

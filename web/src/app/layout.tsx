@@ -25,10 +25,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // lang di default in SSR; il valore corretto per-locale viene impostato lato
-  // client (vedi Providers). Gli hreflang nei <head> gestiscono il targeting SEO.
-  // Tema fisso dark - lo switch light/dark è stato rimosso, niente più script
-  // di rilevamento tema da eseguire prima dell'idratazione.
+  // real lang gets set client side per locale, this is just the ssr default
   return (
     <html lang={defaultLocale} className="dark">
       <head>

@@ -1,4 +1,3 @@
-// src/hooks/useSpatialNavigation.ts
 import { useEffect, useRef } from 'react';
 
 interface FocusableElement {
@@ -13,14 +12,12 @@ export function useSpatialNavigation(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
 
-    // Get all focusable elements
     const updateFocusableElements = () => {
       const elements = Array.from(
         document.querySelectorAll<HTMLElement>('[data-focusable="true"]')
       );
       focusableElementsRef.current = elements;
 
-      // Focus first element if none focused
       if (elements.length > 0 && !document.activeElement?.hasAttribute('data-focusable')) {
         elements[0].focus();
         elements[0].classList.add('focused');
@@ -30,7 +27,6 @@ export function useSpatialNavigation(enabled: boolean) {
 
     updateFocusableElements();
 
-    // Re-scan when content changes
     const observer = new MutationObserver(updateFocusableElements);
     observer.observe(document.body, { childList: true, subtree: true });
 
@@ -48,7 +44,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'ArrowRight':
         case 'Right': {
           e.preventDefault();
-          // Find element to the right
           nextIndex = findElementInDirection(elements, currentElement, 'right');
           handled = true;
           break;
@@ -57,7 +52,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'ArrowLeft':
         case 'Left': {
           e.preventDefault();
-          // Find element to the left
           nextIndex = findElementInDirection(elements, currentElement, 'left');
           handled = true;
           break;
@@ -66,7 +60,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'ArrowDown':
         case 'Down': {
           e.preventDefault();
-          // Find element below
           nextIndex = findElementInDirection(elements, currentElement, 'down');
           handled = true;
           break;
@@ -75,7 +68,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'ArrowUp':
         case 'Up': {
           e.preventDefault();
-          // Find element above
           nextIndex = findElementInDirection(elements, currentElement, 'up');
           handled = true;
           break;
@@ -84,7 +76,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'Enter':
         case ' ': {
           e.preventDefault();
-          // Click the focused element
           currentElement.click();
           handled = true;
           break;
@@ -94,7 +85,6 @@ export function useSpatialNavigation(enabled: boolean) {
         case 'Backspace':
         case 'Back': {
           e.preventDefault();
-          // Find and click back button
           const backButton = document.querySelector<HTMLElement>('[data-action="back"]');
           if (backButton) {
             backButton.click();
@@ -105,17 +95,14 @@ export function useSpatialNavigation(enabled: boolean) {
       }
 
       if (handled && nextIndex !== currentIndex) {
-        // Remove focus from current
         currentElement.classList.remove('focused');
         currentElement.blur();
 
-        // Focus next element
         const nextElement = elements[nextIndex];
         nextElement.focus();
         nextElement.classList.add('focused');
         focusedIndexRef.current = nextIndex;
 
-        // Scroll into view
         nextElement.scrollIntoView({
           behavior: 'smooth',
           block: 'center',
@@ -133,7 +120,6 @@ export function useSpatialNavigation(enabled: boolean) {
   }, [enabled]);
 }
 
-// Find the nearest element in a given direction
 function findElementInDirection(
   elements: HTMLElement[],
   current: HTMLElement,
@@ -157,7 +143,6 @@ function findElementInDirection(
       y: rect.top + rect.height / 2,
     };
 
-    // Check if element is in the correct direction
     let isInDirection = false;
     switch (direction) {
       case 'right':
@@ -176,20 +161,17 @@ function findElementInDirection(
 
     if (!isInDirection) return;
 
-    // Calculate distance
     const distance = Math.sqrt(
       Math.pow(center.x - currentCenter.x, 2) +
       Math.pow(center.y - currentCenter.y, 2)
     );
 
-    // Weight distance based on alignment
+    // bias toward elements roughly aligned with current, not just closest
     let weight = 1;
     if (direction === 'left' || direction === 'right') {
-      // Prefer elements aligned vertically
       const verticalAlignment = Math.abs(center.y - currentCenter.y);
       weight = 1 + verticalAlignment / 100;
     } else {
-      // Prefer elements aligned horizontally
       const horizontalAlignment = Math.abs(center.x - currentCenter.x);
       weight = 1 + horizontalAlignment / 100;
     }

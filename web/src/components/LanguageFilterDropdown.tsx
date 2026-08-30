@@ -5,15 +5,14 @@ import { ChevronDown, Globe } from "lucide-react";
 import { languageLabel, languageFlagUrl } from "@/lib/content-languages";
 
 interface LanguageFilterDropdownProps {
-  value: string | null; // null = tutte le lingue
+  value: string | null; // null = all languages
   onChange: (code: string | null) => void;
   availableLanguages: string[];
   allLabel?: string;
   className?: string;
 }
 
-// dropdown custom (non un <select> nativo) perché un <option> non può contenere un'immagine -
-// serve per mostrare la bandiera reale invece dell'emoji, che su Windows non esiste come glifo
+// custom dropdown so we can show real flag images, windows has no flag emoji glyphs anyway
 export function LanguageFilterDropdown({
   value,
   onChange,

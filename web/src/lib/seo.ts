@@ -8,7 +8,6 @@ import {
 } from "@/lib/i18n-config";
 import type { MovieDetails, TVShowDetails } from "@/lib/types";
 
-// Costruisce la mappa hreflang per i metadati Next: { en: url, it: url, ..., 'x-default': url }
 export function hreflangAlternates(
   buildPath: (locale: Locale) => string
 ): Record<string, string> {
@@ -24,7 +23,6 @@ function posterAbs(path: string | null): string | undefined {
   return imageUrl(path, IMAGE_SIZES.poster.large) ?? undefined;
 }
 
-// Durata ISO 8601 (es. 142 min -> "PT142M")
 function isoDuration(min?: number | null): string | undefined {
   return min && min > 0 ? `PT${min}M` : undefined;
 }

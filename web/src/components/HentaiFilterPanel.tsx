@@ -12,9 +12,9 @@ import {
 
 export interface HentaiFilters {
   search: string;
-  genres: string[]; // slug generi
-  studios: string[]; // slug studi
-  years: string[]; // anni (stringa)
+  genres: string[];
+  studios: string[];
+  years: string[];
 }
 
 export const DEFAULT_FILTERS: HentaiFilters = {
@@ -51,7 +51,7 @@ interface Props {
   filters: HentaiFilters;
   onChange: (f: HentaiFilters) => void;
   resultCount: number | null;
-  /** True se ci sono altre pagine da caricare: mostra il conteggio come "N+". */
+  // shows count as "N+" if more pages exist
   hasMore?: boolean;
   loading: boolean;
 }
@@ -59,9 +59,6 @@ interface Props {
 const fieldLabel =
   "text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block";
 
-// ─────────────────────────────────────────────────────────────
-// Dropdown custom multi-selezione
-// ─────────────────────────────────────────────────────────────
 function MultiSelectDropdown({
   label,
   options,
@@ -210,9 +207,6 @@ function MultiSelectDropdown({
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Pannello filtro
-// ─────────────────────────────────────────────────────────────
 export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loading }: Props) {
   const { t } = useTranslation();
   const count = activeCount(filters);
@@ -240,7 +234,6 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
   return (
     <div className="px-4 md:px-10">
       <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm p-4 md:p-6">
-        {/* Header */}
         <div className="flex items-center justify-between gap-3 mb-4">
           <h2 className="flex items-center gap-2 text-lg md:text-xl font-bold text-foreground">
             <SlidersHorizontal className="w-5 h-5 text-pink-500" />
@@ -261,9 +254,7 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
           </div>
         </div>
 
-        {/* Campi: ricerca + 3 dropdown */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Cerca titolo */}
           <div>
             <span className={fieldLabel}>{t("hentai.search")}</span>
             <div className="relative">
@@ -287,7 +278,6 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
             </div>
           </div>
 
-          {/* Generi */}
           <MultiSelectDropdown
             label={t("hentai.genres")}
             options={genreOptions}
@@ -297,7 +287,6 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
             searchable
           />
 
-          {/* Studio */}
           <MultiSelectDropdown
             label={t("hentai.studio")}
             options={studioOptions}
@@ -307,7 +296,6 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
             searchable
           />
 
-          {/* Anno */}
           <MultiSelectDropdown
             label={t("hentai.year")}
             options={yearOptions}
@@ -317,7 +305,6 @@ export function HentaiFilterPanel({ filters, onChange, resultCount, hasMore, loa
           />
         </div>
 
-        {/* Reset globale */}
         {count > 0 && (
           <div className="mt-4">
             <button

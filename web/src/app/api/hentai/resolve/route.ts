@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 
-// ─────────────────────────────────────────────────────────────
-// Resolver di streaming hentai → scraping di hentaimama.io.
-// Catena: /tvshows/{slug} → /episodes/{ep} → post id
-//   → admin-ajax (get_player_contents) → new2.php?p=<base64>
-//   → mp4 diretto (es. https://gdvid.info/.../file.mp4).
-// ─────────────────────────────────────────────────────────────
-
+// chases tvshow page to episode to post id to admin-ajax to the actual mp4 url
 const BASE = "https://hentaimama.io";
 const FETCH_TIMEOUT_MS = 10000;
 const UA =
@@ -17,7 +11,6 @@ async function getText(url: string, init?: RequestInit): Promise<string> {
   const id = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
     const headers: Record<string, string> = { "User-Agent": UA, Referer: `${BASE}/` };
-    // Unisce gli headers custom (es. POST con Content-Type specifico).
     if (init?.headers) Object.assign(headers, init.headers);
     const res = await fetch(url, {
       ...init,
@@ -53,7 +46,6 @@ function episodesFrom(tvHtml: string): Episode[] {
     .sort((a, b) => a.n - b.n);
 }
 
-// Da una pagina episodio → mp4 diretto.
 async function resolveEpisode(episodeUrl: string): Promise<string | null> {
   const epHtml = await getText(episodeUrl);
   const postId = epHtml.match(/a:'(\d+)'/)?.[1];
@@ -69,7 +61,7 @@ async function resolveEpisode(episodeUrl: string): Promise<string | null> {
     body: `action=get_player_contents&a=${postId}`,
   });
 
-  // L'ajax torna un array JSON di <iframe ... src="...new2.php?p=...">
+  // iframe src is buried in the ajax response somewhere
   const iframe =
     ajax.match(/https?:\\?\/\\?\/hentaimama\.io\\?\/new2\.php\?p=[^"\\]+/)?.[0] ||
     ajax.match(/https?:\\?\/\\?\/hentaimama\.io\\?\/newjav\.php\?p=[^"\\]+/)?.[0];
@@ -88,13 +80,11 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") || "").trim();
 
   try {
-    // Risoluzione diretta di un episodio noto (cambio episodio dalla UI).
     if (epUrl && epUrl.startsWith(`${BASE}/episodes/`)) {
       const mp4 = await resolveEpisode(epUrl);
       return NextResponse.json({ ok: !!mp4, mp4, episodeUrl: epUrl });
     }
 
-    // Risoluzione diretta da una scheda /tvshows/ (catalogo = sito host).
     if (tv && tv.startsWith(`${BASE}/tvshows/`)) {
       const tvHtml = await getText(tv);
       const eps = episodesFrom(tvHtml);
@@ -111,7 +101,7 @@ export async function GET(request: Request) {
 
     if (!q) return NextResponse.json({ ok: false, error: "missing q" }, { status: 400 });
 
-    // Ripulisce il titolo (toglie numero finale, "the animation", ecc.).
+    // strip stuff that throws off the search match
     const cleaned = q
       .replace(/\bthe animation\b/gi, "")
       .replace(/\s+\d+$/, "")
@@ -121,7 +111,7 @@ export async function GET(request: Request) {
     const search = await getText(`${BASE}/?s=${encodeURIComponent(cleaned || q)}`);
     const tvUrls = uniqMatches(/https:\/\/hentaimama\.io\/tvshows\/[a-z0-9-]+\//g, search);
 
-    // Anche la ricerca può linkare direttamente degli episodi.
+    // search results sometimes link straight to an episode instead of the show
     let episodes: Episode[] = [];
     if (tvUrls.length > 0) {
       const tvHtml = await getText(tvUrls[0]);

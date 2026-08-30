@@ -2,32 +2,20 @@ import { BACKEND_URL } from "@/lib/backend";
 
 export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 
-// Routes an absolute provider-hosted image URL through our backend's proxy (see Backend.kt's
-// serveImage). Some provider sites only serve their logos/posters to requests carrying a specific
-// Referer/User-Agent, spoofed via a `#sf_headers=...` fragment baked into the URL - a browser
-// <img> tag can't set custom request headers itself, so it'd otherwise get a broken image on any
-// host with hotlink protection.
-// bump this if a browser has cached a bad response for a proxied image URL from before a proxy
-// bugfix (e.g. the Cache-Control-on-errors bug) - changing it changes every proxied URL, so old
-// poisoned cache entries can never match again
+// bump this if a browser cached a bad response before a proxy bugfix, invalidates old cache entries
 const IMAGE_PROXY_VERSION = 2;
 
 export function proxyImage(url: string): string {
   return `${BACKEND_URL}/image?v=${IMAGE_PROXY_VERSION}&url=${encodeURIComponent(url)}`;
 }
 
-// StreamFlix's own backend already returns full absolute image URLs (the provider's own CDN),
-// not TMDB-style relative paths - passing one of those through the proxy instead of prefixing it
-// with TMDB_IMAGE_BASE keeps every existing `${TMDB_IMAGE_BASE}/${SIZE}${path}` call site working
-// for both kinds of source without having to special-case each one.
 export function imageUrl(path: string | null | undefined, size: string): string | null {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) return proxyImage(path);
   return `${TMDB_IMAGE_BASE}/${size}${path}`;
 }
 
-// mostrato al posto del logo di un provider quando la favicon esterna non carica (dominio giù,
-// rate limit, ecc) - locale, quindi non può a sua volta fallire in questo modo
+// local file so it cant itself fail to load like an external favicon can
 export const PROVIDER_LOGO_FALLBACK = "/provider-fallback.png";
 
 export const IMAGE_SIZES = {

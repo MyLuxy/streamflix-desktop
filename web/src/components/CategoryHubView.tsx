@@ -27,14 +27,9 @@ interface HubRow {
 
 interface CategoryHubViewProps {
   rows: HubRow[];
-  /** Chiave i18n del titolo grande dell'hero (es. "home.anime"). */
   titleKey: string;
-  /** Chiave i18n della tagline sotto il titolo. */
   taglineKey: string;
-  /** Mostra il banner sezione adulti a metà (solo hub anime). */
   showAdultBanner?: boolean;
-  /** Tipo di hero: "grid" (griglia animata), "parallax" (slider 3D),
-   * "horror" (tema scuro con glitch/grain). */
   heroVariant?: "grid" | "parallax" | "horror";
 }
 
@@ -50,10 +45,9 @@ export function CategoryHubView({
   const { t } = useTranslation();
   const locale = useLocale();
   const router = useRouter();
-  // Ingresso hero a griglia: sfondo neutro poi rivela; niente animazione al back.
   const { revealed: heroRevealed, instant: heroInstant } = useHeroEntrance();
 
-  // Curtain glitch horror — solo la prima visita, non al ritorno da un film
+  // only show glitch curtain on first visit, not coming back from a film
   const [showHorrorCurtain] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -65,9 +59,7 @@ export function CategoryHubView({
     }
   });
 
-  // Pool di locandine da tutte le righe per la griglia animata dell'hero.
-  // Limitato a ~70 poster così l'altezza delle colonne (e quindi la velocità
-  // di scorrimento a parità di durata) resta uguale alle pagine categoria.
+  // capped at 70 posters so column height matches other category pages
   const columns = useMemo(() => {
     const seen = new Set<number>();
     const posters: string[] = [];
@@ -89,14 +81,13 @@ export function CategoryHubView({
     });
   }, [rows]);
 
-  // Immagine del banner scelta a caso al caricamento (switch tra le due).
-  // Si imposta dopo il mount per evitare mismatch di hydration.
+  // random pick after mount, avoids ssr/client mismatch
   const [bannerImg, setBannerImg] = useState("/hentai2.png");
   const [bannerLoaded, setBannerLoaded] = useState(false);
   useEffect(() => {
     setBannerImg(Math.random() < 0.5 ? "/hentai.jpg" : "/hentai2.png");
   }, []);
-  // Preload affidabile: onLoad sull'<img> non scatta se l'immagine è in cache.
+  // onLoad doesnt fire for a cached img, gotta check .complete too
   useEffect(() => {
     setBannerLoaded(false);
     const img = new window.Image();
@@ -107,14 +98,12 @@ export function CategoryHubView({
 
   const handleBack = () => {
     markRestoreIntent();
-    // Usa lo stack di navigazione custom (coerente con DetailView) per evitare
-    // loop categoria↔film quando si torna indietro più volte.
+    // custom nav stack avoids a category/film back loop
     const prev = popPreviousPath();
     if (prev) router.push(prev, { scroll: false });
     else router.push(`/${locale}`, { scroll: false });
   };
 
-  // Item in evidenza per l'hero parallax: preferisce la riga "trending".
   const featured = useMemo(() => {
     const trendingRow = rows.find((r) => r.key === "trending") ?? rows[0];
     return trendingRow?.items ?? [];
@@ -126,10 +115,8 @@ export function CategoryHubView({
       <Navigation />
 
       <main className="pb-24">
-        {/* ===== Hero (parallax oppure griglia animata) ===== */}
         <div className="relative">
-          {/* Tasto torna indietro sopra l'hero. La hero horror ha gia' il suo
-              back button interno: qui lo saltiamo per non sovrapporli. */}
+          {/* horror hero has its own back button */}
           {heroVariant !== "horror" && (
             <Button
               onClick={handleBack}
@@ -193,34 +180,27 @@ export function CategoryHubView({
           )}
         </div>
 
-        {/* Barra opaca (colore pagina) che sale a coprire il bordo inferiore
-            della hero a griglia: sta FUORI dalla hero, quindi non si deforma
-            con lo scroll e nasconde lo sfarfallio dei bordi delle colonne. */}
+        {/* hides the column-edge flicker on scroll */}
         {heroVariant === "grid" && (
           <div aria-hidden className="relative z-20 -mt-5 h-5 bg-background" />
         )}
 
-        {/* ===== Righe categorie (banner adulti inserito a metà) ===== */}
         <div className={`relative z-10 mt-6 space-y-6 md:space-y-8 ${heroVariant === "horror" ? "horror-catalog" : ""}`}>
           {rows.map((row, i) => (
             <Fragment key={row.key}>
               <ContentRow title={t(row.titleKey)} items={row.items} />
-              {/* Spazio decorativo tra tutte le righe (horror) */}
               {heroVariant === "horror" && (
                 <div className="relative -mx-4 md:-mx-8 h-14 md:h-16 overflow-hidden">
-                  {/* GIF centrata tra Top Rated e New Releases */}
                   {i === 1 && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <img src="/horror/200w.gif" alt="" className="h-[140%] w-auto" loading="lazy" />
                     </div>
                   )}
-                  {/* h1.jpg a sinistra */}
                   {i === 3 && (
                     <div className="absolute inset-0 flex items-center justify-start pl-8 md:pl-12">
                       <img src="/horror/h1.jpg" alt="" className="h-full w-auto max-w-none opacity-70" loading="lazy" />
                     </div>
                   )}
-                  {/* h2.webp a destra */}
                   {i === 6 && (
                     <div className="absolute inset-0 flex items-center justify-end pr-8 md:pr-12">
                       <img src="/horror/h2.webp" alt="" className="h-full w-auto max-w-none opacity-90" loading="lazy" />
@@ -228,19 +208,16 @@ export function CategoryHubView({
                   )}
                 </div>
               )}
-              {/* Banner adulti subito dopo la riga Seinen (solo hub anime) */}
               {showAdultBanner && row.key === "seinen" && (
                 <div className="px-4 md:px-8 py-4">
                   <Link
                     href={`/${locale}/category/hentai`}
                     className="group relative block w-full max-w-3xl mx-auto overflow-hidden rounded-2xl h-36 sm:h-44 md:h-48 shadow-xl bg-black transition-shadow duration-300 hover:shadow-2xl"
                   >
-                    {/* Skeleton shimmer mostrato finché l'immagine non è caricata */}
                     {!bannerLoaded && (
                       <div className="absolute inset-0 shimmer-wave bg-gradient-to-br from-pink-900/40 via-purple-900/30 to-black" />
                     )}
 
-                    {/* Immagine con animazione dinamica di entrata al caricamento */}
                     <img
                       src={bannerImg}
                       alt=""
@@ -252,10 +229,8 @@ export function CategoryHubView({
                       }`}
                     />
 
-                    {/* Velo scuro per la leggibilità del testo (dal basso). */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
 
-                    {/* Testo + CTA in basso */}
                     <div className="relative h-full flex flex-col justify-end pb-4 gap-2 md:gap-3 px-5 md:px-7 max-w-[70%]">
                       <h3 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)] leading-tight">
                         {t("anime.adultTitle")}

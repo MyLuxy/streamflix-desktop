@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale } from "@/lib/i18n-config";
 
-// Rileva la lingua preferita: cookie -> Accept-Language -> default.
+// cookie, then accept-language header, then default
 function detectLocale(req: NextRequest): string {
   const cookie = req.cookies.get("NEXT_LOCALE")?.value;
   if (cookie && (locales as readonly string[]).includes(cookie)) return cookie;
@@ -22,20 +22,14 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const seg = pathname.split("/")[1];
 
-  // Se l'URL ha già un prefisso lingua valido, prosegui senza modifiche.
   if ((locales as readonly string[]).includes(seg)) {
     return NextResponse.next();
   }
 
-  // Altrimenti redirect verso /{locale}{pathname}.
   const locale = detectLocale(req);
   const path = `/${locale}${pathname === "/" ? "" : pathname}`;
 
-  // Dietro un proxy/tunnel (es. ngrok) host e protocollo del server locale sono
-  // http://localhost: se li usassimo rimanderemmo il browser su localhost.
-  // Ricostruiamo l'URL assoluto con host/protocollo visti dal client (header
-  // inoltrati), con fallback su quelli del server. Stringa pulita: evitiamo di
-  // mutare l'oggetto NextURL, che produrrebbe una Location malformata.
+  // behind ngrok etc the server only sees localhost, rebuild from forwarded headers instead
   const proto = (req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", ""))
     .split(",")[0]
     .trim();
@@ -47,7 +41,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Esclude _next, api e qualsiasi file con estensione (sitemap.xml, robots.txt,
-  // immagini, ecc.): quelle rotte non devono avere prefisso lingua.
+  // skip _next, api, and anything with a file extension
   matcher: ["/((?!_next|api|.*\\..*).*)"],
 };

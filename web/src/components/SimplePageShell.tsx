@@ -2,8 +2,6 @@
 
 import { Navigation } from "@/components/Navigation";
 
-// Shell comune per le pagine secondarie (ricerca/watchlist/impostazioni):
-// navbar fissa + contenuto con padding-top per non finire sotto la navbar.
 export function SimplePageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">

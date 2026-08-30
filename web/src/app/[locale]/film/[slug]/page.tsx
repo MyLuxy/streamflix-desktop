@@ -16,7 +16,6 @@ export const revalidate = 86400; // 24h
 
 type Params = { params: Promise<{ locale: string; slug: string }> };
 
-// Suffisso SEO localizzato per i titoli
 const titleSuffix: Record<Locale, string> = {
   en: "watch online",
   it: "streaming ITA",
@@ -83,7 +82,6 @@ export default async function FilmPage({ params }: Params) {
   if (!loaded) notFound();
   const { data, provider, realId } = loaded;
 
-  // Redirect 308 allo slug canonico (un solo URL indicizzabile per lingua)
   const canonical = buildProviderSlug(provider, realId, data.original_title || data.title);
   if (slug !== canonical) permanentRedirect(`/${locale}/film/${canonical}`);
 
@@ -104,10 +102,7 @@ export default async function FilmPage({ params }: Params) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }}
       />
       <DetailView
-        // forza il remount cambiando titolo: playing/startSeason/startEpisode sono useState
-        // inizializzati dall'URL/dal progress solo al primo mount, e senza questa key React
-        // riusa la stessa istanza tra due film diversi (stessa route /[locale]/film/[slug]),
-        // lasciando lo stato (quindi anche il minutaggio di resume) di quello precedente
+        // key forces remount so state doesnt leak between films on this same route
         key={`${provider}:${realId}`}
         data={data}
         mediaType="movie"

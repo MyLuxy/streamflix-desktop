@@ -1,9 +1,4 @@
-// Every Movie/TVShow/MediaItem object built from the StreamFlix backend (see streamflix.ts)
-// carries two extra, TMDB-shape-invisible properties: which provider it came from, and its real
-// (opaque, provider-scoped) string id. `links.ts` reads these to build a URL that carries
-// provider+id directly instead of relying on an unrecoverable numeric hash - see slug.ts for why.
-// A plain property assignment survives the `as MediaItem` cast fine since TS structural typing
-// doesn't strip extra fields off the underlying object, just off the *type* used to view it.
+// stashed on every item so links.ts can build a url with provider+realId, not just a numeric hash
 export interface ProviderTag {
   __provider?: string;
   __realId?: string;

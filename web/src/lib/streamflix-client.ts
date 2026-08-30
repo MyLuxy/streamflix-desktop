@@ -1,7 +1,4 @@
-// client-safe mirror of streamflix.ts's toMediaItem mapping - streamflix.ts itself is
-// "server-only" (imports next/headers-adjacent server APIs indirectly via other server modules
-// in this codebase's conventions), so anything that needs to map a StreamFlix backend item into
-// the TMDB-shaped types from a browser context (search, live UI) goes through this instead.
+// client-safe mirror of streamflix.ts's toMediaItem, that one is server-only
 import { tagProvider } from "@/lib/provider-tag";
 import type { Movie, TVShow, MediaItem } from "@/lib/types";
 import type { StreamflixSearchItem } from "@/hooks/useStreamflix";

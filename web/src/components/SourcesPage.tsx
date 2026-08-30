@@ -21,14 +21,12 @@ export function SourcesPage() {
   const [newName, setNewName] = useState("");
   const [newUrl, setNewUrl] = useState("");
 
-  // Load sources from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         setSources(JSON.parse(saved));
       } catch {
-        // Initialize with YouTube trailer as default
         const defaultSources: StreamingSource[] = [
           {
             id: "yt-trailer",
@@ -42,7 +40,6 @@ export function SourcesPage() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSources));
       }
     } else {
-      // Initialize with YouTube trailer as default
       const defaultSources: StreamingSource[] = [
         {
           id: "yt-trailer",
@@ -57,13 +54,11 @@ export function SourcesPage() {
     }
   }, []);
 
-  // Save sources whenever they change
   const saveSources = (newSources: StreamingSource[]) => {
     setSources(newSources);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newSources));
   };
 
-  // Add new source
   const handleAddSource = () => {
     const trimmedName = newName.trim();
     const trimmedUrl = newUrl.trim();
@@ -73,7 +68,6 @@ export function SourcesPage() {
       return;
     }
 
-    // Basic URL validation
     try {
       new URL(trimmedUrl);
     } catch {
@@ -95,7 +89,6 @@ export function SourcesPage() {
     toast.success(`${trimmedName} added successfully`);
   };
 
-  // Remove source
   const handleRemoveSource = (id: string) => {
     if (id === "yt-trailer") {
       toast.error("Cannot remove YouTube Trailer (default source)");
@@ -105,7 +98,6 @@ export function SourcesPage() {
     toast.success("Source removed");
   };
 
-  // Toggle source enabled/disabled
   const handleToggleSource = (id: string) => {
     if (id === "yt-trailer") {
       toast.error("Cannot disable YouTube Trailer (default source)");
@@ -121,7 +113,6 @@ export function SourcesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/95 pt-20 md:pt-24 pb-24">
       <div className="max-w-5xl mx-auto px-4 md:px-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-3 gradient-featured bg-clip-text text-transparent">
             Streaming Sources
@@ -131,7 +122,6 @@ export function SourcesPage() {
           </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 gap-4 mb-8">
           <Card className="p-4 bg-card/50 backdrop-blur">
             <p className="text-sm text-muted-foreground mb-1">Total Sources</p>
@@ -143,7 +133,6 @@ export function SourcesPage() {
           </Card>
         </div>
 
-        {/* Add New Source Form */}
         <Card className="p-6 mb-8 bg-card/50 backdrop-blur border-primary/20">
           <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
             <Plus className="w-5 h-5 text-primary" />
@@ -190,7 +179,6 @@ export function SourcesPage() {
           </div>
         </Card>
 
-        {/* Sources List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-semibold">Your Sources</h2>
@@ -220,7 +208,6 @@ export function SourcesPage() {
                     }`}
                   >
                     <div className="flex items-center gap-4">
-                      {/* Toggle */}
                       <button
                         onClick={() => handleToggleSource(source.id)}
                         disabled={source.id === "yt-trailer"}
@@ -235,7 +222,6 @@ export function SourcesPage() {
                         )}
                       </button>
 
-                      {/* Icon */}
                       <div
                         className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                           source.enabled ? "bg-primary/20" : "bg-muted"
@@ -248,7 +234,6 @@ export function SourcesPage() {
                         />
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg text-foreground mb-1">
                           {source.name}
@@ -264,7 +249,6 @@ export function SourcesPage() {
                         </div>
                       </div>
 
-                      {/* Delete */}
                       <Button
                         variant="ghost"
                         size="icon"

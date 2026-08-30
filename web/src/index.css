@@ -2,11 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ========================================
-   CUSTOM SCROLLBAR STYLES - Theme Adaptive
-   ======================================== */
-
-/* Scrollbar nascosta globalmente — sito pulito, niente barre laterali */
 * {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -18,7 +13,6 @@
 
 @layer base {
   :root {
-    /* Neutral light-on-dark, pronto per rebranding */
     --background: 0 0% 4%;
     --foreground: 0 0% 98%;
 
@@ -49,7 +43,6 @@
 
     --radius: 0.75rem;
 
-    /* Custom streaming app tokens */
     --gradient-hero: linear-gradient(180deg, transparent 0%, hsl(0 0% 4%) 100%);
     --gradient-card: linear-gradient(135deg, hsl(0 0% 100% / 0.08) 0%, transparent 50%);
     --gradient-featured: linear-gradient(90deg, hsl(0 0% 100%) 0%, hsl(0 0% 70%) 100%);
@@ -67,7 +60,6 @@
   }
 
   .light {
-    /* Tema chiaro crema — caldo e riposante */
     --background: 42 38% 94%;
     --foreground: 30 12% 16%;
 
@@ -119,8 +111,7 @@
   }
 
   html {
-    /* Niente rimbalzo elastico / pull-to-refresh: in cima alla pagina il
-       gesto fa "staccare" la sfumatura della hero scoprendo la griglia. */
+    /* stops pull to refresh from peeling the hero gradient back */
     overscroll-behavior-y: none;
   }
 
@@ -130,7 +121,6 @@
     overscroll-behavior-y: none;
   }
 
-  /* Hide scrollbar for cleaner look */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -140,13 +130,8 @@
   }
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Override tema chiaro — fuori da @layer per vincere sulle utility
-   Tailwind. Il tema scuro non è interessato (.light richiesto).
-   ────────────────────────────────────────────────────────────── */
+/* light theme overrides live outside @layer to beat tailwind utilities */
 
-/* Hero homepage: solo una sfumatura crema in basso per coprire il testo
-   "Continua a Guardare", immagine viva per il resto. */
 .light .hero-fade-top {
   background-image: linear-gradient(
     to top,
@@ -164,20 +149,15 @@
   );
 }
 
-/* White theme: hero a griglia animata (pagine categoria).
-   Sfondo crema come il resto della pagina invece che nero, niente velo
-   scuro: solo un filo di velo chiaro per dare uniformità. */
 .light .hero-grid {
   background-color: hsl(var(--background));
 }
-/* Velo scuro leggero (niente lavata bianca) per il contrasto del titolo. */
 .light .hero-grid-dim {
   background-color: hsl(0 0% 0% / 0.42);
 }
 .light .hero-grid-topdim {
   display: none;
 }
-/* Niente raccordo crema sul fondo: solo un filo di scuro (no banda bianca). */
 .light .hero-grid-blend {
   background-image: linear-gradient(
     to top,
@@ -185,8 +165,6 @@
     transparent 30%
   );
 }
-/* Tagline italic: bianca piena con ombra marcata (il bianco/80 risultava
-   grigio e poco leggibile sulle locandine chiare). */
 .light .hero-grid-tagline {
   color: #fff;
   opacity: 1;
@@ -196,14 +174,8 @@
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.85), 0 0 4px rgba(0, 0, 0, 0.6);
 }
 
-/* ===== Tunnel hero (pagina trending-movies) =====
-   Le locandine volano verso l'utente sull'asse Z (translateZ) dentro una
-   prospettiva, svanendo appena superano l'inquadratura: tunnel infinito.
-   Il testo centrale è un fratello fuori dal contesto 3D, quindi resta
-   sempre stabile e davanti alle card. */
+/* cards fly on translateZ in a 3d tunnel, title sits outside that context so it stays put */
 .tunnel-section {
-  /* Profondità monocromatica: un solo blu notte che dal centro, appena più
-     chiaro, sprofonda nel nero ai bordi — punto di fuga del tunnel. */
   background:
     radial-gradient(
         130% 100% at 50% 46%,
@@ -214,8 +186,6 @@
       );
   isolation: isolate;
 }
-/* Unico alone soffuso al centro che "respira" molto lentamente: dà vita allo
-   sfondo senza colori vistosi. */
 .tunnel-section::after {
   content: "";
   position: absolute;
@@ -229,7 +199,6 @@
   );
   animation: tunnel-breathe 12s ease-in-out infinite;
 }
-/* Le card devono restare davanti allo sfondo. */
 .tunnel-stage {
   z-index: 1;
 }
@@ -250,24 +219,16 @@
   }
 }
 
-/* ==============================================
-   HORROR HERO — immersione totale, sempre scura
-   ============================================== */
-
 .horror-hero {
   background: linear-gradient(135deg, #0a0000 0%, #1a0000 30%, #000000 70%, #0a0000 100%);
 }
-/* Niente light theme dentro la hero horror */
+/* ignores light theme */
 .horror-hero,
 .horror-hero * {
   color-scheme: dark;
 }
 
-/* ── TENDINA GLITCH (entrata pagina) ──────────
-   Schermo nero totale, poi si "rompe" con
-   interferenza VHS e rivela la scena.          */
-/* Curtain full-page: copre tutto lo schermo (anche navbar).
-   position: fixed cosí resta attaccato al viewport. */
+/* fixed so it stays pinned over the navbar during the glitch reveal */
 .horror-curtain-full {
   position: fixed;
   inset: 0;
@@ -286,8 +247,6 @@
   100% { opacity: 0; }
 }
 
-/* ── GRANA PELLICOLA ─────────────────────────
-     Pattern a scacchiera 2px che si sposta.     */
 .horror-grain {
   position: absolute;
   inset: 0;
@@ -306,9 +265,6 @@
   75%  { transform: translate(-2px, 0); }
 }
 
-/* ── NEBBIA LENTA ────────────────────────────
-     Tre punti di foschia che si muovono
-     lentamente, danno profondità.               */
 .horror-fog {
   position: absolute;
   inset: 0;
@@ -336,8 +292,6 @@
   }
 }
 
-/* ── VIGNETTA PULSANTE ───────────────────────
-     Batte come un cuore nella pagina.           */
 .horror-vignette {
   position: absolute;
   inset: 0;
@@ -359,7 +313,6 @@
 }
 
 
-/* ── SUPPORTO MOBILE: animazioni piú leggere ── */
 @media (max-width: 768px) {
   .horror-curtain-full {
     animation-duration: 1s;
@@ -379,10 +332,6 @@
   }
 }
 
-/* ==============================================
-   CATALOGO HORROR — hover card desaturate
-   ============================================== */
-/* Pagina horror: tutto nero, anche in white theme */
 .horror-page,
 .horror-page .bg-background,
 .horror-page .glass {
@@ -408,7 +357,6 @@
 .horror-page .glass {
   border-bottom: none !important;
 }
-/* Card hover horror */
 .horror-catalog .group img {
   transition: filter 0.45s ease;
   filter: saturate(0.85) brightness(0.95);
@@ -416,15 +364,13 @@
 .horror-catalog .group:hover img {
   filter: saturate(0.06) brightness(0.5) contrast(1.35);
 }
-/* Categorie catalogo → rosso sangue. Film hero → bianco (come prima). */
 .horror-catalog h2 {
   color: #d42020 !important;
 }
-/* Niente hover bianco sulle card nella horror page (white theme fix) */
 .horror-catalog .group:hover .bg-gradient-to-t {
   opacity: 0 !important;
 }
-/* Back button horror: sempre stile dark theme, mai sovrascritto */
+/* always dark styling here, never let other overrides win */
 .horror-page .back-btn {
   background-color: hsl(0 0% 3% / 0.6) !important;
   backdrop-filter: blur(4px) !important;
@@ -444,8 +390,7 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  /* Su mobile le card riempiono già i lati; su desktop lo schermo è più largo
-     quindi allarghiamo la dispersione orizzontale per non lasciare i lati vuoti. */
+  /* wider on desktop so cards dont bunch up in the middle */
   --spread-x: 1;
   width: clamp(96px, 11vw, 150px);
   aspect-ratio: 2 / 3;
@@ -483,7 +428,6 @@
       rotateZ(var(--rot));
   }
 }
-/* Desktop: schermo largo → card più sparpagliate sui lati. */
 @media (min-width: 768px) {
   .tunnel-card {
     --spread-x: 1.85;
@@ -495,10 +439,6 @@
   }
 }
 
-/* White theme: hero parallax (trending-tv). Via la lavata bianca e la
-   sfocatura: l'immagine resta visibile. Il contrasto per il testo bianco è
-   dato da un velo scuro leggero, e un filo di crema in basso raccorda la
-   hero col fondo pagina. */
 .light .parallax-dim {
   background-color: hsl(0 0% 0% / 0.28);
   backdrop-filter: none;
@@ -528,7 +468,6 @@
     transparent 22%
   );
 }
-/* Pallini carosello inattivi: scuri così si vedono sul chiaro. */
 .light .parallax-dot-idle {
   background-color: hsl(var(--foreground) / 0.35);
 }
@@ -536,13 +475,10 @@
   background-color: hsl(var(--foreground) / 0.6);
 }
 
-/* Contenuti homepage spostati un po' più in basso (meno sovrapposizione
-   con l'hero) — la riga "Continua a Guardare" e le card scendono insieme. */
 .light .home-content {
   margin-top: 0.5rem;
 }
 
-/* Pagine contenuto: sfumatura crema sul banner appena accennata. */
 .light .detail-backdrop-fade {
   background-image: linear-gradient(
     to top,
@@ -551,8 +487,6 @@
   );
 }
 
-/* Pagine contenuto: contenuto (poster + scritte) spostato più in basso
-   così il testo non finisce sopra il banner. */
 .light .detail-info {
   margin-top: -1rem;
 }
@@ -562,7 +496,6 @@
   }
 }
 
-/* Poster un po' più grande su mobile (desktop invariato). */
 .light .detail-poster {
   width: 8rem;
 }
@@ -577,7 +510,6 @@
   }
 }
 
-/* Tasto "Torna indietro" come il tasto Riproduci (primary). */
 .light .back-btn {
   background-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
@@ -586,7 +518,6 @@
   background-color: hsl(var(--primary) / 0.9);
 }
 
-/* Barra mark-progress e tooltip scuri per essere visibili sul crema. */
 .light .mp-track {
   background-color: hsl(30 12% 78%);
 }
@@ -600,7 +531,6 @@
   color: hsl(var(--foreground));
 }
 
-/* Fiamma che si "accende" all'hover del pulsante. */
 @keyframes flame-flicker {
   0%, 100% { transform: scale(1.18) rotate(-3deg); opacity: 1; }
   25%      { transform: scale(1.32) rotate(3deg); opacity: 0.92; }
@@ -608,8 +538,6 @@
   75%      { transform: scale(1.28) rotate(2deg); opacity: 0.96; }
 }
 
-/* Banner sezione adulti: pattern colorato vivace ma non troppo carico,
-   così il testo sopra resta leggibile. */
 .anime-adult-pattern {
   background:
     radial-gradient(circle at 18% 28%, hsl(322 92% 56% / 0.85), transparent 46%),
@@ -618,22 +546,13 @@
     conic-gradient(from 210deg at 55% 50%, hsl(282 82% 42%), hsl(330 82% 48%), hsl(255 82% 44%), hsl(282 82% 42%));
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Hero griglia animata (stile Crunchyroll/Netflix)
-   Colonne di locandine che scorrono in loop infinito perfetto.
-   Solo transform: translateY() per i 60fps anche su mobile.
-   ────────────────────────────────────────────────────────────── */
-
-/* Inclinazione prospettica: griglia ruotata e scalata per riempire
-   l'area senza mostrare i bordi. */
+/* translateY only, keeps this at 60fps on mobile */
 .hero-grid-tilt {
   transform: rotate(-12deg) scale(1.55);
   transform-origin: center center;
 }
 
-/* Placeholder scuro per le locandine della griglia hero: finché
-   l'immagine non carica, mostra questo colore anziché il trasparente
-   (che lascia intravedere il velo nero/grigio dietro e crea flash). */
+/* placeholder color stops a flash before the poster loads */
 .hero-col img {
   background-color: hsl(228 5% 8%);
 }
@@ -649,8 +568,7 @@
   will-change: transform;
 }
 
-/* Le colonne pari salgono, le dispari scendono. Il contenuto è duplicato
-   (x2) quindi tradurre del -50% genera un loop invisibile. */
+/* content is duplicated 2x so -50% translate loops seamlessly */
 .hero-col-track.hero-up {
   animation-name: hero-scroll-up;
   animation-timing-function: linear;
@@ -671,7 +589,6 @@
   to { transform: translateY(0); }
 }
 
-/* Rispetta chi preferisce meno movimento. */
 @media (prefers-reduced-motion: reduce) {
   .hero-col-track.hero-up,
   .hero-col-track.hero-down {
@@ -681,7 +598,7 @@
 
 @layer utilities {
   .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-card border border-border/50;
   }
 
   .gradient-hero {
@@ -708,12 +625,10 @@
     text-wrap: balance;
   }
 
-  /* Smooth image loading */
   .img-loading {
     @apply animate-pulse bg-muted;
   }
 
-  /* Mobile modal fixes - ultra compact */
   @media (max-width: 640px) {
     .modal-content-mobile {
       padding-left: 0.5rem !important;
@@ -739,25 +654,21 @@
       display: block !important;
     }
 
-    /* Force all text inside modal to be smaller and wrap */
     .modal-content-mobile * {
       max-width: 100%;
       overflow-wrap: break-word;
       word-wrap: break-word;
     }
 
-    /* Seasons grid - smaller cards and reduced gap */
     .modal-content-mobile .grid {
       gap: 0.25rem !important;
     }
 
-    /* Season cards - ultra compact horizontal layout */
     .modal-season-card {
       padding: 0.25rem 0.5rem !important;
       min-height: auto !important;
       height: auto !important;
 
-      /* Shimmer Animation */
 @keyframes shimmer-wave {
   0% {
     transform: translateX(-100%);
@@ -788,7 +699,6 @@
   animation: shimmer-wave 1.5s infinite;
 }
 
-/* Staggered animations */
 @keyframes pulse-subtle {
   0%, 100% {
     opacity: 0.6;
@@ -802,7 +712,6 @@
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
-/* Smooth content transitions */
 .fade-in-up {
   animation: fadeInUp 0.5s ease-out;
 }
@@ -827,7 +736,7 @@
   animation: loading-bar 1.2s ease-in-out infinite;
 }
 
-/* Sweep luminoso neutro per gli skeleton di caricamento (es. picker episodi) */
+/* loading skeleton shimmer, episode picker etc */
 @keyframes neutral-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
@@ -845,10 +754,7 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CATEGORY BUTTONS — card grandi con immagine di sfondo
-   ═══════════════════════════════════════════════════════════ */
-/* Sweep luminoso per i loader hentai (player + skeleton) */
+/* shimmer for hentai loaders */
 @keyframes hentai-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
@@ -863,7 +769,6 @@
   animation: hentai-shimmer 1.4s ease-in-out infinite;
 }
 
-/* Scrollbar sottile per il cloud di chip del filtro generi */
 .hentai-chip-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(236, 72, 153, 0.4) transparent;
@@ -879,7 +784,7 @@
   background: transparent;
 }
 
-/* Fade-in hero categoria — maschera il caricamento progressivo delle card */
+/* masks progressive card loading on category hero */
 @keyframes hero-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -888,7 +793,6 @@
   animation: hero-fade-in 1s ease-out both;
 }
 
-/* Wrapper: popup d'ingresso al caricamento pagina */
 .cat-pop {
   opacity: 0;
   animation: cat-popup 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -898,7 +802,6 @@
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* Card: ingrandimento all'hover (transform su elemento diverso dal popup) */
 .cat-card {
   transition: transform 0.3s ease;
 }
@@ -907,5 +810,36 @@
 }
 .cat-card:active {
   transform: scale(0.97);
+}
+
+/* from uiverse.io by aryamitra06 */
+.page-loader {
+  display: flex;
+  align-items: center;
+}
+.page-loader-bar {
+  display: inline-block;
+  width: 5px;
+  height: 36px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  animation: page-loader-scale 1s linear infinite;
+}
+.page-loader-bar:nth-child(2) {
+  height: 63px;
+  margin: 0 9px;
+  animation-delay: 0.25s;
+}
+.page-loader-bar:nth-child(3) {
+  animation-delay: 0.5s;
+}
+@keyframes page-loader-scale {
+  20% {
+    background-color: #ffff;
+    transform: scaleY(1.5);
+  }
+  40% {
+    transform: scaleY(1);
+  }
 }
 

@@ -22,7 +22,6 @@ export function SearchView() {
 
   return (
     <SimplePageShell>
-      {/* Suspense richiesto da Next per useSearchParams in SearchPage */}
       <Suspense fallback={null}>
         <SearchPage onItemClick={handleClick} />
       </Suspense>

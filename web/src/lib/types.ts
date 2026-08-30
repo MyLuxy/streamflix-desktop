@@ -135,10 +135,7 @@ export interface WatchlistItem {
   mediaType: "movie" | "tv" | "hentai";
   title: string;
   posterPath: string | null;
-  /** Per gli hentai: slug hentaimama, usato per riaprire il titolo. */
   slug?: string;
-  /** Per film/serie da provider: usati per instradare correttamente (vedi slug.ts) e per
-   *  scoping/filtro della watchlist per provider attivo. Assenti per gli hentai. */
   provider?: string;
   realId?: string;
   addedAt: number;

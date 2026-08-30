@@ -33,19 +33,19 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
   const locale = useLocale();
   const router = useRouter();
 
-  // Primi 5 film della riga trending
+  // first 5 items from the trending row
   const featured = useMemo(
     () => (rows[0]?.items ?? []).slice(0, 5) as (Movie & TVShow)[],
     [rows]
   );
   const [index, setIndex] = useState(0);
   const current = featured[index];
-  // Ingresso hero: sfondo neutro finché il backdrop non è caricato, poi rivela.
+  // hero entrance: neutral background until the backdrop loads, then reveal
   const [imgLoaded, setImgLoaded] = useState(false);
   const { revealed, instant } = useHeroEntrance(imgLoaded);
 
-  // Autoplay carosello. index tra le dipendenze: ad ogni cambio (anche manuale
-  // via pallini) il timer si azzera, così lo slide successivo parte da capo.
+  // carousel autoplay. index is in the deps so any change (manual dot click
+  // included) resets the timer, that way the next slide always gets a full run
   useEffect(() => {
     if (featured.length <= 1) return;
     const id = setInterval(
@@ -55,7 +55,7 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
     return () => clearInterval(id);
   }, [featured.length, index]);
 
-  // ── 3D parallasse MOLTO lento ──
+  // 3D parallax, kept very slow
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const sx = useSpring(mx, { stiffness: 70, damping: 20, mass: 0.6 });
@@ -105,12 +105,11 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
 
   return (
     <section className={`horror-hero relative w-full h-[80vh] min-h-[520px] md:h-[90vh] overflow-hidden bg-black select-none ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}>
-      {/* ===== GRANA + NEBBIA + VIGNETTA ===== */}
       <div className="horror-grain" />
       <div className="horror-fog" />
       <div className="horror-vignette" />
 
-      {/* ===== BACKDROP (sfondo corrente) ===== */}
+      {/* current backdrop */}
       <AnimatePresence mode="popLayout" initial={!instant}>
         {backdropUrl && (
           <motion.img
@@ -127,11 +126,9 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
         )}
       </AnimatePresence>
 
-      {/* Overlay scuri */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/75 pointer-events-none" />
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.35) 45%, transparent 68%)' }} />
 
-      {/* ===== TASTO INDIETRO ===== */}
       <button
         onClick={handleBack}
         className="back-btn absolute top-3 left-3 z-40 md:top-28 md:left-6 h-9 md:h-11 px-3 md:px-5 text-sm md:text-base gap-1.5 bg-background/60 backdrop-blur-sm hover:bg-background/80 rounded-lg inline-flex items-center"
@@ -140,12 +137,9 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
         <span className="hidden md:inline">{t("content.goBack")}</span>
       </button>
 
-      {/* ===== CONTENUTO PRINCIPALE ===== */}
       <div className="relative z-20 h-full max-w-7xl mx-auto px-6 md:px-10 flex items-center">
         <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-6 md:gap-12 items-end md:items-center w-full">
-          {/* ── TESTO (TITOLO + DESCRIZIONE FILM CORRENTE) ── */}
           <div className="pb-12 md:pb-0">
-            {/* Titolo categoria "HORROR" con sangue che sgorga */}
             <AnimatePresence mode="wait" initial={!instant}>
               <motion.div
                 key="title"
@@ -163,7 +157,7 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
               </motion.div>
             </AnimatePresence>
 
-            {/* Info film corrente (cambia ad ogni slide) */}
+            {/* current item info, changes every slide */}
             <AnimatePresence mode="wait" initial={!instant}>
               <motion.div
                 key={current.id}
@@ -220,7 +214,6 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
             </AnimatePresence>
           </div>
 
-          {/* ── LOCANDINA 3D ── */}
           <motion.div
             key={current.id}
             initial={instant ? false : { opacity: 0, scale: 0.85, rotateY: 10 }}
@@ -254,7 +247,6 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
         </div>
       </div>
 
-      {/* ===== PALLINI CAROSELLO ===== */}
       {featured.length > 1 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
           {featured.map((_, i) => (

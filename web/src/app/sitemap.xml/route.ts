@@ -3,8 +3,6 @@ import { CHUNKS_PER_TYPE, SITEMAP_TYPES } from "@/lib/sitemap-config";
 
 export const revalidate = 86400; // 24h
 
-// Sitemap index: elenca la sitemap delle pagine statiche + i blocchi per
-// film e serie (catalogo completo paginato da TMDB).
 export async function GET() {
   const now = new Date().toISOString();
   const sitemaps: string[] = [];

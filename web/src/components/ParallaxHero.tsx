@@ -29,27 +29,24 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
   const { t } = useTranslation();
   const locale = useLocale();
   const [index, setIndex] = useState(0);
-  // Ingresso hero: sfondo neutro finché il backdrop non è caricato, poi rivela.
+  // stays hidden until the backdrop actually loads
   const [imgLoaded, setImgLoaded] = useState(false);
   const { revealed, instant } = useHeroEntrance(imgLoaded);
 
-  // Posizione del mouse SULLA CARD, normalizzata (-0.5 … 0.5). A riposo = 0.
+  // -0.5 to 0.5, mouse pos over the card
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const sx = useSpring(mx, { stiffness: 70, damping: 20, mass: 0.6 });
   const sy = useSpring(my, { stiffness: 70, damping: 20, mass: 0.6 });
 
-  // Tilt 3D che reagisce alla posizione del cursore sulla card (non traslazione).
   const cardRotateY = useTransform(sx, [-0.5, 0.5], [-22, 22]);
   const cardRotateX = useTransform(sy, [-0.5, 0.5], [16, -16]);
 
-  // Ombra direzionale dinamica: si sposta in senso opposto al cursore (come
-  // se la luce venisse dal puntatore) e si allunga col tilt della card.
+  // shadow moves opposite the cursor, like light coming from the pointer
   const shadowX = useTransform(sx, [-0.5, 0.5], [55, -55]);
   const shadowY = useTransform(sy, [-0.5, 0.5], [55, -55]);
   const cardShadow = useMotionTemplate`${shadowX}px ${shadowY}px 60px rgba(0,0,0,0.55)`;
 
-  // Movimento del mouse calcolato rispetto alla CARD (passato sul wrapper card).
   const handleCardMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -66,8 +63,7 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
   const featured = items.filter((i) => i.backdrop_path && i.poster_path).slice(0, 6);
   const total = featured.length;
 
-  // Auto-avanzamento del carosello. index tra le dipendenze: ad ogni cambio
-  // (anche manuale via pallini) il timer si azzera e riparte da capo.
+  // index in deps so a manual dot click resets the timer too
   useEffect(() => {
     if (total <= 1) return;
     const id = setInterval(() => setIndex((i) => (i + 1) % total), AUTOPLAY_MS);
@@ -92,7 +88,6 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
       className={`relative w-full h-[78vh] min-h-[480px] md:h-[86vh] overflow-hidden bg-black ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}
       style={{ perspective: "1300px" }}
     >
-      {/* ===== Sfondo statico (wallpaper HD scurito) ===== */}
       <AnimatePresence mode="popLayout" initial={!instant}>
         <motion.img
           key={current.id}
@@ -107,16 +102,12 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
         />
       </AnimatePresence>
 
-      {/* Oscuramento (niente blur: lo sfondo resta nitido come la hero homepage) */}
       <div className="parallax-dim absolute inset-0 bg-black/40" />
-      {/* Mobile: sfumatura dal basso (stile hero homepage). Desktop: da sinistra. */}
       <div className="parallax-fade absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent md:bg-gradient-to-r md:from-background md:via-background/70 md:to-transparent" />
       <div className="parallax-fade-top absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
-      {/* ============ DESKTOP: testo a sx, card 3D a dx ============ */}
       <div className="relative z-10 h-full max-w-7xl mx-auto px-5 md:px-10 hidden md:flex items-center">
         <div className="grid grid-cols-[1.25fr_1fr] gap-10 items-center w-full">
-          {/* Testo */}
           <AnimatePresence mode="wait" initial={!instant}>
             <motion.div
               key={current.id}
@@ -164,7 +155,6 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
             </motion.div>
           </AnimatePresence>
 
-          {/* Card 3D: si inclina solo quando il cursore ci passa sopra */}
           <div
             className="flex justify-center"
             style={{ perspective: "1000px" }}
@@ -198,7 +188,6 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
         </div>
       </div>
 
-      {/* ============ MOBILE: hero stile homepage (testo in basso) ============ */}
       <div className="relative z-10 h-full flex md:hidden flex-col justify-end px-5 pb-16">
         <AnimatePresence mode="wait" initial={!instant}>
           <motion.div
@@ -238,7 +227,6 @@ export function ParallaxHero({ items, mediaType }: ParallaxHeroProps) {
         </AnimatePresence>
       </div>
 
-      {/* ===== Indicatori carosello (niente frecce) ===== */}
       {total > 1 && (
         <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
           {featured.map((_, i) => (

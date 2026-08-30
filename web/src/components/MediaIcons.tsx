@@ -1,13 +1,6 @@
-// Icone play/pausa/±10s da vidstack/icons (github.com/vidstack/icons, licenza MIT) - path puri,
-// nessuno stroke coinvolto quindi nessun rischio di bordi arrotondati o "pixelati" dovuti
-// all'anti-aliasing di un contorno; il ±10 ha i numeri già incisi nel path stesso invece che
-// sovrapposti a parte, niente problemi di centratura. Condivise tra HlsPlayer (controlli player)
-// e DetailView (tasto "Riproduci" della pagina info) così il play è identico ovunque compaia.
+// icons from vidstack/icons (MIT), shared between HlsPlayer and DetailView so play looks the same everywhere
 
-// il path ufficiale ha 3 minuscole curve arrotondate sugli spigoli (compresa la punta) - a
-// dimensioni grandi (112-160px) diventano ben visibili e rendono male, oltre a non essere quello
-// che si vuole qui (spigoli vivi, coerente col Pause che è tutto rette nette). Stessa sagoma/
-// proporzioni dell'originale, solo angoli a spigolo vivo invece che arrotondati.
+// custom sharp corners, official path has rounded tips that look bad at big sizes
 export function PlayIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="currentColor" className={className}>
@@ -16,7 +9,6 @@ export function PlayIcon({ className }: { className?: string }) {
   );
 }
 
-// "next" da vidstack/icons - usata per il pulsante "prossimo episodio"
 export function NextIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" fill="currentColor" className={className}>
@@ -35,8 +27,7 @@ export function PauseIcon({ className }: { className?: string }) {
   );
 }
 
-// il path del "10" differisce di 0.0001 unità tra i due file ufficiali (arrotondamento minimo
-// nell'export originale) - tenuti separati per restare fedeli byte-per-byte a ciascun file
+// kept the two paths separate, they differ by a tiny rounding fraction in the original files
 export function SkipIcon({ direction, className }: { direction: "back" | "forward"; className?: string }) {
   if (direction === "back") {
     return (

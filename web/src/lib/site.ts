@@ -1,5 +1,4 @@
-// Configurazione globale del sito (SEO / metadati).
-// SITE_URL va impostato in produzione via env NEXT_PUBLIC_SITE_URL (es. https://tuodominio.to)
+// set NEXT_PUBLIC_SITE_URL in prod
 export const SITE_NAME = "StreamFlix";
 
 export const SITE_URL =

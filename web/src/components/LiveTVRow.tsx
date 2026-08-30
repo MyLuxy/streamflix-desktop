@@ -34,7 +34,6 @@ export function LiveTVRow() {
   };
 
   const handleChannelClick = (channel: LiveChannel) => {
-    // Open in new tab
     window.open(channel.url, '_blank', 'noopener,noreferrer');
   };
 
@@ -47,7 +46,6 @@ export function LiveTVRow() {
         Live TV
       </h2>
 
-      {/* Left Arrow */}
       {showLeftArrow && (
         <Button
           variant="ghost"
@@ -59,7 +57,6 @@ export function LiveTVRow() {
         </Button>
       )}
 
-      {/* Scrollable Container */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -74,18 +71,15 @@ export function LiveTVRow() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.98 }}
           >
-            {/* Logo Background */}
             <div className="absolute inset-0 flex items-center justify-center p-4">
               <img
                 src={channel.logo}
                 alt={channel.name}
                 className="w-full h-full object-contain filter brightness-90 group-hover/card:brightness-100 transition-all"
                 onError={(e) => {
-                  // Fallback if logo fails to load
                   e.currentTarget.style.display = 'none';
                 }}
               />
-              {/* Fallback text if image fails */}
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100">
                 <span className="text-sm font-semibold text-foreground text-center px-2">
                   {channel.name}
@@ -93,16 +87,13 @@ export function LiveTVRow() {
               </div>
             </div>
 
-            {/* Gradient Overlay on Hover */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity" />
 
-            {/* Live Badge */}
             <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
               LIVE
             </div>
 
-            {/* Channel Name on Hover */}
             <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity">
               <p className="text-xs font-semibold text-white text-center truncate">
                 {channel.name}
@@ -112,7 +103,6 @@ export function LiveTVRow() {
               </p>
             </div>
 
-            {/* Play Icon Overlay */}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
               <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
                 <Tv className="w-6 h-6 text-white" />
@@ -122,7 +112,6 @@ export function LiveTVRow() {
         ))}
       </div>
 
-      {/* Right Arrow */}
       {showRightArrow && (
         <Button
           variant="ghost"

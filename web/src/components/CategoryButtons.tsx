@@ -8,10 +8,8 @@ import { Flame, MonitorPlay, Sparkles, Wand2, Skull, VenetianMask } from "lucide
 interface CategoryLink {
   slug: string;
   labelKey: string;
-  /** Immagine di sfondo fissa (film iconico della categoria). */
   bg: string;
   icon: React.ReactNode;
-  /** Classe extra per regolare la dimensione dell'icona. */
   iconClass?: string;
 }
 
@@ -24,7 +22,7 @@ const Icons = {
   animation: <Wand2 className={ICON_CLS} strokeWidth={1.8} />,
   horror: <Skull className={ICON_CLS} strokeWidth={1.8} />,
   thriller: <VenetianMask className={ICON_CLS} strokeWidth={1.8} />,
-  // Hentai: "18+" dentro un cerchio (HTML — scala in modo netto)
+  // html circle scales cleaner than an svg icon here
   hentai: (
     <span className="flex items-center justify-center w-full h-full rounded-full border-[3px] border-current font-bold leading-none">
       <span className="text-2xl md:text-3xl tracking-tight">18+</span>
@@ -34,7 +32,6 @@ const Icons = {
 
 const IMG = "https://image.tmdb.org/t/p/w780";
 
-// Ordine: tendenze, serie, anime, animazione, hentai, horror, thriller
 const CATEGORIES: CategoryLink[] = [
   {
     slug: "trending-movies",
@@ -109,7 +106,6 @@ export function CategoryButtons() {
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60
               "
             >
-              {/* Immagine di sfondo fissa */}
               <img
                 src={cat.bg}
                 alt=""
@@ -118,15 +114,12 @@ export function CategoryButtons() {
                 onError={(e) => { e.currentTarget.style.display = "none"; }}
               />
 
-              {/* Velo scuro per leggibilità */}
               <span className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/30" />
 
-              {/* Icona grande */}
               <span className={`relative text-white w-16 h-16 sm:w-16 sm:h-16 md:w-20 md:h-20 mb-3 drop-shadow-lg ${cat.iconClass || ""}`}>
                 {cat.icon}
               </span>
 
-              {/* Etichetta */}
               <span className="relative text-white font-bold text-lg md:text-xl text-center px-2 leading-tight drop-shadow-md">
                 {t(cat.labelKey)}
               </span>

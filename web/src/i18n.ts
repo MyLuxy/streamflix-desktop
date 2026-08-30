@@ -7,7 +7,6 @@ import frTranslation from "./locales/fr/translation.json";
 import esTranslation from "./locales/es/translation.json";
 import { locales, defaultLocale, localeToTmdb, type Locale } from "@/lib/i18n-config";
 
-// Lingue mostrate nello switcher delle impostazioni
 export const languages = {
   en: { nativeName: "English", flag: "🇬🇧", flagUrl: "/flags/gb.png" },
   it: { nativeName: "Italiano", flag: "🇮🇹", flagUrl: "/flags/it.png" },
@@ -15,7 +14,6 @@ export const languages = {
   es: { nativeName: "Español", flag: "🇪🇸", flagUrl: "/flags/es.png" },
 };
 
-// Compat: mappa locale -> lingua TMDB (riusata da codice esistente)
 export const tmdbLanguages = localeToTmdb;
 
 const resources = {
@@ -25,9 +23,7 @@ const resources = {
   es: esTranslation,
 };
 
-// Crea un'istanza i18n inizializzata su una lingua specifica.
-// Usare un'istanza per-richiesta evita conflitti di stato durante l'SSR
-// concorrente (richieste in lingue diverse nello stesso momento).
+// one instance per request avoids state clashing across concurrent ssr in different langs
 export function createI18n(locale: Locale = defaultLocale): I18nInstance {
   const instance = i18next.createInstance();
   instance.use(initReactI18next).init({
@@ -41,6 +37,5 @@ export function createI18n(locale: Locale = defaultLocale): I18nInstance {
   return instance;
 }
 
-// Istanza di default (fallback) per eventuali usi fuori dal provider.
 const i18n = createI18n(defaultLocale);
 export default i18n;

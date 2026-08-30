@@ -18,6 +18,10 @@
       "contentSourceDesc": "Choose the site your catalog and streaming come from.",
       "contentSourceCurrent": " Current: {{provider}}.",
       "loadingProviders": "Loading...",
+      "switchingProvider": "Switching provider...",
+      "popularProviders": "Popular",
+      "animeProviders": "Anime",
+      "allProviders": "All",
       "searchProvider": "Search providers...",
       "noProvidersFound": "No providers found",
       "about": "About StreamFlix",
@@ -149,6 +153,7 @@
       "hint": "If the movie doesn't load, try switching servers below",
       "streamError": "Error loading the stream",
       "streamUnavailable": "Stream unavailable",
+      "hlsUnsupported": "HLS not supported in this browser",
       "back": "Back",
       "nextEpisode": "Next episode"
     },

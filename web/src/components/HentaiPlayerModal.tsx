@@ -1,19 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { X, Loader2, List, Heart } from "lucide-react";
+import { X, Loader2, List, Heart, TriangleAlert, ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { type HentaiItem } from "@/lib/hentai";
-
-// ─────────────────────────────────────────────────────────────
-// HentaiPlayerModal
-//   • Click card hub → apre questo modale
-//   • URL sincronizzato (?watch=slug&ep=N) — condivisibile
-//   • Se più episodi: prima mostra un picker con miniatura
-//   • Nel player: titolo + ep + pulsante cambio episodio
-//   • Iframe/video grande, responsive su mobile
-// ─────────────────────────────────────────────────────────────
 
 interface HentaiEpisode {
   url: string;
@@ -41,7 +32,6 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     });
   };
 
-  // Fasi: "detail" (caricamento dettaglio) → "picker" | "playing" | "error"
   const [phase, setPhase] = useState<"detail" | "picker" | "playing" | "error">("detail");
   const [episodes, setEpisodes] = useState<HentaiEpisode[]>([]);
   const [poster, setPoster] = useState<string | null>(null);
@@ -50,7 +40,7 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
   const [resolving, setResolving] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  // ── Sincronizza URL (replaceState, non naviga) ──────────
+  // replaceState so it doesnt push a new history entry
   const setWatchParam = useCallback((slug: string, ep?: number) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -60,14 +50,12 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     window.history.replaceState(window.history.state, "", url.toString());
   }, []);
 
-  // ── Risolve lo streaming per un episodio ────────────────
   const resolveAndPlay = useCallback(
     async (ep: HentaiEpisode) => {
       setResolving(true);
       setMp4("");
       setActiveEp(ep);
-      // Passa subito alla vista player: mostra all'istante lo spinner/shimmer
-      // di caricamento (evita la sensazione di lag mentre risolve lo stream).
+      // jump to player view right away so the spinner shows instantly
       setPhase("playing");
       try {
         const r = await fetch(`/api/hentai/resolve?epUrl=${encodeURIComponent(ep.url)}`);
@@ -88,7 +76,6 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     [item, setWatchParam]
   );
 
-  // ── All'apertura: carica episodi dalla scheda ───────────
   useEffect(() => {
     if (!item) return;
     setWatchParam(item.slug);
@@ -116,7 +103,6 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.slug]);
 
-  // ESC + blocca scroll
   useEffect(() => {
     if (!item) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
@@ -129,17 +115,13 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item]);
 
-  // La gestione della cronologia/URL è delegata al parent (HentaiHubView):
-  // qui chiudiamo soltanto.
+  // history/url handled by the parent, this just closes
   const handleClose = () => {
     onClose();
   };
 
   if (!item) return null;
 
-  // ──────────────────────────────────────────────────────────
-  // PICKER iniziale — stesso componente del picker in riproduzione
-  // ──────────────────────────────────────────────────────────
   const renderPicker = () => (
     <EpisodePicker
       title={item.name}
@@ -151,23 +133,17 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     />
   );
 
-  // ──────────────────────────────────────────────────────────
-  // PLAYER — titolo centrato, X in alto a sinistra, episodi sotto
-  // ──────────────────────────────────────────────────────────
   const renderPlayer = () => (
     <div
       className="fixed inset-0 z-[100] flex flex-col bg-black/70 backdrop-blur-2xl"
       onClick={handleClose}
     >
-      {/* Area video + header + episodi dentro flex-1 */}
       <div
         className="flex-1 flex flex-col items-center px-0 sm:px-6 md:px-12"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Spazio elastico sopra */}
         <div className="flex-1" />
 
-        {/* Header: titolo centrato + X allineata al bordo video */}
         <div className="w-full max-w-6xl relative flex items-center justify-center py-1.5 px-3 sm:px-0 shrink-0">
           <button
             onClick={toggleSave}
@@ -199,9 +175,7 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
         <div className="w-full max-w-6xl">
           {resolving && (
             <div className="relative aspect-video rounded-xl overflow-hidden bg-muted animate-pulse border-y sm:border border-white/10 max-h-[88vh] sm:max-h-[75vh] mx-auto">
-              {/* Sweep luminoso di caricamento */}
               <div className="absolute inset-0 hentai-shimmer" />
-              {/* Spinner + testo al centro */}
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
                 <Loader2 className="w-9 h-9 animate-spin text-pink-500" />
                 <span className="text-sm font-medium">{t("hentai.resolving")}</span>
@@ -232,7 +206,7 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
           )}
         </div>
 
-        {/* Bottone episodi sotto il player — attaccato (solo multi-ep) */}
+        {/* episodes button, multi-ep only */}
         {!resolving && mp4 && episodes.length > 1 && (
           <div className="shrink-0 pt-1 pb-4" onClick={(e) => e.stopPropagation()}>
             <button
@@ -245,11 +219,9 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
           </div>
         )}
 
-        {/* Spazio elastico sotto */}
         <div className="flex-1" />
       </div>
 
-      {/* Picker overlay durante la riproduzione */}
       {pickerOpen && episodes.length > 1 && (
         <EpisodePicker
           title={item.name}
@@ -266,9 +238,6 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
     </div>
   );
 
-  // ──────────────────────────────────────────────────────────
-  // FASE INIZIALE (caricamento dettaglio)
-  // ──────────────────────────────────────────────────────────
   if (phase === "detail") {
     return (
       <div
@@ -290,14 +259,16 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
         onClick={handleClose}
       >
         <div
-          className="bg-card rounded-2xl p-8 text-center max-w-sm border border-border/60 shadow-2xl"
+          className="bg-card rounded-2xl p-8 flex flex-col items-center gap-5 text-center max-w-sm border border-border/60 shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <p className="text-muted-foreground mb-4">Stream not available</p>
+          <TriangleAlert className="w-14 h-14 text-amber-400" />
+          <p className="text-lg text-foreground/90">{t("player.streamUnavailable")}</p>
           <button
             onClick={handleClose}
-            className="px-4 py-2 rounded-lg bg-pink-600 text-white text-sm font-medium hover:bg-pink-700 transition-colors"
+            className="flex items-center gap-2 bg-white hover:bg-white/90 text-black text-sm md:text-base font-semibold rounded-full px-6 py-3 shadow-lg transition-colors"
           >
+            <ArrowLeft className="w-5 h-5" />
             {t("content.goBack")}
           </button>
         </div>
@@ -308,11 +279,7 @@ export function HentaiPlayerModal({ item, onClose }: Props) {
   return phase === "picker" ? renderPicker() : renderPlayer();
 }
 
-// ─────────────────────────────────────────────────────────────
-// EpisodePicker — modale selezione episodi (usato sia all'apertura
-// che durante la riproduzione). Mostra le thumbnail reali degli
-// episodi (snapshot da hentaimama), con fallback alla locandina.
-// ─────────────────────────────────────────────────────────────
+// used both on open and mid-playback, shows real episode thumbnails
 function EpisodePicker({
   title,
   episodes,
@@ -337,7 +304,6 @@ function EpisodePicker({
         className="w-full max-w-5xl bg-card rounded-2xl overflow-hidden shadow-2xl border border-border/60 max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-border/60 shrink-0">
           <h4 className="font-bold text-foreground truncate">{title}</h4>
           <button
@@ -349,8 +315,7 @@ function EpisodePicker({
           </button>
         </div>
 
-        {/* Contenitore scrollabile separato dal grid: così le box mantengono
-            altezza naturale (aspect 16:9) e si scrolla quando sono tante. */}
+        {/* separate scroll container so cells keep their 16:9 height */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
             {episodes.map((ep) => {
@@ -366,7 +331,6 @@ function EpisodePicker({
                       : "border-transparent hover:border-pink-500/60 hover:shadow-lg hover:shadow-pink-500/20"
                   }`}
                 >
-                  {/* L'immagine in flusso normale definisce l'altezza della cella */}
                   {img ? (
                     <img
                       src={img}
@@ -377,7 +341,6 @@ function EpisodePicker({
                   ) : (
                     <div className="block w-full aspect-video bg-gradient-to-br from-pink-900/40 to-muted" />
                   )}
-                  {/* Velo + numero episodio in basso a sinistra */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                   <span className={`absolute bottom-1.5 left-2 text-sm font-bold drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] ${isActive ? "text-pink-400" : "text-white"}`}>
                     Ep. {ep.n}

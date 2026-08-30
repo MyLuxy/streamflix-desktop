@@ -5,6 +5,7 @@ import { IMAGE_SIZES, imageUrl as resolveImageUrl } from "@/lib/constants";
 import type { WatchedItem } from "@/hooks/useContinueWatching";
 import { useTranslation } from "react-i18next";
 import { useContinueWatching } from "@/hooks/useContinueWatching";
+import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
 interface ContinueWatchingRowProps {
   items: WatchedItem[];
@@ -23,7 +24,7 @@ export function ContinueWatchingRow({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Ripristina lo scroll orizzontale salvato al montaggio, istantaneo.
+  // instant scroll restore on mount
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -75,12 +76,11 @@ export function ContinueWatchingRow({
       transition={{ duration: 0.5 }}
       className="py-4 group/row"
     >
-      <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4 px-6 md:px-10 select-none">
+      <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4 px-6 md:px-10 select-none">
         {t("home.continueWatching")}
       </h2>
 
       <div className="relative">
-        {/* Scroll buttons — fuori dal wrapper pointer-events-none */}
         <button
           onClick={() => scroll("left")}
           className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-lg transition-all duration-300 hover:bg-background/90 hover:scale-110 ${
@@ -105,9 +105,7 @@ export function ContinueWatchingRow({
           <ChevronRight className="w-7 h-7" />
         </button>
 
-        {/* Wrapper pointer-events-none: i wheel event passano attraverso
-            e scrollano la pagina. Le card dentro hanno pointer-events:auto
-            per rimanere cliccabili. overflow-x-auto serve solo per scrollBy(). */}
+        {/* wheel events pass through this so page scroll still works, cards below opt back in */}
         <div className="pointer-events-none">
           <div
             ref={scrollRef}
@@ -127,7 +125,7 @@ export function ContinueWatchingRow({
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden bg-muted shadow-card">
                     {imageUrl ? (
-                      <img
+                      <ImageWithSpinner
                         src={imageUrl}
                         alt={item.title}
                         className="w-full h-full object-cover"
@@ -139,10 +137,8 @@ export function ContinueWatchingRow({
                       </div>
                     )}
 
-                    {/* Overlay */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-                    {/* Progress bar */}
                     {(item.progress ?? 0) > 0 && (
                       <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-10">
                         <div
@@ -157,14 +153,12 @@ export function ContinueWatchingRow({
                       </div>
                     )}
 
-                    {/* Season/Episode badge */}
-                    {item.mediaType === "tv" && item.season && item.episode && (
+                    {item.mediaType === "tv" && item.season !== undefined && item.episode !== undefined && (
                       <div className="absolute top-2 left-2 z-20 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
                         S{item.season} E{item.episode}
                       </div>
                     )}
 
-                    {/* Remove button */}
                     <div
                       onClick={(e) => handleRemove(e, item)}
                       className="absolute top-2 right-2 z-20 w-9 h-9 rounded-full bg-black/70 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity"
@@ -172,14 +166,12 @@ export function ContinueWatchingRow({
                       <X className="w-5 h-5 text-white" />
                     </div>
 
-                    {/* Play overlay */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
                       <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
                         <Play className="w-5 h-5 text-primary-foreground fill-current ml-0.5" />
                       </div>
                     </div>
 
-                    {/* Title */}
                     <div className="absolute bottom-2 left-3 right-3">
                       <p className="text-sm font-medium text-white truncate">
                         {item.title}

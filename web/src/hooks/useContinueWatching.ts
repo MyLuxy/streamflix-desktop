@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
 import { getSelectedProviderClient, PROVIDER_CHANGED_EVENT } from "@/lib/provider";
 
-// keyed by (provider, realId, mediaType) rather than a numeric TMDB-style id - the numeric id is
-// only a hash (see streamflix.ts's stableNumericId) and can't be reversed back into a URL, so it
-// can't tell two shows from different providers apart, and it can't route "continue watching" back
-// to the right page. provider+realId is exactly what the URL slug is built from (see slug.ts), so
-// resuming a title always lands on the correct provider regardless of which one is selected now.
+// keyed by provider+realId, not the numeric id (thats just a hash, cant round trip to a url)
 export interface WatchedItem {
   provider: string;
   realId: string;
@@ -13,33 +9,25 @@ export interface WatchedItem {
   title: string;
   posterPath: string | null;
   backdropPath: string | null;
-  addedAt: number; // timestamp
-  lastWatchedAt: number; // timestamp
-  currentTime?: number; // secondi (progresso attuale)
-  duration?: number;    // secondi (durata totale)
-  progress?: number;    // 0-100 (calcolato da currentTime/duration)
-  season?: number;      // per serie TV
-  episode?: number;     // per serie TV
+  addedAt: number;
+  lastWatchedAt: number;
+  currentTime?: number;
+  duration?: number;
+  progress?: number;
+  season?: number;
+  episode?: number;
 }
 
 const STORAGE_KEY = "streamflix_continue_watching";
-const MAX_ITEMS = 20; // Mantieni solo gli ultimi 20
+const MAX_ITEMS = 20;
 
 function sameItem(a: { provider: string; realId: string; mediaType: string }, b: { provider: string; realId: string; mediaType: string }) {
   return a.provider === b.provider && a.realId === b.realId && a.mediaType === b.mediaType;
 }
 
 export function useContinueWatching() {
-  // items tiene TUTTI gli item (di ogni provider) - il filtro sul provider attivo avviene solo in
-  // lettura più sotto, così cambiare provider e tornare indietro non perde nulla: gli item degli
-  // altri provider restano salvati, solo nascosti finché non è di nuovo quello attivo
-  //
-  // letto in modo SINCRONO dal localStorage nell'initializer di useState (non in un useEffect):
-  // HlsPlayer legge startTime una sola volta, al mount, per il seek di "riprendi da dove eri" -
-  // se items partisse vuoto e si popolasse solo dopo un effect (quindi al render successivo),
-  // quel primo mount vedrebbe sempre startTime undefined e non riprenderebbe mai, anche con il
-  // progresso corretto già salvato (HlsPlayer non re-inesegue quel seek quando la prop cambia
-  // dopo, di proposito - altrimenti ogni salvataggio periodico ricaricherebbe lo stream da capo)
+  // reads localStorage synchronously here (not in an effect), HlsPlayer needs startTime on
+  // first mount for the resume seek and only reads it once
   const [items, setItems] = useState<WatchedItem[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -51,7 +39,6 @@ export function useContinueWatching() {
   });
   const [activeProvider, setActiveProvider] = useState<string>(() => getSelectedProviderClient());
 
-  // Carica da localStorage
   const loadFromStorage = () => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -66,22 +53,16 @@ export function useContinueWatching() {
   };
 
   useEffect(() => {
-    // items/activeProvider sono già inizializzati in modo sincrono sopra - qui restano solo gli
-    // ascoltatori per aggiornamenti successivi (altre tab, altri componenti, cambio provider)
-
-    // Ascolta per cambiamenti nel localStorage (anche dallo stesso tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) {
         loadFromStorage();
       }
     };
 
-    // Custom event per aggiornamenti nello stesso tab
     const handleCustomUpdate = () => {
       loadFromStorage();
     };
 
-    // Riletto ad ogni cambio provider così la lista filtrata sotto si aggiorna subito
     const handleProviderChanged = () => {
       setActiveProvider(getSelectedProviderClient());
     };
@@ -97,16 +78,12 @@ export function useContinueWatching() {
     };
   }, []);
 
-  // Salva in localStorage quando cambia
   const saveToStorage = (newItems: WatchedItem[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newItems));
     setItems(newItems);
-
-    // Trigger custom event per aggiornare altri componenti nello stesso tab
     window.dispatchEvent(new Event("continueWatchingUpdated"));
   };
 
-  // Aggiorna currentTime/duration/season/episode di un item esistente
   const updateProgress = (
     provider: string,
     realId: string,
@@ -118,9 +95,7 @@ export function useContinueWatching() {
       if (idx === -1) return prev;
       const updated = [...prev];
       const ct = updates.currentTime ?? updated[idx].currentTime ?? 0;
-      // una duration non valida/0 dal player (frequente finché l'HLS non ha bufferato abbastanza
-      // da conoscere la durata totale) non deve cancellare una durata già nota - altrimenti anche
-      // "progress" (usato per la barra di avanzamento in home) diventerebbe inutilizzabile
+      // dont let a 0/missing duration from the player wipe out one we already had
       const dur = (updates.duration && updates.duration > 0 ? updates.duration : updated[idx].duration) || 1;
       updated[idx] = {
         ...updated[idx],
@@ -134,15 +109,11 @@ export function useContinueWatching() {
     });
   };
 
-  // Aggiungi o aggiorna item
   const addItem = (item: Omit<WatchedItem, "addedAt" | "lastWatchedAt">) => {
     const now = Date.now();
 
     setItems((prev) => {
-      // Rimuovi se già esiste
       const filtered = prev.filter((i) => !sameItem(i, item));
-
-      // Aggiungi in cima
       const newItem: WatchedItem = {
         ...item,
         addedAt: now,
@@ -155,7 +126,6 @@ export function useContinueWatching() {
     });
   };
 
-  // Rimuovi item
   const removeItem = (provider: string, realId: string, mediaType: "movie" | "tv") => {
     setItems((prev) => {
       const newItems = prev.filter((i) => !sameItem(i, { provider, realId, mediaType }));
@@ -164,18 +134,14 @@ export function useContinueWatching() {
     });
   };
 
-  // Pulisci tutto
   const clearAll = () => {
     localStorage.removeItem(STORAGE_KEY);
     setItems([]);
   };
 
   return {
-    // tutti gli item, di ogni provider - per un lookup puntuale (progresso di QUESTA pagina,
-    // qualunque sia il provider attivo in questo momento)
     items,
-    // solo quelli del provider attivo - per liste/righe (es. "Continua a guardare" in home),
-    // che devono davvero azzerarsi cambiando provider e ripopolarsi tornando su quello precedente
+    // scoped to the active provider, for the home row
     activeProviderItems: items.filter((i) => i.provider === activeProvider),
     addItem,
     removeItem,

@@ -31,22 +31,18 @@ interface AniMeta {
   studio?: string | null;
 }
 
-// ── Cache di sessione ──────────────────────────────────────
 const CACHE_TTL = 5 * 60 * 1000;
 let cachedRows: RowData[] | null = null;
 let cachedMeta: Record<string, AniMeta> = {};
 let cachedTime = 0;
-// ───────────────────────────────────────────────────────────
 
 export function HentaiHubView() {
   const { t } = useTranslation();
   const locale = useLocale();
   const router = useRouter();
-  // Ingresso hero: sfondo neutro poi rivela; niente animazione al back.
   const { revealed: heroRevealed, instant: heroInstant } = useHeroEntrance();
 
-  // Stato filtri (UI immediata) + versione "debounced" per le query (così la
-  // ricerca testuale non interroga hentaimama a ogni tasto).
+  // debounced so text search doesnt fire on every keystroke
   const [filters, setFilters] = useState<HentaiFilters>(DEFAULT_FILTERS);
   const [debouncedFilters, setDebouncedFilters] = useState<HentaiFilters>(DEFAULT_FILTERS);
   useEffect(() => {
@@ -58,13 +54,8 @@ export function HentaiHubView() {
   const [rows, setRows] = useState<RowData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Locandine TMDB per la hero (griglia animata)
   const [heroPosters, setHeroPosters] = useState<string[]>([]);
-
-  // Modale player
   const [playingItem, setPlayingItem] = useState<HentaiItem | null>(null);
-
-  // AniList enrichment
   const [metaMap, setMetaMap] = useState<Record<string, AniMeta>>({});
   const requestedMeta = useRef<Set<string>>(new Set());
 
@@ -91,15 +82,12 @@ export function HentaiHubView() {
     [metaMap]
   );
 
-  // Flat list di tutti gli item (per lookup da URL param)
   const allItems = useMemo(
     () => [...new Map(rows.flatMap((r) => r.items.map((i) => [i.slug, i]))).values()],
     [rows]
   );
 
-  // Apre il modale e aggiunge una voce di cronologia (pushState):
-  // così il tasto "indietro" del browser chiude solo il modale e
-  // non torna alla pagina precedente.
+  // pushState so browser back closes just the modal
   const handlePlay = useCallback((item: HentaiItem) => {
     setPlayingItem(item);
     const url = new URL(window.location.href);
@@ -110,14 +98,12 @@ export function HentaiHubView() {
   }, []);
 
   const handleClosePlayer = useCallback(() => {
-    // Se siamo stati noi ad aggiungere la voce di cronologia, torniamo
-    // indietro: il listener popstate chiuderà il modale e ripristinerà l'URL.
+    // we added the history entry so go back instead, popstate closes it
     if (typeof window !== "undefined" && window.history.state?.hentaiWatch) {
       window.history.back();
       return;
     }
-    // Caso link diretto (?watch nella URL al primo caricamento): nessuna voce
-    // aggiunta da noi, quindi chiudiamo manualmente e ripuliamo l'URL.
+    // direct link case, no history entry to pop, close manually
     setPlayingItem(null);
     const url = new URL(window.location.href);
     url.searchParams.delete("watch");
@@ -126,7 +112,6 @@ export function HentaiHubView() {
     window.history.replaceState(window.history.state, "", url.toString());
   }, []);
 
-  // Tasto "indietro" del browser: chiude il modale se non c'è più ?watch
   useEffect(() => {
     const onPop = () => {
       const params = new URLSearchParams(window.location.search);
@@ -136,7 +121,7 @@ export function HentaiHubView() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // All'avvio: se c'è ?watch= nella URL, cerca l'item e apre il modale
+  // opens modal on load if ?watch is in the url
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -147,8 +132,7 @@ export function HentaiHubView() {
       setPlayingItem(found);
       return;
     }
-    // Non in catalogo (es. aperto dalla watchlist): item minimale dallo slug
-    // (+ nome dal parametro ?n=). Il modale recupera poster/episodi via slug.
+    // not in the catalog (e.g. opened from watchlist), minimal item from the slug
     if (!loading) {
       setPlayingItem({
         id: hentaiId(watchSlug),
@@ -163,7 +147,6 @@ export function HentaiHubView() {
     }
   }, [loading, allItems]);
 
-  // Fetch iniziale delle righe
   useEffect(() => {
     const now = Date.now();
     if (cachedRows && now - cachedTime < CACHE_TTL) {
@@ -189,19 +172,16 @@ export function HentaiHubView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch AniList per ogni riga
   useEffect(() => {
     if (!loading) rows.forEach((r) => fetchMeta(r.items.map((it) => it.name)));
   }, [loading, rows, fetchMeta]);
 
-  // Sincronizza la cache AniList
   useEffect(() => {
     if (!loading && Object.keys(metaMap).length > 0) {
       cachedMeta = metaMap;
     }
   }, [metaMap, loading]);
 
-  // Locandine TMDB per la hero
   useEffect(() => {
     fetch("/api/hentai/hero")
       .then((r) => r.json())
@@ -209,7 +189,7 @@ export function HentaiHubView() {
       .catch(() => {});
   }, []);
 
-  // Poster per la hero animata — usa le locandine TMDB; in fallback i poster delle righe
+  // tmdb posters for the hero, falls back to row posters
   const columns = useMemo(() => {
     let pool = heroPosters.slice(0, 70);
     if (pool.length === 0) {
@@ -225,15 +205,13 @@ export function HentaiHubView() {
     return cols.map((col) => { let filled = col; while (filled.length < 6 && col.length > 0) filled = [...filled, ...col]; return filled; });
   }, [heroPosters, rows]);
 
-  // ── Filtro con caricamento infinito ──
-  // Numero di faccette attive (un genere/studio/anno/ricerca = 1 faccetta).
   const f = debouncedFilters;
   const facetCount =
     f.genres.length + f.studios.length + f.years.length + (f.search.trim() ? 1 : 0);
 
   const fetchFilterPage = useCallback(
     async (page: number): Promise<{ items: HentaiItem[]; next?: number }> => {
-      // Una sola faccetta → archivio paginato: mostra TUTTI i titoli pertinenti.
+      // single facet, paginated archive with everything that matches
       if (facetCount <= 1) {
         const q: HentaiQuery = { page };
         if (f.genres[0]) q.genre = f.genres[0];
@@ -243,7 +221,7 @@ export function HentaiHubView() {
         const res = await searchHentai(q);
         return { items: res.items, next: res.hasMore ? page + 1 : undefined };
       }
-      // Più faccette → intersezione (risposta unica, non paginabile).
+      // multiple facets, one combined response, not paginated
       if (page > 1) return { items: [] };
       const res = await filterHentai({
         genres: f.genres,
@@ -273,12 +251,10 @@ export function HentaiHubView() {
 
   const filterLoading = filterQuery.isLoading;
 
-  // AniList per i risultati filtro
   useEffect(() => {
     if (results.length > 0) fetchMeta(results.map((i) => i.name));
   }, [results, fetchMeta]);
 
-  // Infinite scroll: carica la pagina successiva quando il sentinel entra in vista.
   const filterMoreRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!active) return;
@@ -343,12 +319,9 @@ export function HentaiHubView() {
           </section>
         </div>
 
-        {/* Barra opaca (colore pagina) che sale a coprire il bordo inferiore
-            della hero: sta FUORI dalla hero, quindi non si deforma con lo
-            scroll e nasconde lo sfarfallio dei bordi delle colonne. */}
+        {/* hides the column-edge flicker on scroll */}
         <div aria-hidden className="relative z-20 -mt-5 h-5 bg-background" />
 
-        {/* Pannello filtro */}
         <div className="relative z-10 mt-6">
           <HentaiFilterPanel
             filters={filters}
@@ -359,7 +332,6 @@ export function HentaiHubView() {
           />
         </div>
 
-        {/* Risultati ricerca o righe */}
         {active ? (
           <div className="px-4 md:px-10 mt-8">
             {filterLoading && results.length === 0 ? (
@@ -373,7 +345,6 @@ export function HentaiHubView() {
                     <HentaiCard key={`${item.id}-${item.slug}`} item={withMeta(item)} inGrid onPlay={handlePlay} />
                   ))}
                 </div>
-                {/* Sentinel infinite scroll + loader */}
                 <div ref={filterMoreRef} className="h-12 flex items-center justify-center mt-6">
                   {filterQuery.isFetchingNextPage && (
                     <Loader2 className="w-7 h-7 animate-spin text-pink-500" />
@@ -395,7 +366,6 @@ export function HentaiHubView() {
         )}
       </main>
 
-      {/* Modale player */}
       {playingItem && (
         <HentaiPlayerModal item={playingItem} onClose={handleClosePlayer} />
       )}

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { hentaimamaList, type HentaiQuery } from "@/lib/hentai";
 
-// Catalogo della sezione hentai dal sito host (scraping, same-origin).
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as HentaiQuery;
