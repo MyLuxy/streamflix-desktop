@@ -1,10 +1,41 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm'
     id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'application'
+    id 'org.beryx.runtime' version '1.13.1'
 }
 
 kotlin {
     jvmToolchain(17)
+}
+
+application {
+    mainClass = 'com.streamflixreborn.streamflix.desktop.BackendKt'
+}
+
+// self-contained JRE + native launcher for the backend, so end users never need
+// a system Java install. jlink trims the JDK to just the modules actually touched;
+// jpackage wraps that + the app jars into a runnable, OS-native app-image folder.
+// module list is pinned explicitly (not left to jdeps auto-detection) so the three
+// GitHub Actions OS runners all produce the same runtime instead of silently drifting.
+runtime {
+    options = ['--strip-debug', '--no-header-files', '--no-man-pages', '--compress', '2']
+    modules = [
+        'java.base',
+        'java.net.http',
+        'jdk.httpserver',   // com.sun.net.httpserver.HttpServer, used directly by Backend.kt
+        'java.naming',      // OkHttp / DNS-over-HTTPS hostname handling
+        'java.logging',     // OkHttp logging-interceptor
+        'jdk.crypto.ec',    // ECDSA TLS cipher suites - missing this breaks HTTPS to some providers silently
+        'jdk.zipfs',        // Jsoup / kotlinx-serialization jar resource access
+        'jdk.unsupported',  // sun.misc.Unsafe - Gson's UnsafeAllocator needs it to build DTOs without no-arg constructors
+    ]
+
+    jpackage {
+        imageName = 'streamflix-backend'
+        skipInstaller = true
+        appVersion = '1.0.0'
+    }
 }
 
 // standalone proof-of-concept for a browser-based (hls.js + native <video controls>) player -

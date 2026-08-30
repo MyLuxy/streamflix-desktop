@@ -28,10 +28,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
-// the real HTTP API for the web UI (see WebPlayerTest.kt for the proof-of-concept this grew out
-// of): catalog/search/detail endpoints backed by whichever provider the client asks for, plus a
-// generic (not single-hardcoded-video) HLS proxy so any extracted stream can be played through a
-// plain browser <video> + hls.js. Run with: ./gradlew :desktop:runBackend
+// run: ./gradlew :desktop:runBackend
 fun main() {
     val port = System.getenv("STREAMFLIX_BACKEND_PORT")?.toIntOrNull() ?: 3001
     val server = HttpServer.create(InetSocketAddress("0.0.0.0", port), 0)
@@ -56,9 +53,6 @@ fun main() {
 }
 
 private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-
-// ---- DTOs: a deliberately separate shape from the internal :shared models, so the web UI's
-// contract doesn't silently change every time a provider's model gains a field ----
 
 @Serializable
 data class GenreDto(val id: String, val name: String)
@@ -93,8 +87,7 @@ data class ShowDto(
     val genres: List<GenreDto> = emptyList(),
     val cast: List<PeopleDto> = emptyList(),
     val seasons: List<SeasonDto> = emptyList(),
-    // only populated one level deep (a recommended item's own recommendations are left empty) -
-    // this is for a detail page's "you might also like" row, not for building a whole graph
+    // 1 level deep, dont wanna recurse the whole recs graph
     val recommendations: List<ShowDto> = emptyList(),
 )
 
@@ -125,9 +118,6 @@ data class StreamResponse(
     val error: String? = null,
 )
 
-// includeRecommendations=false for anything nested (a recommended item's own recommendations,
-// items inside a category/search list) - only a detail page actually renders that row, so there's
-// no point paying for it (or risking runaway recursion) everywhere else
 private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (this) {
     is Movie -> ShowDto(
         id = id, title = title, type = "movie", poster = poster, banner = banner, logo = logo, overview = overview,
@@ -145,8 +135,6 @@ private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (
         recommendations = if (includeRecommendations) recommendations.map { it.toDto(includeRecommendations = false) } else emptyList(),
     )
 }
-
-// ---- provider lookup + tiny request/response plumbing ----
 
 private fun providerByName(name: String?): Provider? =
     Provider.providers.keys.firstOrNull { it.name == name }
@@ -185,26 +173,28 @@ private fun queryParams(exchange: HttpExchange): Map<String, String> =
             URLDecoder.decode(k, "UTF-8") to URLDecoder.decode(v, "UTF-8")
         }
 
-// ---- catalog/search/detail endpoints ----
-
-// ogni provider ha un logo hardcoded che punta a un asset del sito stesso (vedi le decine di
-// `override val logo = ...` nei singoli Provider.kt) - molti di questi sono hotlink-protetti,
-// su domini che ruotano o vanno giù, o semplicemente path rotti mai aggiornati. Un servizio
-// favicon esterno risolve il dominio corrente una volta sola e serve un'icona già pronta, senza
-// dipendere dalla disponibilità/config di ciascun sito pirata - molto più affidabile su ~76 provider
+// most provider logos are hotlinked/broken, google favicons just work better
 private fun faviconUrl(baseUrl: String): String {
-    // alcuni provider (es. StreamingCommunityProvider.baseUrl = DEFAULT_DOMAIN) espongono un
-    // dominio nudo senza schema - URI.create senza "://" lo tratta come un path relativo, non
-    // un'autorità, quindi .host torna null e il logo restava vuoto
+    // no scheme = URI treats it as a relative path and host comes back null
     val withScheme = if (baseUrl.contains("://")) baseUrl else "https://$baseUrl"
     val host = runCatching { URI.create(withScheme).host }.getOrNull()
     return if (host.isNullOrBlank()) "" else "https://www.google.com/s2/favicons?domain=$host&sz=128"
 }
 
+// these are busted rn, still work if queried directly, just dont show em in the picker
+private val HIDDEN_PROVIDERS = setOf(
+    "AnyMovie", "SerienStream", "Moflix-stream", "FrenchStream", "CineHax",
+    "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
+    "Animefenix", "AnimeFLV", "AnimeSaturn", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
+    "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
+)
+
 private fun handleProviders(exchange: HttpExchange) {
-    val dtos = Provider.providers.entries.map { (provider, support) ->
-        ProviderDto(provider.name, provider.language, support.movies, support.tvShows, faviconUrl(provider.baseUrl))
-    }.sortedBy { it.name.lowercase() }
+    val dtos = Provider.providers.entries
+        .filter { (provider, _) -> provider.name !in HIDDEN_PROVIDERS }
+        .map { (provider, support) ->
+            ProviderDto(provider.name, provider.language, support.movies, support.tvShows, faviconUrl(provider.baseUrl))
+        }.sortedBy { it.name.lowercase() }
     sendJson(exchange, 200, json.encodeToString(dtos))
 }
 
@@ -244,10 +234,7 @@ private fun handleTvShow(exchange: HttpExchange) {
     sendJson(exchange, 200, json.encodeToString(tvShow.toDto()))
 }
 
-// keyed by (tvId, season NUMBER) rather than the backend's own season id - the frontend has no
-// reliable, cross-request way to remember an opaque season id (same reasoning as the provider+id
-// slug encoding elsewhere), but the season NUMBER is already right there in the TV show's own
-// season list it already fetched, no extra lookup needed on that end
+// season number not the backend's own season id, frontend already has that number handy
 private fun handleEpisodes(exchange: HttpExchange) {
     val params = queryParams(exchange)
     val provider = providerByName(params["provider"]) ?: return sendJson(exchange, 404, """{"error":"unknown provider"}""")
@@ -287,11 +274,7 @@ private fun handleGenre(exchange: HttpExchange) {
     sendJson(exchange, 200, json.encodeToString(dto))
 }
 
-// ---- stream resolution + token-based HLS proxy ----
-
-// keyed by a random per-request token rather than the item id, since re-resolving the same
-// title can legitimately return different (rotated) tokens/urls from the provider each time -
-// the token here is purely a handle for THIS proxy to find the right headers/source again
+// random token cause urls rotate on re-resolve, cant key by item id
 private val streamCache = ConcurrentHashMap<String, Video>()
 
 private fun handleStream(exchange: HttpExchange) {
@@ -309,28 +292,38 @@ private fun handleStream(exchange: HttpExchange) {
                 Video.Type.Movie(id = movie.id, title = movie.title, releaseDate = movie.released ?: "", poster = movie.poster ?: "", imdbId = movie.imdbId)
             } else {
                 val tvShow = provider.getTvShow(request.itemId)
-                val season = tvShow.seasons.firstOrNull { it.number == request.seasonNumber } ?: tvShow.seasons.first()
+                // some titles just have no episodes on the site, dont crash on empty list
+                val season = tvShow.seasons.firstOrNull { it.number == request.seasonNumber }
+                    ?: tvShow.seasons.firstOrNull()
+                    ?: error("Nessun episodio disponibile per questo titolo su ${provider.name}")
                 val episodes = season.episodes.ifEmpty { provider.getEpisodesBySeason(season.id) }
                 val episode = episodes.firstOrNull { it.id == request.episodeId }
                     ?: episodes.firstOrNull { it.number == request.episodeNumber }
-                    ?: episodes.first()
+                    ?: episodes.firstOrNull()
+                    ?: error("Nessun episodio disponibile per questo titolo su ${provider.name}")
                 Video.Type.Episode(
                     id = episode.id, number = episode.number, title = episode.title, poster = episode.poster, overview = episode.overview,
                     tvShow = Video.Type.Episode.TvShow(tvShow.id, tvShow.title, tvShow.poster, tvShow.banner, tvShow.released, tvShow.imdbId),
                     season = Video.Type.Episode.Season(season.number, season.title),
                 )
             }
-            // usa l'id RISOLTO da videoType (episode.id per le serie), non request.episodeId - che
-            // arriva null ogni volta che si riprende da "continua a guardare" o da un bare
-            // ?watch=sXeY (mai passato dal picker episodi) - altrimenti per le serie si ripiegava
-            // su request.itemId, cioe l'id dello SHOW, mai un episodio valido: getServers riceveva
-            // un id senza senso e la pagina finiva per mostrare il contenuto sbagliato
+            // needs the resolved episode id here, request.episodeId is null half the time
             val itemIdForServers = when (videoType) {
                 is Video.Type.Movie -> videoType.id
                 is Video.Type.Episode -> videoType.id
             }
-            val server = provider.getServers(itemIdForServers, videoType).firstOrNull() ?: error("no server available")
-            provider.getVideo(server)
+            val servers = provider.getServers(itemIdForServers, videoType)
+            if (servers.isEmpty()) error("no server available")
+            // try em all, first one that dies (geoblock etc) shouldnt kill the rest
+            var lastError: Throwable? = null
+            var video: Video? = null
+            for (server in servers) {
+                video = runCatching { provider.getVideo(server) }
+                    .onFailure { lastError = it }
+                    .getOrNull()
+                if (video != null) break
+            }
+            video ?: throw (lastError ?: Exception("no server available"))
         }
     }.getOrElse {
         return sendJson(exchange, 200, json.encodeToString(StreamResponse(false, error = it.message ?: "extraction failed")))
@@ -346,7 +339,8 @@ private val httpClient: HttpClient = HttpClient.newBuilder()
     .followRedirects(HttpClient.Redirect.NORMAL)
     .build()
 
-private fun manifestTextFor(url: String, referer: String?, userAgent: String?): String? {
+// forwarding whole header map, extractors dont agree on casing for referer/origin
+private fun manifestTextFor(url: String, headers: Map<String, String>?): String? {
     if (url.startsWith("data:")) {
         val payload = url.substringAfter(",", "")
         if (payload.isBlank()) return null
@@ -354,8 +348,7 @@ private fun manifestTextFor(url: String, referer: String?, userAgent: String?): 
     }
     return runCatching {
         val builder = HttpRequest.newBuilder(URI.create(url)).GET()
-        referer?.let { builder.header("Referer", it) }
-        userAgent?.let { builder.header("User-Agent", it) }
+        headers?.forEach { (k, v) -> builder.header(k, v) }
         httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString()).body()
     }.getOrNull()
 }
@@ -365,10 +358,9 @@ private fun serveManifest(exchange: HttpExchange) {
     val token = params["token"] ?: return run { exchange.sendResponseHeaders(400, -1); exchange.close() }
     val video = streamCache[token] ?: return run { exchange.sendResponseHeaders(404, -1); exchange.close() }
     val targetUrl = params["url"] ?: video.source
-    val referer = video.headers?.get("Referer")
-    val userAgent = video.headers?.get("User-Agent")
+    val referer = video.headers?.entries?.firstOrNull { it.key.equals("referer", ignoreCase = true) }?.value
 
-    val text = manifestTextFor(targetUrl, referer, userAgent)
+    val text = manifestTextFor(targetUrl, video.headers)
     if (text == null) {
         exchange.sendResponseHeaders(502, -1)
         exchange.close()
@@ -411,11 +403,7 @@ private fun serveManifest(exchange: HttpExchange) {
     exchange.responseBody.use { it.write(bytes) }
 }
 
-// ---- artwork proxy: some providers hotlink-protect their logos/posters and only serve them to
-// requests carrying a specific Referer/User-Agent. The Android app spoofs those per-request via an
-// OkHttp interceptor that reads them from a `#sf_headers=<base64url json>` fragment tacked onto the
-// image URL (see ArtworkRequestHeaders.kt) - a browser <img> tag can't set custom request headers,
-// so this proxy does the same header spoofing server-side and streams the bytes back instead ----
+// img tags cant set headers so we spoof referer/ua here and stream the bytes back
 private const val ARTWORK_HEADERS_FRAGMENT_KEY = "sf_headers"
 
 private fun decodeArtworkHeaders(rawUrl: String): Map<String, String> {
@@ -451,13 +439,20 @@ private fun serveImage(exchange: HttpExchange) {
 
     runCatching {
         val builder = HttpRequest.newBuilder(URI.create(cleanUrl)).GET()
-        headers.forEach { (k, v) -> builder.header(k, v) }
+        if (headers.isNotEmpty()) {
+            headers.forEach { (k, v) -> builder.header(k, v) }
+        } else {
+            // some cdns 403 a bare request, faking referer as the img's own domain usually works
+            runCatching {
+                val target = URI.create(cleanUrl)
+                builder.header("Referer", "${target.scheme}://${target.host}/")
+            }
+            builder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        }
         val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
         val contentType = response.headers().firstValue("content-type").orElse("image/jpeg")
         exchange.responseHeaders.add("Content-Type", contentType)
-        // only cache a real image - caching a transient upstream failure (rate limit, momentary
-        // block, ...) would lock the browser into showing a broken image for a full day even once
-        // the source is reachable again, since it'd never re-request an already-cached URL
+        // dont cache failures or a broken img sticks around all day
         if (response.statusCode() in 200..299) {
             exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
         } else {
@@ -489,13 +484,9 @@ private fun serveSegment(exchange: HttpExchange) {
         exchange.close()
         return
     }
-    val referer = video.headers?.get("Referer")
-    val userAgent = video.headers?.get("User-Agent")
-
     runCatching {
         val builder = HttpRequest.newBuilder(URI.create(targetUrl)).GET()
-        referer?.let { builder.header("Referer", it) }
-        userAgent?.let { builder.header("User-Agent", it) }
+        video.headers?.forEach { (k, v) -> builder.header(k, v) }
         val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
         val contentType = response.headers().firstValue("content-type").orElse("application/octet-stream")
         exchange.responseHeaders.add("Content-Type", contentType)
