@@ -119,43 +119,49 @@ class VidxGoExtractor : Extractor() {
             )
         }
 
-        // Search for the encrypted script blocks: (function() { var k = ... })()
+        // site plants decoy encrypted blocks too, real one moves around so just try em all
         val scriptRegex = Regex("<script[\\s\\S]*?>[\\s\\S]*?\\(function\\(\\)\\s*\\{[\\s\\S]*?\\}\\s*\\)\\(\\);[\\s\\S]*?</script>", RegexOption.IGNORE_CASE)
         val scriptMatches = scriptRegex.findAll(html).toList()
-        
-        if (scriptMatches.size < 5) {
-            Log.e("VidxGoExtractor", "Could not find enough encrypted scripts. Found: ${scriptMatches.size}")
-            throw Exception("VidxGo: Could not find fifth encrypted script")
+
+        if (scriptMatches.isEmpty()) {
+            Log.e("VidxGoExtractor", "Could not find any encrypted scripts")
+            throw Exception("VidxGo: Could not find encrypted scripts")
         }
 
-        val targetScript = scriptMatches[4].value
+        var decryptedText: String? = null
+        for (match in scriptMatches) {
+            val targetScript = match.value
+            val k = Regex("var\\s+k\\s*=\\s*['\"]([^'\"]+)['\"]").find(targetScript)?.groupValues?.get(1) ?: continue
+            val d = Regex("atob\\(['\"]([^'\"]+)['\"]\\)").find(targetScript)?.groupValues?.get(1) ?: continue
 
-        val k = Regex("var\\s+k\\s*=\\s*['\"]([^'\"]+)['\"]").find(targetScript)?.groupValues?.get(1)
-            ?: throw Exception("VidxGo: Could not find key 'k'")
-        val d = Regex("atob\\(['\"]([^'\"]+)['\"]\\)").find(targetScript)?.groupValues?.get(1)
-            ?: throw Exception("VidxGo: Could not find data 'd'")
+            val decodedD = Base64.decode(d, Base64.DEFAULT)
+            val decrypted = ByteArray(decodedD.size)
+            for (i in decodedD.indices) {
+                decrypted[i] = ((decodedD[i].toInt() and 0xFF) xor (k[i % k.length].code and 0xFF)).toByte()
+            }
 
-        val decodedD = Base64.decode(d, Base64.DEFAULT)
-        val decrypted = ByteArray(decodedD.size)
-        for (i in decodedD.indices) {
-            decrypted[i] = ((decodedD[i].toInt() and 0xFF) xor (k[i % k.length].code and 0xFF)).toByte()
+            val candidate = String(decrypted)
+            if (candidate.contains("currentSrc")) {
+                decryptedText = candidate
+                break
+            }
         }
 
-        val decryptedText = String(decrypted)
-        
-        // Extract the source URL from currentSrc
+        if (decryptedText == null) {
+            Log.e("VidxGoExtractor", "None of the ${scriptMatches.size} encrypted scripts decrypted to a currentSrc payload")
+            throw Exception("VidxGo: Could not find currentSrc in any decrypted script")
+        }
+
         val videoUrlRaw = Regex("currentSrc\\s*=\\s*['\"]([^'\"]+)['\"]").find(decryptedText)?.groupValues?.get(1)
             ?: throw Exception("VidxGo: Could not find currentSrc in decrypted script")
 
         val videoUrl = videoUrlRaw.replace("\\/", "/")
 
-        // For film URLs (https://v.vidxgo.co/$imdbId), derive the refresh URL using the /t/ endpoint
         val filmPathSegment = uri.pathSegments.firstOrNull()
         val filmRefreshUrl = if (filmPathSegment != null) "https://v.vidxgo.co/t/$filmPathSegment" else null
 
         val initialUri = Uri.parse(videoUrl)
         
-        // Extract currentToken and currentExpire directly from the decrypted JS variables
         val currentToken = Regex("let\\s+currentToken\\s*=\\s*['\"]([^'\"]+)['\"]").find(decryptedText)?.groupValues?.get(1)
         val initialExpireRaw = Regex("let\\s+currentExpire\\s*=\\s*(\\d+)").find(decryptedText)?.groupValues?.get(1)?.toLongOrNull()
         

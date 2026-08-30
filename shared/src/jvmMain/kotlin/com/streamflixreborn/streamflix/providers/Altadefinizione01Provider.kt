@@ -133,16 +133,13 @@ object Altadefinizione01Provider : Provider {
             }
         }
 
-        doc.selectFirst("div.son_eklenen_head")?.let { head ->
-            val kapsul = head.nextElementSibling()
-            val container = when {
-                kapsul?.id() == "son_eklenen_kapsul" -> kapsul
-                else -> head.parent()?.selectFirst("#son_eklenen_kapsul")
-            }
-            val items = container?.select(".boxgrid.caption")?.mapNotNull { parseGridItem(it) } ?: emptyList()
-            if (items.isNotEmpty()) {
-                categories.add(Category(name = "Ultimi inseriti", list = items))
-            }
+        // page has duplicate ids for these blocks, gotta scope the lookup per wrapper
+        doc.select("div.son_eklenen").forEach { wrapper ->
+            val head = wrapper.selectFirst(".son_eklenen_head") ?: return@forEach
+            val container = wrapper.selectFirst("#son_eklenen_kapsul") ?: return@forEach
+            val items = container.select(".boxgrid.caption").mapNotNull { parseGridItem(it) }
+            if (items.isEmpty()) return@forEach
+            categories.add(Category(name = "Ultimi inseriti", list = items))
         }
 
         return categories

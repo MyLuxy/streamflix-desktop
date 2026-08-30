@@ -40,7 +40,7 @@ object Cine24hProvider : Provider {
 
     private suspend fun getDocument(url: String): Document {
         try {
-            // Tentativo ultra-veloce (3s) per rilevare se serve la WebView
+            // quick 3s try before bothering with webview
             val client = NetworkClient.default.newBuilder()
                 .connectTimeout(3, TimeUnit.SECONDS)
                 .readTimeout(3, TimeUnit.SECONDS)
@@ -56,14 +56,12 @@ object Cine24hProvider : Provider {
             
             if (response.isSuccessful) {
                 val html = response.body?.string() ?: ""
-                // Se non c'è traccia di Cloudflare, procediamo con OkHttp (veloce)
                 if (!html.contains("cf-browser-verification") && !html.contains("Checking your browser") && !html.contains("Just a moment...")) {
                     return Jsoup.parse(html).apply { setBaseUri(baseUrl) }
                 }
             }
         } catch (_: Exception) { }
 
-        // Se OkHttp fallisce o rileva blocco, passiamo SUBITO alla WebView
         Log.d(TAG, "[Provider] Launching WebView Bypass for $url")
         val html = getResolver().get(url)
         return Jsoup.parse(html).apply { setBaseUri(baseUrl) }
@@ -73,7 +71,6 @@ object Cine24hProvider : Provider {
         val categories = mutableListOf<Category>()
         coroutineScope {
             try {
-                // Caricamento parallelo istantaneo delle sezioni
                 val bannerAsync = async { getDocument("$baseUrl/release/2025/") }
                 val moviesAsync = async { getDocument("$baseUrl/estrenos/?type=movies") }
                 val tvAsync = async { getDocument("$baseUrl/estrenos/?type=series") }

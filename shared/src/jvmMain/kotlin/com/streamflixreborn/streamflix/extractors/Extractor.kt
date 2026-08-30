@@ -58,6 +58,7 @@ abstract class Extractor {
             BigWarpExtractor(),
             LoadXExtractor(),
             VidHideExtractor(),
+            StreamWishExtractor(),
             VeevExtractor(),
             RidooExtractor(),
             USTRExtractor(),

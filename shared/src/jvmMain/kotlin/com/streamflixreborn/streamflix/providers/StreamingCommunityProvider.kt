@@ -227,20 +227,17 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         val sliders = res.props?.sliders ?: listOf()
         val categories = mutableListOf<Category>()
 
-        // Helper per il mapping
         fun mapTitles(titles: List<StreamingCommunityService.Show>) = titles.map {
             val logo = getImageLink(it.images.find { img -> img.type == "logo" }?.filename)
             if (it.type == "movie") Movie(id = it.id + "-" + it.slug, title = it.name, released = it.lastAirDate, rating = it.score?.toDoubleOrNull(), poster = getImageLink(it.images.find { img -> img.type == "poster" }?.filename), banner = getImageLink(it.images.find { img -> img.type == "background" }?.filename), logo = logo)
             else TvShow(id = it.id + "-" + it.slug, title = it.name, released = it.lastAirDate, rating = it.score?.toDoubleOrNull(), poster = getImageLink(it.images.find { img -> img.type == "poster" }?.filename), banner = getImageLink(it.images.find { img -> img.type == "background" }?.filename), logo = logo)
         }
 
-        // 1. Identifichiamo il carosello in evidenza (Hero)
         val heroSlider = sliders.find { it.name == "hero" } ?: sliders.firstOrNull()
         if (heroSlider != null) {
             categories.add(Category(name = Category.FEATURED, list = mapTitles(heroSlider.titles).take(10)))
         }
 
-        // 2. Mappiamo gli slider conosciuti con nomi italiani standard
         val processedSliderNames = mutableSetOf<String>()
         if (heroSlider != null) processedSliderNames.add(heroSlider.name)
 
@@ -264,7 +261,6 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
             }
         }
 
-        // 3. Aggiungiamo i fallback da props (se non già aggiunti dagli slider)
         val propsMapping = listOf(
             "I titoli del momento" to (res.props?.trendingTitles ?: res.props?.trending),
             "Film aggiunti di recente" to res.props?.latestMovies,
@@ -278,14 +274,12 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
             }
         }
 
-        // 4. Aggiungiamo tutti gli altri slider non ancora processati
         sliders.forEach { slider ->
             if (!processedSliderNames.contains(slider.name) && slider.titles.isNotEmpty()) {
                 categories.add(Category(slider.label ?: slider.name, mapTitles(slider.titles)))
             }
         }
 
-        // 5. Aggiungiamo le sezioni ArchivePage
         val archiveSections = listOf(
             "Film" to res.props?.movies,
             "Serie TV" to res.props?.tvShows,
@@ -387,7 +381,6 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
                     if (version != it.version) version = it.version ?: ""
                 }
             } catch (e: Exception) {
-                // Se riceviamo 401 o altro errore Inertia, ripieghiamo sull'HTML puro (Shadow Bypass)
                 Log.w(TAG, "Inertia getDetails failed ($e), falling back to HTML parsing")
                 val doc = StreamingCommunityService.fetchDocumentWithRedirectsAndSslFallback("https://$domain/$LANG/titles/$id", "https://$domain/", language)
                 val json = InertiaUtils.parseInertiaData(doc)

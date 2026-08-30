@@ -34,7 +34,7 @@ class VidGuardExtractor : Extractor() {
         val pageHtml = try {
             service.get(link)
         } catch (e: Exception) {
-            // A veces la URL viene sin el protocolo https
+            // sometimes url comes without https
             service.get("https:$link")
         }
 

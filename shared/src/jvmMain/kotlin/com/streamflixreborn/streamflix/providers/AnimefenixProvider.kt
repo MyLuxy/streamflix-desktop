@@ -201,35 +201,29 @@ object AnimefenixProvider : Provider {
                 it.attr("data-src").ifEmpty { it.attr("src") }
             }
 
-            // 1. Mejora en la sinopsis para el nuevo tema Neo
             val overview = document.selectFirst("h2:contains(Sinopsis) + p")?.text()
                 ?: document.selectFirst(".mb-6 p.text-gray-300")?.text()
 
-            // 2. Mejora en los géneros
             val genres = document.select("a[href*=/directorio/anime?genero=]").map {
                 Genre(id = it.attr("href").substringAfterLast("/"), name = it.text().trim())
             }
 
-            // 3. Extracción de episodios AJAX usando la técnica de Corrutinas
             val episodes = mutableListOf<Episode>()
             val slug = id.substringAfterLast("/")
 
-            // Buscamos los botones de las páginas (Ej: "1 - 50", "51 - 100")
             val episodeButtons = document.select(".episode-navigation button.episode-btn")
             val startValues = if (episodeButtons.isNotEmpty()) {
                 episodeButtons.mapNotNull { btn ->
                     Regex("""loadEpisodes\((\d+)""").find(btn.attr("onclick"))?.groupValues?.get(1)
                 }.distinct()
             } else {
-                listOf("0") // Valor por defecto si solo hay una página
+                listOf("0")
             }
 
-            // Descargamos las páginas en paralelo
             coroutineScope {
                 val deferredEpisodes = startValues.map { start ->
                     async {
                         try {
-                            // Imita la llamada AJAX de la página web
                             val ajaxUrl = "$id?id=$slug&load=episodes&start=$start"
                             val epDoc = service.getPage(ajaxUrl)
 
@@ -260,7 +254,6 @@ object AnimefenixProvider : Provider {
                 deferredEpisodes.map { it.await() }.forEach { episodes.addAll(it) }
             }
 
-            // Aseguramos el orden correcto (menor a mayor)
             episodes.sortBy { it.number }
 
             TvShow(

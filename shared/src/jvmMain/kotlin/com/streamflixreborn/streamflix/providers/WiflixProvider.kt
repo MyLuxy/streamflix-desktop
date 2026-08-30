@@ -59,8 +59,7 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     private var serviceInitialized = false
     private val initializationMutex = Mutex()
 
-    // Flag to track if more search results are available. Set to false when API returns fewer items than requested.
-    // This prevents querying non-existent pages that could return random/incorrect results.
+    // false once a page returns fewer items than asked, dont bother paging past that
     private var hasMore = true
 
     override suspend fun getHome(): List<Category> {
@@ -163,8 +162,7 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
             searchStart = page,
         )
 
-        // Exclude div.mov elements inside #no-results-rec (these are hidden recommendations,
-        // shown via JS only when there are no real search results).
+        // #no-results-rec is a hidden "recommendations" block, not real results
         val results = document.select("div.mov")
             .filter { el -> el.parents().none { parent -> parent.id() == "no-results-rec" } }
             .mapNotNull {
@@ -623,12 +621,10 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                 try {
                     val document = addressService.getHome()
 
-                    // Cerchiamo l'URL tra i vari elementi che solitamente contengono il link attivo
                     val newUrl = document.select("div.card-featured-wrap a.card-featured, div.alert-success a, div.alert-info a, a.btn-success, div.entry-content a")
                         .map { it.attr("href").trim() }
                         .firstOrNull { link ->
-                            // Escludiamo i link interni, i social e il portale stesso
-                            link.startsWith("http") && 
+                            link.startsWith("http") &&
                             !link.contains("wiflix-adresses") && 
                             !link.contains("facebook") && 
                             !link.contains("twitter") &&
@@ -648,8 +644,6 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                         )
                     }
                 } catch (e: Exception) {
-                    // In case of failure, we'll use the default URL
-                    // No need to throw as we already have a fallback URL
                 }
             }
             service = Service.build(baseUrl)

@@ -14,6 +14,7 @@ import com.streamflixreborn.streamflix.models.Show
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import com.streamflixreborn.streamflix.utils.TmdbUtils
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import org.jsoup.Jsoup
@@ -44,6 +45,56 @@ object RidomoviesProvider : Provider {
         if (path.isNullOrBlank()) return null
         if (path.startsWith("http://") || path.startsWith("https://")) return path
         return "${URL.trimEnd('/')}/${path.trimStart('/')}"
+    }
+
+    // own posters are cloudflare-blocked at edge level, no header fixes that, tmdb images work fine
+    private fun extractYear(released: String?): Int? =
+        released?.let { Regex("(19|20)\\d{2}").find(it)?.value?.toIntOrNull() }
+
+    private suspend fun Movie.withTmdbImages(): Movie {
+        val images = runCatching { TmdbUtils.getMovieImages(title, extractYear(released)) }.getOrNull()
+        return if (images?.first != null || images?.second != null) {
+            copy(poster = images.first ?: poster, banner = images.second ?: banner)
+        } else this
+    }
+
+    private suspend fun TvShow.withTmdbImages(): TvShow {
+        val images = runCatching { TmdbUtils.getTvShowImages(title, extractYear(released)) }.getOrNull()
+        return if (images?.first != null || images?.second != null) {
+            copy(poster = images.first ?: poster, banner = images.second ?: banner)
+        } else this
+    }
+
+    private suspend fun List<ListItem>.enrichWithTmdbImages(): List<ListItem> = coroutineScope {
+        map { item ->
+            async {
+                when (item) {
+                    is Movie -> item.withTmdbImages()
+                    is TvShow -> item.withTmdbImages()
+                    else -> item
+                }
+            }
+        }.map { it.await() }
+    }
+
+    private suspend fun List<Movie>.enrichMoviesWithTmdb(): List<Movie> = coroutineScope {
+        map { async { it.withTmdbImages() } }.map { it.await() }
+    }
+
+    private suspend fun List<TvShow>.enrichTvShowsWithTmdb(): List<TvShow> = coroutineScope {
+        map { async { it.withTmdbImages() } }.map { it.await() }
+    }
+
+    private suspend fun List<Show>.enrichShowsWithTmdb(): List<Show> = coroutineScope {
+        map { item ->
+            async {
+                when (item) {
+                    is Movie -> item.withTmdbImages()
+                    is TvShow -> item.withTmdbImages()
+                    else -> item
+                }
+            }
+        }.map { it.await() }
     }
 
     override suspend fun getHome(): List<Category> {
@@ -116,8 +167,7 @@ object RidomoviesProvider : Provider {
             )
         )
 
-        return categories
-
+        return categories.map { it.copy(list = it.list.enrichWithTmdbImages()) }
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
@@ -158,7 +208,7 @@ object RidomoviesProvider : Provider {
             }
         }
 
-        return results
+        return results.enrichWithTmdbImages()
     }
 
     override suspend fun getMovies(page: Int): List<Movie> {
@@ -174,7 +224,7 @@ object RidomoviesProvider : Provider {
             )
         }
 
-        return movies
+        return movies.enrichMoviesWithTmdb()
     }
 
     override suspend fun getTvShows(page: Int): List<TvShow> {
@@ -190,7 +240,7 @@ object RidomoviesProvider : Provider {
             )
         }
 
-        return tvShows
+        return tvShows.enrichTvShowsWithTmdb()
     }
 
     override suspend fun getMovie(id: String): Movie {
@@ -235,7 +285,7 @@ object RidomoviesProvider : Provider {
             },
         )
 
-        return movie
+        return movie.withTmdbImages()
     }
 
     override suspend fun getTvShow(id: String): TvShow {
@@ -291,7 +341,7 @@ object RidomoviesProvider : Provider {
             },
         )
 
-        return tvShow
+        return tvShow.withTmdbImages()
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
@@ -365,7 +415,7 @@ object RidomoviesProvider : Provider {
                     )
                 }
 
-                Genre(id = id, name = id.replaceFirstChar { it.uppercase() }, shows = shows)
+                Genre(id = id, name = id.replaceFirstChar { it.uppercase() }, shows = shows.enrichShowsWithTmdb())
             }
         } catch (e: Exception) {
             Genre(id = id, name = id.replaceFirstChar { it.uppercase() }, shows = emptyList())
@@ -399,7 +449,7 @@ object RidomoviesProvider : Provider {
             }
         }
 
-        // Dropdown buttons appear only on multi-server movies — add extras deduplicating against player-cover
+        // dropdown only shows on multi-server movies, dedupe against player-cover
         document.select(".server-dropdown-item[data-server-embed]").forEachIndexed { idx, btn ->
             val src = extractIframeSrc(btn.attr("data-server-embed"))
             val label = btn.text().ifBlank { "Server ${idx + 1}" }

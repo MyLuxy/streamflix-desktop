@@ -147,16 +147,27 @@ object HDFilmeProvider : Provider {
             categories.add(Category(name = Category.FEATURED, list = sliderItems))
         }
 
+        // home mixes movies and shows in the same html, gotta check each page to tell which
         val listingDiv = doc.selectFirst("div.listing.grid[id=dle-content]")
         if (listingDiv != null) {
-            val items = listingDiv.select("div.item.relative.mt-3").mapNotNull { parseGridItem(it) }
+            val detailSemaphore = Semaphore(4)
+            val items = coroutineScope {
+                listingDiv.select("div.item.relative.mt-3").map { el ->
+                    async { classifyGridItem(el, detailSemaphore) }
+                }.awaitAll().filterNotNull()
+            }
             if (items.isNotEmpty()) {
                 categories.add(Category(name = "Filme", list = items))
             }
         }
 
         val latestMoviesSection = doc.selectFirst("section.sidebar-section:has(h3:containsOwn(neueste Filme eingefügt))")
-        val latestMoviesItems = latestMoviesSection?.select("div.listing > a")?.mapNotNull { parseSidebarItemAsMovie(it) } ?: emptyList()
+        val latestMoviesItems = latestMoviesSection?.select("div.listing > a")?.let { elements ->
+            val detailSemaphore = Semaphore(4)
+            coroutineScope {
+                elements.map { el -> async { classifySidebarItem(el, detailSemaphore) } }.awaitAll().filterNotNull()
+            }
+        } ?: emptyList()
         if (latestMoviesItems.isNotEmpty()) {
             categories.add(Category(name = "Neueste Filme Eingefügt", list = latestMoviesItems))
         }
@@ -263,6 +274,24 @@ object HDFilmeProvider : Provider {
             title = title,
             poster = poster
         )
+    }
+
+    private suspend fun classifyGridItem(el: Element, detailSemaphore: Semaphore): ListItem? {
+        val href = el.selectFirst("a.block.relative[href]")?.attr("href")?.trim()?.takeIf { it.isNotBlank() }
+            ?: return parseGridItem(el)
+        return detailSemaphore.withPermit {
+            val itemDoc = runCatching { service.getPage(href) }.getOrNull()
+            if (itemDoc != null && isTvShowDocument(itemDoc)) parseGridItemAsTvShow(el) else parseGridItem(el)
+        }
+    }
+
+    private suspend fun classifySidebarItem(el: Element, detailSemaphore: Semaphore): ListItem? {
+        val href = el.attr("href").trim().takeIf { it.isNotBlank() }
+            ?: return parseSidebarItemAsMovie(el)
+        return detailSemaphore.withPermit {
+            val itemDoc = runCatching { service.getPage(href) }.getOrNull()
+            if (itemDoc != null && isTvShowDocument(itemDoc)) parseSidebarItemAsTvShow(el) else parseSidebarItemAsMovie(el)
+        }
     }
 
     private fun normalizeUrl(url: String): String {

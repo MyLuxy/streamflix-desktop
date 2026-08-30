@@ -30,7 +30,6 @@ class CloseloadExtractor : Extractor() {
         val html = document.toString()
         var searchHtml = html
         
-        // Find and unpack all eval blocks for Closeload/Ridorapid
         val evalRegex = Regex("""eval\s*\(\s*function\s*\(\s*p\s*,\s*a\s*,\s*c\s*,\s*k\s*,\s*e""")
         evalRegex.findAll(html).forEach { match ->
             val endIdx = (match.range.first + 5000).coerceAtMost(html.length)
@@ -43,15 +42,12 @@ class CloseloadExtractor : Extractor() {
             }
         }
 
-        // --- NEW CLOSLOAD EXTRACTOR LOGIC ---
-        // Find the JS decryption function (handle optional semicolon)
         val funcMatch = Regex("""function\s+(dc_[a-zA-Z0-9_]+)\(value_parts\)\s*\{(.*?return unmix;?)\s*\}""", RegexOption.DOT_MATCHES_ALL).find(searchHtml)
             ?: throw Exception("Decryption function not found")
 
         val funcName = funcMatch.groupValues[1]
         val funcBody = funcMatch.groupValues[2]
 
-        // Parse operations in order
         val operations = mutableListOf<Pair<String, Int?>>()
         val opRegex = Regex("""(atob\()|(reverse\(\))|(replace\(\/\[a-zA-Z\]\/g.*?o\s*-\s*base\s*\+\s*(\d+)\s*\)\s*%\s*26)""", RegexOption.DOT_MATCHES_ALL)
         opRegex.findAll(funcBody).forEach { match ->
@@ -65,13 +61,11 @@ class CloseloadExtractor : Extractor() {
             }
         }
 
-        // Extract unmix loop constants
         var accInit = 2
         var accAdd = 9
         Regex("""var\s+acc\s*=\s*(\d+)""").find(funcBody)?.let { accInit = it.groupValues[1].toInt() }
         Regex("""acc\s*=\s*\(\s*acc\s*\+\s*(\d+)\s*\)\s*%\s*256""").find(funcBody)?.let { accAdd = it.groupValues[1].toInt() }
 
-        // Find the array matches
         val arrayMatches = Regex("""$funcName\(\s*\[\s*((?:"[^"]+",?\s*)+)\s*\]\s*\)""").findAll(searchHtml)
         
         var source: String? = null

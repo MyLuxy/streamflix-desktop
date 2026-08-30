@@ -25,11 +25,10 @@ import retrofit2.http.GET
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
-// IptvProvider con TvShow para aprovechar el "Direct Play" o la selección manual según el usuario
 object PelotaLibreTvHdProvider : IptvProvider {
     override val name = "Pelota Libre TV"
     override val baseUrl = "https://pelotalibretvhd.live"
-    override val logo = "https://i.ibb.co/qYgyrsYS/Pelota-Libre.jpg" // Logo oficial de la página
+    override val logo = "https://i.ibb.co/qYgyrsYS/Pelota-Libre.jpg"
     override val language = "es"
 
     private const val TAG = "PelotaLibre"
@@ -69,7 +68,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
         .build()
         .create(ApiService::class.java)
 
-    // FUNCIÓN DE CAZA 1: Los Canales 24/7
     private suspend fun fetchChannels(): List<TvShow> {
         val channels = mutableListOf<TvShow>()
         try {
@@ -99,7 +97,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
         return channels
     }
 
-    // FUNCIÓN DE CAZA 2: La Agenda Aplanada (Un ítem por canal para soportar el Autoplay)
     private suspend fun fetchAgenda(): List<TvShow> {
         val matches = mutableListOf<TvShow>()
         try {
@@ -113,7 +110,7 @@ object PelotaLibreTvHdProvider : IptvProvider {
 
                 val agendaDoc = api.getHtml(agendaUrl)
 
-                // HACK DE CARÁTULAS: Escanear la etiqueta <style> para robar las banderas CSS
+                // flag images live in css bg, not inline
                 val styleBlocks = agendaDoc.select("style").joinToString("\n") { it.html() }
                 val cssRegex = """\.([a-zA-Z0-9_-]+)\s*>\s*a:before\s*\{\s*background-image:\s*url\(['"]?([^)'"]+)['"]?\)""".toRegex()
                 val classToImage = mutableMapOf<String, String>()
@@ -129,7 +126,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                 for (element in matchElements) {
                     val mainLink = element.selectFirst("> a") ?: continue
 
-                    // Limpieza del Título: Quitamos la liga y dejamos solo los equipos
                     val rawTitle = mainLink.ownText().trim()
                     val titleClean = if (rawTitle.contains(":")) rawTitle.substringAfter(":").trim() else rawTitle
                     val time = mainLink.selectFirst("span.t")?.text()?.trim() ?: ""
@@ -143,7 +139,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                         val channelName = channelTag.ownText().trim()
                         val quality = channelTag.selectFirst("span")?.text()?.trim() ?: ""
 
-                        // Creador del Título Perfecto: "[15:00] Real Madrid vs Barcelona - ESPN"
                         val channelLabel = if (quality.isNotEmpty()) "$channelName ($quality)" else channelName
                         val displayTitle = if (time.isNotEmpty()) "[$time] $titleClean - $channelLabel" else "$titleClean - $channelLabel"
 
@@ -168,7 +163,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
         val categories = mutableListOf<Category>()
 
         try {
-            // Paralelismo total: Agenda y Canales 24/7 cargan al mismo tiempo y sin bloquearse
             val channelsDeferred = async { try { fetchChannels() } catch(e:Exception) { emptyList<TvShow>() } }
             val agendaDeferred = async { try { fetchAgenda() } catch(e:Exception) { emptyList<TvShow>() } }
 
@@ -182,7 +176,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                 categories.add(Category(name = "Canales 24/7", list = channels))
             }
 
-            // Añadiendo la firma del creador al final de la vista principal
             categories.add(
                 Category(
                     name = "Soporte y Ayuda",
@@ -198,13 +191,11 @@ object PelotaLibreTvHdProvider : IptvProvider {
         return@coroutineScope categories
     }
 
-    // DIRECTORIO: Fusionamos Canales y Agenda para que el Catálogo esté completo
     override suspend fun getTvShows(page: Int): List<TvShow> = coroutineScope {
         if (page == 1) {
             val agendaDeferred = async { try { fetchAgenda() } catch(e:Exception) { emptyList<TvShow>() } }
             val channelsDeferred = async { try { fetchChannels() } catch(e:Exception) { emptyList<TvShow>() } }
 
-            // Los canales 24/7 arriba, y luego todos los partidos aplanados
             channelsDeferred.await() + agendaDeferred.await()
         } else {
             emptyList()
@@ -226,10 +217,8 @@ object PelotaLibreTvHdProvider : IptvProvider {
     override suspend fun getMovie(id: String): Movie = throw NotImplementedError()
 
     override suspend fun getTvShow(id: String): TvShow {
-        // Interceptamos la acción si el usuario hace clic en los elementos de Soporte y Ayuda
         if (id == "creador-info" || id == "apoyo-info") return getInfoItem(id)
 
-        // Al aplanar todo, el ID ahora es la URL exacta del canal. Ya no necesitamos lógicas complejas.
         val nameGuess = try { id.toHttpUrl().pathSegments.last().removeSuffix(".html").replace("-", " ").uppercase() } catch(e:Exception) { "Canal 24/7" }
         return TvShow(
             id = id,
@@ -242,10 +231,8 @@ object PelotaLibreTvHdProvider : IptvProvider {
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        // Evitamos que intente buscar episodios para las tarjetas de información
         if (seasonId == "creador-info" || seasonId == "apoyo-info") return emptyList()
 
-        // Como aplanamos la agenda, cada TvShow tiene exactamente 1 Episodio (compatible con AutoPlay)
         return listOf(
             Episode(
                 id = seasonId,
@@ -259,10 +246,8 @@ object PelotaLibreTvHdProvider : IptvProvider {
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
         val servers = mutableListOf<Video.Server>()
 
-        // Bloqueamos la búsqueda de servidores si hacen clic en las opciones de soporte
         if (id == "creador-info" || id == "apoyo-info") return emptyList()
 
-        // Atajo directo de la Agenda
         if (id.contains("eventos.html?r=")) {
             try {
                 val encodedParam = id.substringAfter("r=").substringBefore("&")
@@ -272,13 +257,11 @@ object PelotaLibreTvHdProvider : IptvProvider {
             } catch(e: Exception) { Log.e(TAG, "Error decodificando atajo: ${e.message}") }
         }
 
-        // Si el ID ya es un link de reproductor externo directo
         if (id.contains("latamplay") || id.contains("streamtpday") || id.contains("streamx741") || id.contains("zonalive.click")) {
             servers.add(Video.Server(id = id, name = "Reproductor Directo"))
             return servers
         }
 
-        // Búsqueda para Canales 24/7
         try {
             val doc = api.getHtml(id)
             val iframeSrc = doc.selectFirst("iframe#embedIframe, .preframe iframe, .subiframe iframe")?.attr("src")
@@ -303,7 +286,7 @@ object PelotaLibreTvHdProvider : IptvProvider {
         val maxDepth = 10
         var depth = 0
 
-        // Filtro Anti-Trampas
+        // these urls are known decoys, not real streams
         val isDecoy: (String) -> Boolean = { link ->
             link.contains("amagi.tv") || link.contains("lovetvchannels") ||
                     link.contains("channel02secure") || link.contains("redirect=true") ||
@@ -314,7 +297,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
         while (depth < maxDepth) {
             depth++
             try {
-                // Hack de redirección manual
                 if (currentUrl.contains("latamplay") && currentUrl.contains("/channel/")) {
                     val streamName = currentUrl.substringAfter("channel/").substringBefore("?").removeSuffix(".php")
                     currentReferer = currentUrl
@@ -337,7 +319,7 @@ object PelotaLibreTvHdProvider : IptvProvider {
                 val hostSeguro = currentUri?.host ?: "ontve.click"
                 val origin = currentUri?.let { "https://${it.host}" } ?: baseUrl
 
-                // 1. Enrutador Javascript
+                // js router keyed by channel id
                 if (channelId.isNotEmpty()) {
                     val iframeBlocks = """(?:id|channel|stream)\s*===\s*["']([^"']+)["']\)\s*\{[^}]*src=["']([^"']+)["']""".toRegex().findAll(cleanHtml)
                     val match = iframeBlocks.firstOrNull { it.groupValues[1] == channelId }
@@ -362,7 +344,7 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     }
                 }
 
-                // 2. Desofuscador Matemático P2P
+                // p2p style number pairs decode to a url char by char
                 val pairRegex = """\[\s*(\d+)\s*,\s*["']([^"']+)["']\s*\]""".toRegex()
                 val pairsMatches = pairRegex.findAll(htmlParaAnalizar).toList()
 
@@ -401,7 +383,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     }
                 }
 
-                // 3. Enlaces Directos M3U8
                 val m3u8Regex = """(https?://[^"'\s]+\.(?:m3u8|mpd)[^"'\s]*)""".toRegex()
                 val relativeRegex = """(?:source|file|src)\s*:\s*["']([^"']+\.(?:m3u8|mpd)[^"']*)["']""".toRegex()
 
@@ -415,7 +396,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     return Video(finalUrl, emptyList(), mapOf("Referer" to currentUrl, "User-Agent" to USER_AGENT, "Origin" to origin))
                 }
 
-                // 4. JS Ofuscado (eval)
                 if (cleanHtml.contains("eval(function(p,a,c,k,e,d)")) {
                     val unpackedJS = JsUnpacker(cleanHtml).unpack()
                     if (!unpackedJS.isNullOrEmpty()) {
@@ -429,7 +409,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     }
                 }
 
-                // 5. Base64 Puro
                 val base64HttpRegex = """["'](aHR0c[a-zA-Z0-9=]+)["']""".toRegex()
                 val b64Matches = base64HttpRegex.findAll(htmlParaAnalizar)
                 for (match in b64Matches) {
@@ -441,7 +420,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     } catch (_: Exception) {}
                 }
 
-                // 6. Iframes en Base64
                 val atobRegex = """atob\(['"]([^"']+)['"]\)""".toRegex()
                 val atobMatches = atobRegex.findAll(htmlParaAnalizar)
                 var foundHiddenIframe = false
@@ -463,7 +441,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                 }
                 if (foundHiddenIframe) continue
 
-                // 7. Iframes HTML normales
                 val doc = Jsoup.parse(htmlParaAnalizar)
                 val iframes = doc.select("iframe")
                 val nextIframe = iframes.firstOrNull {
@@ -479,7 +456,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
                     continue
                 }
 
-                // 8. Redirecciones JS
                 val windowLocationRegex = """(?:window\.location\.replace|window\.location\.href)\s*=\s*['"]([^"']+)['"]""".toRegex()
                 val locMatch = windowLocationRegex.find(htmlParaAnalizar)
                 if (locMatch != null && !isDecoy(locMatch.groupValues[1])) {

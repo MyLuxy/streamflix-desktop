@@ -45,6 +45,12 @@ object AnimeUnityProvider : Provider {
     private fun getImageUrl(imageurl: String): String {
         return AnimeUnityService.getImageUrl(imageurl, baseUrl)
     }
+
+    // real wide banner lives in .banner-wrapper .banner's inline style
+    private fun parseBannerUrl(document: Element): String {
+        val style = document.selectFirst("div.banner-wrapper div.banner")?.attr("style") ?: return ""
+        return Regex("""url\(([^)"']+)""").find(style)?.groupValues?.get(1) ?: ""
+    }
     
     private interface KitsuService {
         @POST("graphql")
@@ -163,12 +169,12 @@ object AnimeUnityProvider : Provider {
         companion object {
             fun getImageUrl(imageurl: String, baseUrl: String): String {
                 if (imageurl.isEmpty()) return ""
-                
+
                 val parts = imageurl.split(Regex("[\\\\/]"))
                 val filename = parts.lastOrNull() ?: ""
-                
+
                 val domain = baseUrl.replace("https://", "").replace("www.", "")
-                
+
                 return "https://img.$domain/anime/$filename"
             }
             
@@ -229,7 +235,7 @@ object AnimeUnityProvider : Provider {
     override suspend fun getHome(): List<Category> {
         return try {
             val document = service.getHome()
-            
+
             val latestEpisodes = parseLatestEpisodes(document)
             
             val latestAdditions = parseLatestAdditions(document)
@@ -283,7 +289,7 @@ object AnimeUnityProvider : Provider {
             if (itemsJson.isEmpty()) {
                 return emptyList()
             }
-            
+
             val jsonObject = org.json.JSONObject(itemsJson)
             val dataArray = jsonObject.getJSONArray("data")
 
@@ -291,26 +297,28 @@ object AnimeUnityProvider : Provider {
                 try {
                     val episodeData = dataArray.getJSONObject(i)
                     val animeData = episodeData.getJSONObject("anime")
-                    
-                    val animeId = animeData.getString("id")
+
+                    // id comes back as a json number not string, getString throws here
+                    val animeId = animeData.get("id").toString()
                     val animeSlug = animeData.getString("slug")
-                    
+
                     if (seenAnimeIds.contains(animeId)) continue
                     seenAnimeIds.add(animeId)
-                    
+
                     val animeTitle = if (animeData.has("title_eng") && !animeData.isNull("title_eng")) {
                         animeData.getString("title_eng")
                     } else {
                         animeData.getString("title")
                     }
                     val animeImage = animeData.getString("imageurl")
-                    
+
                     val tvShow = TvShow(
                         id = "$animeId-$animeSlug",
                         title = animeTitle,
                         poster = getImageUrl(animeImage)
+                        // no banner here on purpose, only a vertical poster exists
                     )
-                    
+
                     tvShows.add(tvShow)
                 } catch (e: Exception) {
                 }
@@ -393,6 +401,8 @@ object AnimeUnityProvider : Provider {
                     val slug = animeData.getString("slug")
                     val titleEng = animeData.optString("title_eng", "")
                     val imageurl_cover = animeData.optString("imageurl_cover", "")
+                    // imageurl is the real vertical poster, different from imageurl_cover
+                    val imageurl = animeData.optString("imageurl", "")
                     val plot = animeData.optString("plot", "")
                     val date = animeData.optString("date", "")
                     val typeInfo = animeData.optString("type", "")
@@ -408,6 +418,7 @@ object AnimeUnityProvider : Provider {
                             Movie(
                                 id = "$animeId-$slug",
                                 title = Title,
+                                poster = getImageUrl(imageurl),
                                 banner = getImageUrl(imageurl_cover),
                                 overview = plot,
                                 rating = score,
@@ -417,6 +428,7 @@ object AnimeUnityProvider : Provider {
                             TvShow(
                                 id = "$animeId-$slug",
                                 title = Title,
+                                poster = getImageUrl(imageurl),
                                 banner = getImageUrl(imageurl_cover),
                                 overview = plot,
                                 rating = score,
@@ -781,6 +793,7 @@ object AnimeUnityProvider : Provider {
                 id = id,
                 title = title,
                 poster = getImageUrl(poster),
+                banner = parseBannerUrl(document),
                 overview = overview,
                 rating = rating,
                 released = released,
@@ -882,10 +895,11 @@ object AnimeUnityProvider : Provider {
             
             val seasons = if (episodesCount > 120) {
                 val ranges = calculateEpisodeRanges(episodesCount)
+                // needs a distinct number per range or season selection always picks the first one
                 ranges.mapIndexed { index, (startRange, endRange) ->
                     Season(
                         id = "$id-$startRange-$endRange",
-                        number = 0,
+                        number = index,
                         title = "$startRange-$endRange"
                     )
                 }
@@ -902,6 +916,7 @@ object AnimeUnityProvider : Provider {
                 id = id,
                 title = title,
                 poster = getImageUrl(poster),
+                banner = parseBannerUrl(document),
                 overview = overview,
                 rating = rating,
                 released = released,

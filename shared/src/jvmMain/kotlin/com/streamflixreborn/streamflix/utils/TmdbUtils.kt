@@ -18,6 +18,9 @@ object TmdbUtils {
     private const val UNKNOWN_AGE_RATING = Int.MIN_VALUE
     private val movieAgeCache = ConcurrentHashMap<String, Int>()
     private val tvAgeCache = ConcurrentHashMap<String, Int>()
+    private val movieImageCache = ConcurrentHashMap<String, Pair<String?, String?>>()
+    private val tvImageCache = ConcurrentHashMap<String, Pair<String?, String?>>()
+    private val NO_IMAGES: Pair<String?, String?> = null to null
 
     suspend fun getMovie(title: String, year: Int? = null, language: String? = null): Movie? {
         if (!UserPreferences.enableTmdb) return null
@@ -98,6 +101,38 @@ object TmdbUtils {
                 cast = details.credits?.cast?.map { People(it.id.toString(), it.name, it.profilePath?.w500) } ?: listOf(),
             )
         } catch (_: Exception) { null }
+    }
+
+    // skips .details() (cast/video/recs) since image paths are already in the search result,
+    // way faster for a provider that just wants to patch up 30+ broken posters
+    suspend fun getMovieImages(title: String, year: Int? = null, language: String? = null): Pair<String?, String?>? {
+        if (!UserPreferences.enableTmdb) return null
+        val effectiveYear = year ?: extractYear(title)
+        val cacheKey = buildLookupCacheKey("movie-img", title, effectiveYear, language)
+        movieImageCache[cacheKey]?.let { return it }
+
+        val result = runCatching {
+            val movie = findBestMovieMatch(title, effectiveYear, language) ?: return@runCatching null
+            movie.posterPath?.original to movie.backdropPath?.original
+        }.getOrNull()
+
+        movieImageCache[cacheKey] = result ?: NO_IMAGES
+        return result
+    }
+
+    suspend fun getTvShowImages(title: String, year: Int? = null, language: String? = null): Pair<String?, String?>? {
+        if (!UserPreferences.enableTmdb) return null
+        val effectiveYear = year ?: extractYear(title)
+        val cacheKey = buildLookupCacheKey("tv-img", title, effectiveYear, language)
+        tvImageCache[cacheKey]?.let { return it }
+
+        val result = runCatching {
+            val tv = findBestTvMatch(title, effectiveYear, language) ?: return@runCatching null
+            tv.posterPath?.original to tv.backdropPath?.original
+        }.getOrNull()
+
+        tvImageCache[cacheKey] = result ?: NO_IMAGES
+        return result
     }
 
     suspend fun getEpisodesBySeason(tvShowId: String, seasonNumber: Int, language: String? = null): List<Episode> {

@@ -60,11 +60,10 @@ object TvLibrefutbolProvider : IptvProvider {
         ): Document
     }
 
-    // --- BÚSQUEDA DEL TESORO: PARSER DE CARGA DINÁMICA MEJORADO ---
     private fun parseChannels(doc: Document): List<TvShow> {
         val results = mutableListOf<TvShow>()
 
-        // 1. MÉTODO QUIRÚRGICO: Extraer canales del Script (homeChannels)
+        // channels are usually stuffed in an inline script, try that first
         doc.select("script").forEach { script ->
             val data = script.data()
             if (data.contains("homeChannels") || data.contains("const channels")) {
@@ -76,7 +75,7 @@ object TvLibrefutbolProvider : IptvProvider {
                             val link = a.attr("href")
                             val title = a.text().trim().ifEmpty { a.selectFirst("img")?.attr("alt") ?: "" }
 
-                            // --- CORRECCIÓN DE LOGOS (FILTRADO DE PAYPAL) ---
+                            // skip donation/paypal badges used as fake logos
                             val imgElement = a.select("img").firstOrNull { img ->
                                 val src = img.attr("src").lowercase()
                                 !src.contains("paypal") && !src.contains("pago") &&
@@ -100,7 +99,6 @@ object TvLibrefutbolProvider : IptvProvider {
             }
         }
 
-        // 2. FALLBACK: Si el script falló, barremos los enlaces estáticos con el mismo filtro
         if (results.isEmpty()) {
             doc.select("a:has(img)").forEach { a ->
                 val link = a.attr("abs:href").ifEmpty { a.attr("href") }
@@ -191,20 +189,18 @@ object TvLibrefutbolProvider : IptvProvider {
 
         val t = doc.selectFirst("h1, h2, .title, .entry-title")?.text() ?: "Canal en Vivo"
 
-        // --- FILTRADO DE ÉLITE EN DETALLES (RECUPERA LOGO REAL) ---
+        // dont grab donation/social badges as the channel logo
         val forbidden = listOf(
             "paypal", "pago", "donar", "pay.png", "qr", "cafecito", "mercado", "donate",
             "buy", "telegram", "whatsapp", "facebook", "twitter", "instagram",
             "share", "ads", "banner", "pixel", "button", "btn", "favicon"
         )
 
-        // 1. Prioridad: Imagen destacada oficial de WordPress (Evita logos de pago)
         var imgElement = doc.select("img.wp-post-image, img.attachment-post-thumbnail").firstOrNull { img ->
             val src = img.attr("src").lowercase()
             forbidden.none { it in src }
         }
 
-        // 2. Segunda opción: Imagen en el contenido principal que coincida con el título
         if (imgElement == null) {
             val titleKeywords = t.lowercase().split(" ").filter { it.length > 3 }
             imgElement = doc.select(".entry-content img, .post-content img, article img").firstOrNull { img ->
@@ -214,7 +210,6 @@ object TvLibrefutbolProvider : IptvProvider {
             }
         }
 
-        // 3. Tercera opción: Cualquier imagen en el contenido que no sea prohibida
         if (imgElement == null) {
             imgElement = doc.select(".entry-content img, .card-body img").firstOrNull { img ->
                 val src = img.attr("src").lowercase()

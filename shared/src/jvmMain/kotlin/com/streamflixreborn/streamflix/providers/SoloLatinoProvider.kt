@@ -83,13 +83,11 @@ object SoloLatinoProvider : Provider {
         try {
             val mainDoc = service.getPage(baseUrl)
             
-            // 1. Featured
             val bannerShows = parseBannerShows(mainDoc).take(12)
             if (bannerShows.isNotEmpty()) {
                 categories.add(Category(Category.FEATURED, bannerShows))
             }
-            
-            // 2. Sections from the home page
+
             val sections = mainDoc.select("section")
             for (section in sections) {
                 val title = section.selectFirst(".section-title")?.text() ?: continue
@@ -143,11 +141,14 @@ object SoloLatinoProvider : Provider {
             val href = linkElement.attr("href")
             val absoluteUrl = if (href.startsWith("http")) href else "$baseUrl$href"
             
-            val posterElement = slide.selectFirst(".hero__bg")
-            val style = posterElement?.attr("style") ?: ""
+            // only the first slide has the bg in inline style, rest are lazy via data-bg
+            val bgElement = slide.selectFirst(".hero__bg")
+            val style = bgElement?.attr("style") ?: ""
             val bannerUrl = if (style.contains("url('")) {
                 style.substringAfter("url('").substringBefore("')")
-            } else ""
+            } else {
+                bgElement?.attr("data-bg") ?: ""
+            }
             
             val title = slide.selectFirst(".hero__logo-img")?.attr("alt")?.takeIf { it.isNotBlank() }
                 ?: slide.selectFirst(".hero__content p.font-display")?.text()?.trim() 
@@ -489,13 +490,11 @@ object SoloLatinoProvider : Provider {
                             
                             if (response.code == 419 || response.code == 403) {
                                 response.close()
-                                // Fetch CSRF cookie
                                 val csrfReq = Request.Builder()
                                     .url("$baseUrl/sanctum/csrf-cookie")
                                     .build()
                                 client.newCall(csrfReq).execute().close()
-                                
-                                // Rebuild request and add new XSRF header
+
                                 requestBuilder = Request.Builder()
                                     .url("$baseUrl/api/player-url")
                                     .post(requestBody)
@@ -517,7 +516,6 @@ object SoloLatinoProvider : Provider {
                                 allServers.addAll(nested)
                             }
                         } catch (e: Exception) {
-                            // Ignore single network errors
                         }
                     }
                 } else if (serverUrl.isNotEmpty()) {
@@ -540,7 +538,6 @@ object SoloLatinoProvider : Provider {
                                 allServers.addAll(nested)
                             }
                         } catch (e: Exception) {
-                            // Ignore single network errors
                         }
                     }
                 }
@@ -587,21 +584,19 @@ object SoloLatinoProvider : Provider {
             val iframeHtml = iframeDoc.html()
             val servers = mutableListOf<Video.Server>()
 
-            // Try to resolve PoW parameters
+            // site gates the real link behind a proof-of-work challenge sometimes
             var aesKey: ByteArray? = null
             try {
                 val challenge = Regex("""const\s+POW_CHALLENGE\s*=\s*'([^']+)';""").find(iframeHtml)?.groupValues?.get(1)
                 val difficulty = Regex("""const\s+POW_DIFFICULTY\s*=\s*(\d+);""").find(iframeHtml)?.groupValues?.get(1)?.toIntOrNull()
                 val salt = Regex("""const\s+POW_SALT\s*=\s*'([^']+)';""").find(iframeHtml)?.groupValues?.get(1)
-                
+
                 if (challenge != null && difficulty != null && salt != null) {
                     aesKey = solvePoW(challenge, difficulty, salt)
                 }
             } catch (e: Exception) {
-                // PoW solving error
             }
 
-            // 1. DataLink case
             try {
                 val dataLinkMatch = Regex("""dataLink = (\[.+?\]);""").find(iframeHtml)
                 if (dataLinkMatch != null) {
@@ -633,7 +628,6 @@ object SoloLatinoProvider : Provider {
                 }
             } catch (e: Exception) { /* JSON error - continue */ }
 
-            // 2. DOM-base
             try {
                 val domItems = iframeDoc.select(".ODDIV .OD_1 li[onclick]")
                 for (dom in domItems) {
@@ -649,7 +643,6 @@ object SoloLatinoProvider : Provider {
                 }
             } catch (e: Exception) { /* DOM error - continue */ }
 
-            // 3. Direct Iframe
             iframeDoc.selectFirst("iframe")?.attr("src")?.takeIf { it.isNotEmpty() }?.let { src ->
                 val name = src.substringAfter("//").substringBefore("/").replace("www.", "").substringBefore(".").replaceFirstChar { it.uppercase() }
                 if (servers.none { it.id == src }) {
@@ -665,23 +658,18 @@ object SoloLatinoProvider : Provider {
 
     private fun decodeBase64Link(encryptedLink: String): String? {
         return try {
-            // Encrypted link has format: header.payload.signature
             val parts = encryptedLink.split(".")
             if (parts.size != 3) return null
-            
-            // Decode the payload (middle part) from base64
+
             var payloadB64 = parts[1]
-            
-            // Add padding if necessary
+
             val missingPadding = payloadB64.length % 4
             if (missingPadding != 0) {
                 payloadB64 += "=".repeat(4 - missingPadding)
             }
-            
-            // Decode base64 payload
+
             val payloadJson = String(Base64.decode(payloadB64, Base64.DEFAULT))
-            
-            // Manual parsing for robustness
+
             val linkStart = payloadJson.indexOf("\"link\":\"")
             if (linkStart == -1) return null
             val valueStart = linkStart + 8

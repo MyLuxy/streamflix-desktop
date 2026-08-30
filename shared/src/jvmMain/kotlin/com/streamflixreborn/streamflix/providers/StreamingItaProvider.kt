@@ -81,7 +81,6 @@ object StreamingItaProvider : Provider {
         return try {
             val document = service.getPage(baseUrl)
 
-			// Top slider
 			val sliderItems = coroutineScope {
 				document.select("#slider-movies-tvshows article.item").map { el ->
 					async {
@@ -191,8 +190,7 @@ object StreamingItaProvider : Provider {
             val url = if (page > 1) "$baseUrl/film/page/$page/" else "$baseUrl/film/"
             val document = service.getPage(url)
             
-            // For pagination (page > 1), only use items from "Aggiunto recentemente" section
-            // For page 1, include both "In Sala" and "Aggiunto recentemente"
+            // page 1 has 2 sections, later pages only have the archive one
             val itemsSelector = if (page > 1) {
                 "#archive-content article.item"
             } else {
@@ -222,8 +220,7 @@ object StreamingItaProvider : Provider {
             val url = if (page > 1) "$baseUrl/tv/page/$page/" else "$baseUrl/tv/"
             val document = service.getPage(url)
             
-            // For pagination (page > 1), only use items from "Aggiunto recentemente" section
-            // For page 1, include both "Hot" and "Aggiunto recentemente"
+            // page 1 has 2 sections, later pages only have the archive one
             val itemsSelector = if (page > 1) {
                 "#archive-content article.item"
             } else {
@@ -358,7 +355,7 @@ object StreamingItaProvider : Provider {
     }
 
     override suspend fun getGenre(id: String, page: Int): Genre {
-        // id è l'URL della pagina del genere
+        // id is the genre page url, not an actual id
         return try {
             val base = if (id.startsWith("http")) id.removeSuffix("/") else "$baseUrl/${id.removePrefix("/").removeSuffix("/")}"
             val url = if (page > 1) "$base/page/$page/" else "$base/"
@@ -374,7 +371,6 @@ object StreamingItaProvider : Provider {
                 val title = el.selectFirst(".data h3 a, .data h3, h3 a, h3.title")?.text()
                     ?: el.selectFirst("img")?.attr("alt")
                     ?: ""
-                // Considera solo i film per i generi di FILM STREAMING
                 if (href.contains("/film/")) {
                     Movie(id = href, title = title, poster = img)
                 } else null
@@ -450,7 +446,6 @@ object StreamingItaProvider : Provider {
                 ?: document.select("#report-video").attr("data-type").ifBlank { "movie" }
                 ?: "movie"
 
-            // First: Server1
             val embedUrl1 = requestEmbedUrl(postId, nume = "1", type = contentType)
             val finalUrl1 = followRedirect(embedUrl1)
 
@@ -467,7 +462,6 @@ object StreamingItaProvider : Provider {
                 )
             )
 
-            // Then: Server2 (mirrors), if present
             val availableServers = document.select("[data-nume]").mapNotNull { 
                 it.attr("data-nume").toIntOrNull() 
             }.toSet()

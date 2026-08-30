@@ -22,7 +22,6 @@ class VoeExtractor : Extractor() {
     override suspend fun extract(link: String): Video {
         val service = VoeExtractorService.build(mainUrl, link)
 
-        // Extract path from original link (handles both mainUrl and alias URLs)
         val parsedUrl = URL(link)
         val originalPath = parsedUrl.path + if (parsedUrl.query != null) "?${parsedUrl.query}" else ""
 
@@ -45,7 +44,9 @@ class VoeExtractor : Extractor() {
             baseSubtitle = regex.find(baseSubtitleScript)?.groupValues?.get(1)?:""
         }
 
-        val subtitles = decryptedContent.getAsJsonArray("captions")
+        // not every video has subs, missing key here used to NPE instead of just empty
+        val subtitles = (decryptedContent.get("captions")?.takeIf { it.isJsonArray }?.asJsonArray
+            ?: com.google.gson.JsonArray())
         .map { caption ->
             val obj = caption.asJsonObject
                 var file = obj.get("file").asString
@@ -89,11 +90,9 @@ class VoeExtractor : Extractor() {
                     .build()
                 val retrofitVOEBuiled = retrofitVOE.create(VoeExtractorService::class.java)
 
-                // Extract path from original link (handles both mainUrl and alias URLs)
                 val relativePath = if (originalLink.startsWith(baseUrl)) {
                     originalLink.replace(baseUrl, "")
                 } else {
-                    // If link doesn't start with baseUrl, extract path directly (alias URL)
                     val parsedUrl = URL(originalLink)
                     parsedUrl.path + if (parsedUrl.query != null) "?${parsedUrl.query}" else ""
                 }

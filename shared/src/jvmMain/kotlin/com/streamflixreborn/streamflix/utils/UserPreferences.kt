@@ -57,8 +57,9 @@ object UserPreferences {
         get() = get("enable_tmdb")?.toBooleanStrictOrNull() ?: true
         set(value) = set("enable_tmdb", value.toString())
 
+    // same demo key the frontend falls back to, without a default here tmdb lookups always fail
     var tmdbApiKey: String
-        get() = get("tmdb_api_key") ?: ""
+        get() = get("tmdb_api_key")?.ifEmpty { null } ?: "2dca580c2a14b55200e784d157207b4d"
         set(value) = set("tmdb_api_key", value)
 
     // no bundled value on desktop (the Android build injects it from local.properties at build time)

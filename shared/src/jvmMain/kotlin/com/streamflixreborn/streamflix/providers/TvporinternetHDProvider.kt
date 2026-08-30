@@ -31,10 +31,9 @@ object TvporinternetHDProvider : IptvProvider {
     private const val TAG = "TvporinternetHD"
     private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
 
-    // --- SISTEMA DE CACHÉ EN MEMORIA ---
     private var channelsCache: List<TvShow> = emptyList()
     private var lastFetchTime: Long = 0
-    private const val CACHE_VALIDITY = 2 * 60 * 60 * 1000L // 2 horas de caché
+    private const val CACHE_VALIDITY = 2 * 60 * 60 * 1000L
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -64,7 +63,6 @@ object TvporinternetHDProvider : IptvProvider {
         ): Document
     }
 
-    // --- FUNCIÓN DE CACHÉ INTERNA ---
     private suspend fun getCachedOrFetchChannels(): List<TvShow> {
         val currentTime = System.currentTimeMillis()
         if (channelsCache.isNotEmpty() && (currentTime - lastFetchTime) < CACHE_VALIDITY) {
@@ -83,22 +81,20 @@ object TvporinternetHDProvider : IptvProvider {
             parsed
         } catch (e: Exception) {
             Log.e(TAG, "Error obteniendo canales web: ${e.message}")
-            channelsCache // Retorna la caché antigua si la petición falla
+            channelsCache
         }
     }
 
-    // --- BÚSQUEDA DEL TESORO: PARSER DE CARGA DINÁMICA MEJORADO ---
     private fun parseChannels(doc: Document): List<TvShow> {
         val results = mutableListOf<TvShow>()
         val forbidden = listOf("paypal", "donar", "pago", "qr", "cafecito", "pay.png", "donate")
 
-        // MÉTODO UNIVERSAL RESILIENTE (Ignora Scripts, escanea el DOM directo)
         doc.select("a").forEach { a ->
             val link = a.attr("abs:href").ifEmpty { a.attr("href") }
             val imgElement = a.selectFirst("img")
 
             if (imgElement != null) {
-                // LA CLAVE: Buscar atributos de Lazy Load
+                // lazy-loaded imgs keep the real src in data-src
                 val rawImg = imgElement.attr("data-src")
                     .ifEmpty { imgElement.attr("data-lazy-src") }
                     .ifEmpty { imgElement.attr("abs:src") }
@@ -109,7 +105,6 @@ object TvporinternetHDProvider : IptvProvider {
                     .ifEmpty { a.text() }
                     .trim()
 
-                // Filtrar imágenes basura
                 val isForbiddenImg = forbidden.any { it in rawImg.lowercase() }
 
                 if (!isForbiddenImg && isValidChannel(link, title)) {
@@ -144,7 +139,6 @@ object TvporinternetHDProvider : IptvProvider {
 
     override suspend fun getHome(): List<Category> = coroutineScope {
         try {
-            // Obtenemos de la caché instantánea
             val all = getCachedOrFetchChannels()
             val categories = mutableListOf<Category>()
 
@@ -181,7 +175,6 @@ object TvporinternetHDProvider : IptvProvider {
     override suspend fun getMovies(page: Int): List<Movie> = emptyList()
 
     override suspend fun getTvShows(page: Int): List<TvShow> = try {
-        // También usamos caché aquí para la pestaña de TV
         getCachedOrFetchChannels()
     } catch (_: Exception) { emptyList() }
 
@@ -192,7 +185,6 @@ object TvporinternetHDProvider : IptvProvider {
 
         val t = doc.selectFirst("h1, h2, .title, .entry-title")?.text() ?: "Canal en Vivo"
 
-        // --- FILTRADO DE ÉLITE EN DETALLES (RECUPERA LOGO REAL) ---
         val forbidden = listOf(
             "paypal", "pago", "donar", "pay.png", "qr", "cafecito", "mercado", "donate",
             "buy", "telegram", "whatsapp", "facebook", "twitter", "instagram",

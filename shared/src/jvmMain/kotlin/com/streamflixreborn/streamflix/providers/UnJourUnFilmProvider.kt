@@ -3,6 +3,8 @@ package com.streamflixreborn.streamflix.providers
 import com.streamflixreborn.streamflix.models.ListItem
 
 import com.streamflixreborn.streamflix.utils.Html
+import com.streamflixreborn.streamflix.utils.HeadlessBrowserResolver
+import org.jsoup.Jsoup
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.extractors.ApiVoirFilmExtractor
 import com.streamflixreborn.streamflix.extractors.Extractor
@@ -70,6 +72,51 @@ object UnJourUnFilmProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     private var serviceInitialized = false
     private val initializationMutex = Mutex()
 
+    // domain sits behind a real cloudflare challenge, headless browser is the only way through
+    private var webViewResolver: HeadlessBrowserResolver? = null
+    private val browserMutex = Mutex()
+
+    private fun getResolver(): HeadlessBrowserResolver {
+        return webViewResolver ?: HeadlessBrowserResolver().also { webViewResolver = it }
+    }
+
+    private class CloudflareChallengeException(val url: String) : Exception("Cloudflare challenge detected for $url")
+
+    private fun requiresClearance(html: String): Boolean {
+        return html.contains("Just a moment...", ignoreCase = true) ||
+            html.contains("cf-browser-verification", ignoreCase = true) ||
+            html.contains("Checking your browser", ignoreCase = true)
+    }
+
+    private suspend fun withCloudflareBypass(url: String, call: suspend () -> Document): Document {
+        return try {
+            val doc = call()
+            if (requiresClearance(doc.outerHtml())) throw CloudflareChallengeException(url)
+            doc
+        } catch (e: Exception) {
+            val httpException = e as? retrofit2.HttpException
+            val isChallengeException = e is CloudflareChallengeException
+            val isCloudflareChallengeOn403 = if (httpException?.code() == 403) {
+                requiresClearance(httpException.response()?.errorBody()?.string().orEmpty())
+            } else false
+
+            if (!isChallengeException && !isCloudflareChallengeOn403) throw e
+
+            val result = browserMutex.withLock {
+                getResolver().getResult(
+                    url = url,
+                    headers = mapOf("User-Agent" to USER_AGENT),
+                    completion = { _, html, _ -> !requiresClearance(html) && html.length > 1000 }
+                )
+            }
+            // fail loud instead of silently parsing a still-blocked page
+            if (requiresClearance(result.html) || result.html.length < 1000) {
+                throw IllegalStateException("Cloudflare challenge did not clear for $url")
+            }
+            Jsoup.parse(result.html, url).apply { setBaseUri(baseUrl) }
+        }
+    }
+
     fun ignoreSource(source: String, href: String): Boolean {
         if (arrayOf("youtube.").any {
                 href.contains(
@@ -84,7 +131,7 @@ object UnJourUnFilmProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     override suspend fun getHome(): List<Category> {
         initializeService()
 
-        val document = service.getHome()
+        val document = withCloudflareBypass(baseUrl) { service.getHome() }
         val categories = mutableListOf<Category>()
 
         categories.add(
@@ -811,8 +858,6 @@ object UnJourUnFilmProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                         )
                     }
                 } catch (e: Exception) {
-                    // In case of failure, we'll use the default URL
-                    // No need to throw as we already have a fallback URL
                 }
             }
             service = Service.build(baseUrl)

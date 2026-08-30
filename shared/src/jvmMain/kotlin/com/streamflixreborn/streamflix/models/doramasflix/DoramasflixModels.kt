@@ -66,7 +66,6 @@ data class Episode(
     val stillPath: String? = null,
 )
 
-// --- MODELOS PARA EL TOKEN DE FKPLAYER ---
 data class TokenModel(
     val props: PropsToken? = null,
 )
