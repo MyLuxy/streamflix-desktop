@@ -10,6 +10,8 @@ import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.providers.Provider
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -324,20 +326,16 @@ private fun handleStream(exchange: HttpExchange) {
             }
             val servers = provider.getServers(itemIdForServers, videoType)
             if (servers.isEmpty()) error("no server available")
-            // a pinned pick (sub/dub toggle) falls back to the full list if it went stale
-            val candidates = request.serverId?.let { id -> servers.filter { it.id == id } }
-                ?.takeIf { it.isNotEmpty() } ?: servers
-            // try em all, first one that dies (geoblock etc) shouldnt kill the rest
-            var lastError: Throwable? = null
-            var video: Video? = null
-            for (server in candidates) {
-                video = runCatching { provider.getVideo(server) }
-                    .onFailure { lastError = it }
-                    .getOrNull()
-                    ?.takeIf { it.source.isNotBlank() }
-                if (video != null) break
+            // resolve every listed server up front, in parallel, so a dead one (dub not
+            // out yet etc) never shows up in the picker as a choice that just errors
+            val resolved = servers.map { it to async { runCatching { provider.getVideo(it) } } }
+                .map { (server, deferred) -> server to deferred.await() }
+            val working = resolved.filter { (_, result) -> result.getOrNull()?.source?.isNotBlank() == true }
+            if (working.isEmpty()) {
+                throw (resolved.firstNotNullOfOrNull { (_, r) -> r.exceptionOrNull() } ?: Exception("no server available"))
             }
-            (video ?: throw (lastError ?: Exception("no server available"))) to servers
+            val picked = request.serverId?.let { id -> working.firstOrNull { it.first.id == id } } ?: working.first()
+            picked.second.getOrThrow() to working.map { it.first }
         }
     }.getOrElse {
         return sendJson(exchange, 200, json.encodeToString(StreamResponse(false, error = it.message ?: "extraction failed")))
@@ -346,7 +344,11 @@ private fun handleStream(exchange: HttpExchange) {
 
     val token = UUID.randomUUID().toString()
     streamCache[token] = video
-    val subtitles = video.subtitles.map { SubtitleDto(it.label, it.file, it.default) }
+    // subtitle cdns gate on the same referer as the video, the browser cant send that on
+    // its own so these need to go through the segment proxy too, not straight to the cdn
+    val subtitles = video.subtitles.map {
+        SubtitleDto(it.label, "/segment?token=$token&url=" + URLEncoder.encode(it.file, "UTF-8"), it.default)
+    }
     val serverDtos = servers.map { ServerDto(it.id, it.name) }
     // plain file links skip the manifest text path, they get streamed raw
     val isDirectFile = !video.source.contains(".m3u8", ignoreCase = true)
@@ -524,7 +526,9 @@ private fun serveSegment(exchange: HttpExchange) {
         val builder = HttpRequest.newBuilder(URI.create(targetUrl)).GET()
         applyHeaders(builder, video.headers)
         val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
-        val contentType = response.headers().firstValue("content-type").orElse("application/octet-stream")
+        // some cdns serve subtitles as octet-stream, browsers need the real type to parse a track
+        val contentType = if (targetUrl.substringBefore('?').endsWith(".vtt", ignoreCase = true)) "text/vtt"
+        else response.headers().firstValue("content-type").orElse("application/octet-stream")
         exchange.responseHeaders.add("Content-Type", contentType)
         exchange.sendResponseHeaders(response.statusCode(), response.body().size.toLong())
         exchange.responseBody.use { it.write(response.body()) }

@@ -375,7 +375,7 @@ export function HlsPlayer({
       {/* no title attr, the native tooltip would fight our own label in the controls bar */}
       <video ref={videoRef} className="w-full h-full" playsInline crossOrigin="anonymous">
         {subtitles.map((s) => (
-          <track key={s.url} kind="subtitles" src={s.url} label={s.label} default={s.default} />
+          <track key={s.url} kind="subtitles" src={`${BACKEND_URL}${s.url}`} label={s.label} default={s.default} />
         ))}
       </video>
 
