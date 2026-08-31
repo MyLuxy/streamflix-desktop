@@ -12,6 +12,10 @@ import {
   Minimize,
   ArrowLeft,
   Captions,
+  SignalHigh,
+  Clock,
+  AudioLines,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
@@ -54,6 +58,16 @@ function audioLabel(name: string): string {
   if (!tag) return name;
   return tag[1].toLowerCase() === "sub" ? "Japanese" : "English";
 }
+
+// mirrors of the same file arent audio tracks, only show the tab when servers actually
+// look like language variants (hianime style), not just interchangeable hosts
+function hasAudioVariants(servers: StreamServer[]): boolean {
+  return servers.length > 1 && servers.some((s) => /\b(sub|dub)\b/i.test(s.name));
+}
+
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+type SettingsTab = "quality" | "speed" | "audio" | "subtitles";
 
 // custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs
 // headers browsers cant set on a cross origin request
@@ -100,12 +114,20 @@ export function HlsPlayer({
 
   const [servers, setServers] = useState<StreamServer[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | undefined>(undefined);
-  // undefined = follow whatever track came back marked default, null = "None" was picked
+  // undefined = follow whatever track came back marked default, null = "Off" was picked
   const [selectedSubtitleUrl, setSelectedSubtitleUrl] = useState<string | null | undefined>(undefined);
-  const [showServerMenu, setShowServerMenu] = useState(false);
-  const serverMenuRef = useRef<HTMLDivElement>(null);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab>("subtitles");
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
   // keeps playback position across a manual audio switch, startTime prop is only the initial resume
   const resumeTimeRef = useRef<number | null>(null);
+
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [levels, setLevels] = useState<{ height: number }[]>([]);
+  // null = auto (abr picks it), otherwise a pinned hls.js level index
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const selectedLevelRef = useRef(selectedLevel);
+  selectedLevelRef.current = selectedLevel;
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
@@ -192,13 +214,18 @@ export function HlsPlayer({
   }, [itemId, episodeId]);
 
   useEffect(() => {
-    if (!showServerMenu) return;
+    if (!showSettingsMenu) return;
     const onClickOutside = (e: MouseEvent) => {
-      if (!serverMenuRef.current?.contains(e.target as Node)) setShowServerMenu(false);
+      if (!settingsMenuRef.current?.contains(e.target as Node)) setShowSettingsMenu(false);
     };
     window.addEventListener("mousedown", onClickOutside);
     return () => window.removeEventListener("mousedown", onClickOutside);
-  }, [showServerMenu]);
+  }, [showSettingsMenu]);
+
+  // playbackRate resets to 1 whenever a fresh src loads, keep it pinned across reloads
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+  }, [playbackRate, status]);
 
   // the default attr on <track> isnt reliable once tracks change dynamically, force it.
   // undefined means no manual pick yet, follow whatever track came back marked default
@@ -246,6 +273,7 @@ export function HlsPlayer({
 
       setServers(resultServers);
       setSubtitles(result.subtitles ?? []);
+      setLevels([]);
       const activeServerId = selectedServerId ?? resultServers[0]?.id;
       const activeServer = resultServers.find((s) => s.id === activeServerId);
       if (activeServer) onAudioTrackChangeRef.current?.(audioLabel(activeServer.name));
@@ -278,8 +306,10 @@ export function HlsPlayer({
             setErrorMessage(t("player.streamError"));
           }
         });
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
           if (!cancelled) setStatus("playing");
+          setLevels(data.levels.map((l) => ({ height: l.height })));
+          if (selectedLevelRef.current !== null) hls.currentLevel = selectedLevelRef.current;
           applyStartTime();
           video.play().catch(() => {});
         });
@@ -382,15 +412,23 @@ export function HlsPlayer({
   };
 
   const selectServer = (id: string) => {
-    setShowServerMenu(false);
     if (id === selectedServerId) return;
     resumeTimeRef.current = videoRef.current?.currentTime ?? null;
     setSelectedServerId(id);
   };
 
   const selectSubtitle = (url: string | null) => {
-    setShowServerMenu(false);
     setSelectedSubtitleUrl(url);
+  };
+
+  const selectQuality = (index: number | null) => {
+    setSelectedLevel(index);
+    if (hlsRef.current) hlsRef.current.currentLevel = index ?? -1;
+  };
+
+  const selectSpeed = (rate: number) => {
+    setPlaybackRate(rate);
+    if (videoRef.current) videoRef.current.playbackRate = rate;
   };
 
   const displayedTime = dragging && dragTime !== null ? dragTime : currentTime;
@@ -400,7 +438,13 @@ export function HlsPlayer({
     ? subtitles.find((s) => s.default)?.url ?? null
     : selectedSubtitleUrl;
   const activeServerId = selectedServerId ?? servers[0]?.id;
-  const showTrackMenu = servers.length > 1 || subtitles.length > 0;
+  const showAudioTab = hasAudioVariants(servers);
+  const showQualityTab = levels.length > 0;
+  const showSettingsButton = showAudioTab || subtitles.length > 0 || showQualityTab;
+  const tabIconClass = (tab: SettingsTab) =>
+    `p-1.5 rounded transition-colors ${activeTab === tab ? "text-card-foreground bg-white/10" : "text-card-foreground/50 hover:text-card-foreground/80"}`;
+  const optionRowClass = (active: boolean) =>
+    `w-full text-left px-4 py-2 text-sm transition-colors ${active ? "text-primary font-semibold" : "text-card-foreground/90 hover:bg-white/5"}`;
 
   return (
     <div
@@ -566,61 +610,87 @@ export function HlsPlayer({
               </div>
 
               <div className="flex items-center gap-4 md:gap-5 flex-shrink-0 relative">
-                {showTrackMenu && (
-                  <div className="relative" ref={serverMenuRef}>
+                {showSettingsButton && (
+                  <div className="relative" ref={settingsMenuRef}>
                     <button
-                      onClick={() => setShowServerMenu((v) => !v)}
+                      onClick={() => setShowSettingsMenu((v) => !v)}
                       aria-label={t("player.audioTrack")}
-                      className={`transition-colors ${showServerMenu ? "text-white" : "text-white/90 hover:text-white"}`}
+                      className={`transition-colors ${showSettingsMenu ? "text-white" : "text-white/90 hover:text-white"}`}
                     >
                       <Captions className="w-7 h-7 md:w-9 md:h-9" />
                     </button>
-                    {showServerMenu && (
-                      <div className="absolute bottom-full right-0 mb-3 min-w-40 rounded-lg bg-black/90 border border-white/10 overflow-hidden shadow-xl divide-y divide-white/10">
-                        {subtitles.length > 0 && (
-                          <div className="py-1.5">
-                            <p className="px-4 pt-1 pb-1.5 text-xs uppercase tracking-wide text-white/50">
-                              {t("player.subtitles")}
-                            </p>
-                            <button
-                              onClick={() => selectSubtitle(null)}
-                              className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
-                                activeSubtitleUrl === null ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
-                              }`}
-                            >
-                              {t("player.none")}
+                    {showSettingsMenu && (
+                      <div className="absolute bottom-full right-0 mb-3 w-72 bg-card border border-border/50 shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/50">
+                          <div className="flex items-center gap-1">
+                            {showQualityTab && (
+                              <button onClick={() => setActiveTab("quality")} className={tabIconClass("quality")} aria-label={t("player.quality")}>
+                                <SignalHigh className="w-5 h-5" />
+                              </button>
+                            )}
+                            <button onClick={() => setActiveTab("speed")} className={tabIconClass("speed")} aria-label={t("player.speed")}>
+                              <Clock className="w-5 h-5" />
                             </button>
-                            {subtitles.map((s) => (
-                              <button
-                                key={s.url}
-                                onClick={() => selectSubtitle(s.url)}
-                                className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
-                                  s.url === activeSubtitleUrl ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
-                                }`}
-                              >
-                                {s.label}
+                            {showAudioTab && (
+                              <button onClick={() => setActiveTab("audio")} className={tabIconClass("audio")} aria-label={t("player.audio")}>
+                                <AudioLines className="w-5 h-5" />
+                              </button>
+                            )}
+                            {subtitles.length > 0 && (
+                              <button onClick={() => setActiveTab("subtitles")} className={tabIconClass("subtitles")} aria-label={t("player.subtitles")}>
+                                <Captions className="w-5 h-5" />
+                              </button>
+                            )}
+                          </div>
+                          <button onClick={() => setShowSettingsMenu(false)} className="text-card-foreground/60 hover:text-card-foreground p-1">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="px-4 py-2 border-b border-border/50 text-right">
+                          <span className="text-xs font-medium text-card-foreground/60 uppercase tracking-wide">
+                            {t(`player.${activeTab}`)}
+                          </span>
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto py-1">
+                          {activeTab === "quality" && (
+                            <>
+                              <button onClick={() => selectQuality(null)} className={optionRowClass(selectedLevel === null)}>
+                                {t("player.auto")}
+                              </button>
+                              {levels.map((l, i) => (
+                                <button key={i} onClick={() => selectQuality(i)} className={optionRowClass(selectedLevel === i)}>
+                                  {l.height}p
+                                </button>
+                              ))}
+                            </>
+                          )}
+                          {activeTab === "speed" &&
+                            SPEED_OPTIONS.map((rate) => (
+                              <button key={rate} onClick={() => selectSpeed(rate)} className={optionRowClass(playbackRate === rate)}>
+                                {rate === 1 ? t("player.normalSpeed") : `${rate}x`}
                               </button>
                             ))}
-                          </div>
-                        )}
-                        {servers.length > 1 && (
-                          <div className="py-1.5">
-                            <p className="px-4 pt-1 pb-1.5 text-xs uppercase tracking-wide text-white/50">
-                              {t("player.audio")}
-                            </p>
-                            {servers.map((s) => (
-                              <button
-                                key={s.id}
-                                onClick={() => selectServer(s.id)}
-                                className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
-                                  s.id === activeServerId ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
-                                }`}
-                              >
+                          {activeTab === "audio" &&
+                            servers.map((s) => (
+                              <button key={s.id} onClick={() => selectServer(s.id)} className={optionRowClass(s.id === activeServerId)}>
                                 {audioLabel(s.name)}
                               </button>
                             ))}
-                          </div>
-                        )}
+                          {activeTab === "subtitles" && (
+                            <>
+                              <button onClick={() => selectSubtitle(null)} className={optionRowClass(activeSubtitleUrl === null)}>
+                                {t("player.off")}
+                              </button>
+                              {subtitles.map((s) => (
+                                <button key={s.url} onClick={() => selectSubtitle(s.url)} className={optionRowClass(s.url === activeSubtitleUrl)}>
+                                  {s.label}
+                                </button>
+                              ))}
+                            </>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

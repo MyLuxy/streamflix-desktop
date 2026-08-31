@@ -159,7 +159,11 @@
       "audioTrack": "Audio/Subtítulos",
       "audio": "Audio",
       "subtitles": "Subtítulos",
-      "none": "Ninguno"
+      "off": "Desactivados",
+      "quality": "Calidad",
+      "speed": "Velocidad",
+      "auto": "Auto",
+      "normalSpeed": "Normal"
     },
     "cast": {
       "role": "Papel",
