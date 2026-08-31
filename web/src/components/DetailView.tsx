@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useContinueWatching } from "@/hooks/useContinueWatching";
 import { useEpisodeProgress } from "@/hooks/useEpisodeProgress";
+import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 import { useSeasonEpisodes } from "@/hooks/useStreamflix";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { HlsPlayer } from "@/components/HlsPlayer";
@@ -150,6 +151,15 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
 
   const backdropUrl = imageUrl(data.backdrop_path, IMAGE_SIZES.backdrop.large);
   const posterUrl = imageUrl(data.poster_path, IMAGE_SIZES.poster.medium);
+  const { fallbackPoster, fallbackBackdrop, triggerFallback } = useArtworkFallback(
+    title, year ? String(year) : undefined, mediaType
+  );
+  const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
+  const effectivePosterUrl = fallbackPoster ?? posterUrl;
+  // no native backdrop at all (common for hianime), dont wait for an onError that'll never fire
+  useEffect(() => {
+    if (!backdropUrl) triggerFallback();
+  }, [backdropUrl, triggerFallback]);
 
   const trailer = data.videos?.results?.find(
     (video) =>
@@ -349,11 +359,12 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         <main className="pb-24">
           <div className="relative w-full">
               <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[62vh]">
-                {backdropUrl ? (
+                {effectiveBackdropUrl ? (
                   <img
-                    src={backdropUrl}
+                    src={effectiveBackdropUrl}
                     alt={title}
                     className="w-full h-full object-cover object-top"
+                    onError={triggerFallback}
                   />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-primary/20 to-muted" />
@@ -365,11 +376,12 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
 
             <div className="detail-info max-w-5xl mx-auto px-4 sm:px-6 relative z-10 -mt-24 md:-mt-[31vh]">
               <div className="flex gap-4 sm:gap-6 mb-6">
-                {posterUrl && (
+                {effectivePosterUrl && (
                   <img
-                    src={posterUrl}
+                    src={effectivePosterUrl}
                     alt={title}
                     className="detail-poster w-24 sm:w-36 md:w-96 rounded-lg md:rounded-xl shadow-2xl border-2 md:border-4 border-card flex-shrink-0 self-start mt-12 sm:mt-16 md:mt-28"
+                    onError={triggerFallback}
                   />
                 )}
 
@@ -460,7 +472,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
           currentSeason={startSeason}
           currentEpisode={startEpisode}
           getEpisodeProgress={(season, episode) => getEpisodeProgress(provider, realId, season, episode)}
-          backdropUrl={backdropUrl}
+          backdropUrl={effectiveBackdropUrl}
         />
       )}
 

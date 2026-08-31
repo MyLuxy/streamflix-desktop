@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star, Loader2 } from "lucide-react";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
+import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 
 interface ContentCardProps {
   posterPath: string | null;
@@ -14,6 +15,8 @@ interface ContentCardProps {
   href?: string;
   onClick?: () => void;
   inGrid?: boolean;
+  // only used to look up a tmdb fallback when the provider's own poster is dead
+  mediaType?: "movie" | "tv";
 }
 
 export function ContentCard({
@@ -24,10 +27,12 @@ export function ContentCard({
   href,
   onClick,
   inGrid = false,
+  mediaType = "tv",
 }: ContentCardProps) {
   const [loading, setLoading] = useState(false);
+  const { fallbackPoster, triggerFallback } = useArtworkFallback(title, year, mediaType);
 
-  const posterUrl = imageUrl(posterPath, IMAGE_SIZES.poster.medium);
+  const posterUrl = fallbackPoster ?? imageUrl(posterPath, IMAGE_SIZES.poster.medium);
 
   const inner = (
     <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-card transition-shadow duration-300 group-hover:shadow-glow">
@@ -39,6 +44,7 @@ export function ContentCard({
             alt={title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
             loading="lazy"
+            onError={triggerFallback}
           />
         ) : (
           <div className="w-full h-full bg-muted flex items-center justify-center">

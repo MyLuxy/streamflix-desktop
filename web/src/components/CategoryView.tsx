@@ -143,6 +143,7 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
                   year={year}
                   href={hrefForItem(locale, item)}
                   inGrid
+                  mediaType={mediaType}
                 />
               );
             })}

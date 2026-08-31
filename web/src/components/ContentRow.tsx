@@ -159,6 +159,7 @@ export function ContentRow({
               rating={item.vote_average}
               year={getYear(item)}
               href={hrefForItem(locale, item)}
+              mediaType={getMediaType(item)}
             />
           ))}
 
