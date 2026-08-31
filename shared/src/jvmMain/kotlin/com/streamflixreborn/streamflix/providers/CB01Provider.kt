@@ -591,7 +591,9 @@ object CB01Provider : Provider {
         if (isStayOnline || url.contains("/msfi/", ignoreCase = true)) {
             val uprotId = Regex("""/ms[a-zA-Z]+/([A-Za-z0-9+/=]+)""").find(url)?.groupValues?.getOrNull(1)
                 ?: return null
-            return callUprotApi(Keys.getUprotMsfiApiBase(), uprotId)
+            // the native keys lib isnt built for desktop, dont let that kill every other server too
+            val apiBase = try { Keys.getUprotMsfiApiBase() } catch (_: Exception) { return null }
+            return callUprotApi(apiBase, uprotId)
         }
 
         // 2. Direct uprot.net links (/mse/): Try HTML base64 decoding first
@@ -614,7 +616,8 @@ object CB01Provider : Provider {
         // 3. Fallback for direct uprot.net links when base64 fails: Call Keys.getUprotMseApiBase()
         val uprotId = Regex("""/ms[a-zA-Z]+/([A-Za-z0-9+/=]+)""").find(url)?.groupValues?.getOrNull(1)
             ?: return null
-        return callUprotApi(Keys.getUprotMseApiBase(), uprotId)
+        val apiBase = try { Keys.getUprotMseApiBase() } catch (_: Exception) { return null }
+        return callUprotApi(apiBase, uprotId)
 
     }
 
@@ -739,11 +742,11 @@ object CB01Provider : Provider {
                 if (id.contains("#epUrl=")) {
                     val watchUrl = id.substringAfter("#epUrl=")
                     val servers = mutableListOf<Video.Server>()
+                    // dont fall back to the raw unresolved uprot url, that just gets misdispatched
+                    // to the maxstream extractor by name and fails on a totally different page
                     val finalMaxstream = resolveMaxstreamUrl(watchUrl, isStayOnline = watchUrl.contains("stayonline.pro"))
                     if (!finalMaxstream.isNullOrBlank()) {
                         servers.add(Video.Server(id = finalMaxstream, name = "Maxstream", src = finalMaxstream))
-                    } else {
-                        servers.add(Video.Server(id = watchUrl, name = "Maxstream", src = watchUrl))
                     }
                     return servers
                 }
