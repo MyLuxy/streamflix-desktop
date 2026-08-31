@@ -15,8 +15,9 @@ interface ContentCardProps {
   href?: string;
   onClick?: () => void;
   inGrid?: boolean;
-  // only used to look up a tmdb fallback when the provider's own poster is dead
+  // only used to look up an artwork fallback when the provider's own poster is dead
   mediaType?: "movie" | "tv";
+  provider?: string;
 }
 
 export function ContentCard({
@@ -28,9 +29,10 @@ export function ContentCard({
   onClick,
   inGrid = false,
   mediaType = "tv",
+  provider,
 }: ContentCardProps) {
   const [loading, setLoading] = useState(false);
-  const { fallbackPoster, triggerFallback } = useArtworkFallback(title, year, mediaType);
+  const { fallbackPoster, triggerFallback } = useArtworkFallback(title, year, mediaType, provider);
 
   const posterUrl = fallbackPoster ?? imageUrl(posterPath, IMAGE_SIZES.poster.medium);
 

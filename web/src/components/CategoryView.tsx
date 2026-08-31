@@ -11,6 +11,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { useTranslation } from "react-i18next";
 import { useHeroEntrance } from "@/hooks/useHeroEntrance";
 import { hrefForItem } from "@/lib/links";
+import { providerTagOf } from "@/lib/provider-tag";
 import { markRestoreIntent } from "@/lib/scroll-history";
 import { popPreviousPath } from "@/lib/nav-history";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
@@ -144,6 +145,7 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
                   href={hrefForItem(locale, item)}
                   inGrid
                   mediaType={mediaType}
+                  provider={providerTagOf(item)?.provider}
                 />
               );
             })}

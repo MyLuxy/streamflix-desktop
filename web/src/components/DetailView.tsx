@@ -152,7 +152,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const backdropUrl = imageUrl(data.backdrop_path, IMAGE_SIZES.backdrop.large);
   const posterUrl = imageUrl(data.poster_path, IMAGE_SIZES.poster.medium);
   const { fallbackPoster, fallbackBackdrop, triggerFallback } = useArtworkFallback(
-    title, year ? String(year) : undefined, mediaType
+    title, year ? String(year) : undefined, mediaType, provider
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;

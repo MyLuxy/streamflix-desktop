@@ -137,7 +137,7 @@ interface ContinueWatchingCardProps {
 // own component so useArtworkFallback (a hook) can run per item, not inside the row's .map()
 function ContinueWatchingCard({ item, onItemClick, onRemove }: ContinueWatchingCardProps) {
   const { fallbackBackdrop, fallbackPoster, triggerFallback } = useArtworkFallback(
-    item.title, undefined, item.mediaType
+    item.title, undefined, item.mediaType, item.provider
   );
   const nativeUrl =
     resolveImageUrl(item.backdropPath, IMAGE_SIZES.backdrop.medium) ??

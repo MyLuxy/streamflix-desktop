@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ContentCard } from "./ContentCard";
 import { useLocale } from "@/hooks/useLocale";
 import { hrefForItem } from "@/lib/links";
+import { providerTagOf } from "@/lib/provider-tag";
 import { Movie, TVShow, MediaItem } from "@/lib/types";
 
 interface ContentRowProps {
@@ -160,6 +161,7 @@ export function ContentRow({
               year={getYear(item)}
               href={hrefForItem(locale, item)}
               mediaType={getMediaType(item)}
+              provider={providerTagOf(item)?.provider}
             />
           ))}
 
