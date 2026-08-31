@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Check, Star, Clock, Calendar, Video, ArrowLeft } from "lucide-react";
 import { PlayIcon } from "@/components/MediaIcons";
 import { motion } from "framer-motion";
@@ -156,10 +156,18 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;
+  const backdropImgRef = useRef<HTMLImageElement>(null);
+  const posterImgRef = useRef<HTMLImageElement>(null);
   // no native backdrop at all (common for hianime), dont wait for an onError that'll never fire
   useEffect(() => {
     if (!backdropUrl) triggerFallback();
   }, [backdropUrl, triggerFallback]);
+  // these are server rendered, the browser can fail to load them before react hydrates
+  // and attaches onError, so the event never reaches it, check what actually landed too
+  useEffect(() => {
+    if (backdropImgRef.current?.complete && backdropImgRef.current.naturalWidth === 0) triggerFallback();
+    if (posterImgRef.current?.complete && posterImgRef.current.naturalWidth === 0) triggerFallback();
+  }, [effectiveBackdropUrl, effectivePosterUrl, triggerFallback]);
 
   const trailer = data.videos?.results?.find(
     (video) =>
@@ -361,6 +369,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
               <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[62vh]">
                 {effectiveBackdropUrl ? (
                   <img
+                    ref={backdropImgRef}
                     src={effectiveBackdropUrl}
                     alt={title}
                     className="w-full h-full object-cover object-top"
@@ -378,6 +387,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
               <div className="flex gap-4 sm:gap-6 mb-6">
                 {effectivePosterUrl && (
                   <img
+                    ref={posterImgRef}
                     src={effectivePosterUrl}
                     alt={title}
                     className="detail-poster w-24 sm:w-36 md:w-96 rounded-lg md:rounded-xl shadow-2xl border-2 md:border-4 border-card flex-shrink-0 self-start mt-12 sm:mt-16 md:mt-28"
