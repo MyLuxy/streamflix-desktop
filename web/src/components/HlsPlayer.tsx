@@ -14,7 +14,7 @@ import {
   Captions,
   SignalHigh,
   Clock,
-  AudioLines,
+  Headphones,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -620,7 +620,7 @@ export function HlsPlayer({
                       <Captions className="w-7 h-7 md:w-9 md:h-9" />
                     </button>
                     {showSettingsMenu && (
-                      <div className="absolute bottom-full right-0 mb-3 w-80 md:w-96 bg-card border border-border/50 shadow-xl overflow-hidden">
+                      <div className="absolute bottom-full right-0 mb-3 w-96 md:w-[28rem] bg-card border border-border/50 shadow-xl overflow-hidden">
                         <div className="flex items-center justify-between px-2 py-2 border-b border-border/50">
                           <div className="flex items-center gap-1">
                             {showQualityTab && (
@@ -633,7 +633,7 @@ export function HlsPlayer({
                             </button>
                             {showAudioTab && (
                               <button onClick={() => setActiveTab("audio")} className={tabIconClass("audio")} aria-label={t("player.audio")}>
-                                <AudioLines className="w-7 h-7" />
+                                <Headphones className="w-7 h-7" />
                               </button>
                             )}
                             {subtitles.length > 0 && (
@@ -643,7 +643,7 @@ export function HlsPlayer({
                             )}
                           </div>
                           <button onClick={() => setShowSettingsMenu(false)} className="text-card-foreground/60 hover:text-card-foreground p-1">
-                            <X className="w-5 h-5" />
+                            <X className="w-7 h-7" />
                           </button>
                         </div>
 
@@ -653,7 +653,7 @@ export function HlsPlayer({
                           </span>
                         </div>
 
-                        <div className="h-80 overflow-y-auto py-1">
+                        <div className="h-64 overflow-y-auto py-1">
                           {activeTab === "quality" && (
                             <>
                               <button onClick={() => selectQuality(null)} className={optionRowClass(selectedLevel === null)}>
