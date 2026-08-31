@@ -47,15 +47,31 @@ object HiAnimeProvider : Provider {
         href?.trimEnd('/')?.substringAfterLast('/') ?: ""
 
     // nonce and numeric anime id both only show up on a detail page, not the listing grids
-    private suspend fun fetchAnimeContext(urlPath: String): Pair<String, String> {
-        val document = service.getPage(urlPath)
+    private fun contextFromDocument(document: Document): Pair<String, String>? {
         val html = document.outerHtml()
         val animeId = document.selectFirst("link[rel=shortlink]")
             ?.attr("href")?.substringAfterLast("p=") ?: ""
         val nonce = Regex(""""episode_nonce":"([^"]+)"""").find(html)?.groupValues?.get(1) ?: ""
-        if (animeId.isBlank() || nonce.isBlank()) throw Exception("HiAnime anime context not found")
+        if (animeId.isBlank() || nonce.isBlank()) return null
         return animeId to nonce
     }
+
+    private suspend fun fetchAnimeContext(urlPath: String): Pair<String, String> =
+        contextFromDocument(service.getPage(urlPath)) ?: throw Exception("HiAnime anime context not found")
+
+    // tucks the context into the id so episodes/servers skip fetching this page again
+    private fun packContext(urlPath: String, context: Pair<String, String>?): String =
+        if (context != null) "$urlPath::${context.first}::${context.second}" else urlPath
+
+    private suspend fun resolveContext(packed: String): Pair<String, String> {
+        val parts = packed.split("::")
+        val animeId = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+        val nonce = parts.getOrNull(2)?.takeIf { it.isNotBlank() }
+        if (animeId != null && nonce != null) return animeId to nonce
+        return fetchAnimeContext(parts[0])
+    }
+
+    private fun urlPathOf(packed: String) = packed.substringBefore("::")
 
 
     override suspend fun getHome(): List<Category> {
@@ -404,7 +420,7 @@ object HiAnimeProvider : Provider {
 
             seasons = listOf(
                 Season(
-                    id = id,
+                    id = packContext(id, contextFromDocument(document)),
                     number = 0,
                     title = "Episodes",
                 )
@@ -453,13 +469,14 @@ object HiAnimeProvider : Provider {
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        val (animeId, nonce) = fetchAnimeContext(seasonId)
+        val (animeId, nonce) = resolveContext(seasonId)
         val response = service.getEpisodeList(animeId = animeId, nonce = nonce)
+        val urlPath = urlPathOf(seasonId)
 
         val episodes = Jsoup.parse(response.html).select("a.ssl-item.ep-item").map {
             Episode(
-                // tagging the season path along so getServers can grab a fresh nonce later
-                id = "${it.attr("data-id")}::$seasonId",
+                // carrying the already-resolved context along so getServers reuses it too
+                id = "${it.attr("data-id")}::$urlPath::$animeId::$nonce",
                 number = it.attr("data-number").toIntOrNull() ?: 0,
                 title = it.selectFirst("div.ep-name")
                     ?.text(),
@@ -533,7 +550,7 @@ object HiAnimeProvider : Provider {
             is Video.Type.Episode -> {
                 val episodeDataId = id.substringBefore("::")
                 val seasonId = id.substringAfter("::")
-                val (_, episodeNonce) = fetchAnimeContext(seasonId)
+                val (_, episodeNonce) = resolveContext(seasonId)
                 episodeDataId to episodeNonce
             }
         }
