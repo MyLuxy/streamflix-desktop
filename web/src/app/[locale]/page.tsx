@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { HomeView } from "@/components/HomeView";
-import { getHomeRows } from "@/lib/streamflix";
+import { getHomeRows, getProviders } from "@/lib/streamflix";
 import { getSelectedProvider } from "@/lib/provider";
 import { isLocale, type Locale } from "@/lib/i18n-config";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -68,5 +68,15 @@ export default async function HomePage({ params }: Params) {
     error = e instanceof Error ? e.message : String(e);
   }
 
-  return <HomeView rows={rows} error={error} provider={provider} />;
+  // resolved server-side (not via the client useProviders hook) so live-tv providers
+  // render their landscape channel cards on the first paint, no post-hydration flash
+  let isIptv = false;
+  try {
+    const providers = await getProviders();
+    isIptv = providers.find((p) => p.name === provider)?.iptv ?? false;
+  } catch {
+    // providers fetch failing is orthogonal to home rendering, just fall back to portrait cards
+  }
+
+  return <HomeView rows={rows} error={error} provider={provider} isIptv={isIptv} />;
 }

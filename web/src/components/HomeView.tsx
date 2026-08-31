@@ -24,9 +24,12 @@ interface HomeViewProps {
   // until the user picks a different one
   error?: string | null;
   provider?: string;
+  // live-tv channel cards read better as landscape thumbnails than movie/show posters.
+  // resolved server-side in page.tsx so it's correct on first paint, no hydration flash
+  isIptv?: boolean;
 }
 
-export function HomeView({ rows, error, provider }: HomeViewProps) {
+export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -64,7 +67,7 @@ export function HomeView({ rows, error, provider }: HomeViewProps) {
 
       <main>
         {!error && heroRow && heroRow.items.length > 0 && (
-          <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} />
+          <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} isIptv={isIptv} />
         )}
 
         <div className="home-content relative z-10 -mt-16 md:-mt-32 pb-24 space-y-10 md:space-y-12">
@@ -91,7 +94,7 @@ export function HomeView({ rows, error, provider }: HomeViewProps) {
                 </p>
               ) : (
                 restRows.map((row) => (
-                  <ContentRow key={row.name} title={row.name} items={row.items} onItemClick={goToItem} />
+                  <ContentRow key={row.name} title={row.name} items={row.items} onItemClick={goToItem} isIptv={isIptv} />
                 ))
               )}
 

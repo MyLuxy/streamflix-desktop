@@ -18,6 +18,8 @@ interface ContentCardProps {
   // only used to look up an artwork fallback when the provider's own poster is dead
   mediaType?: "movie" | "tv";
   provider?: string;
+  // landscape for live-tv channel logos, portrait (default) for movie/show posters
+  orientation?: "portrait" | "landscape";
 }
 
 export function ContentCard({
@@ -30,21 +32,23 @@ export function ContentCard({
   inGrid = false,
   mediaType = "tv",
   provider,
+  orientation = "portrait",
 }: ContentCardProps) {
   const [loading, setLoading] = useState(false);
   const { fallbackPoster, triggerFallback } = useArtworkFallback(title, year, mediaType, provider);
+  const isLandscape = orientation === "landscape";
 
   const posterUrl = fallbackPoster ?? imageUrl(posterPath, IMAGE_SIZES.poster.medium);
 
   const inner = (
-    <div className="relative aspect-[2/3] rounded-lg overflow-hidden shadow-card transition-shadow duration-300 group-hover:shadow-glow">
+    <div className={`relative rounded-lg overflow-hidden shadow-card transition-shadow duration-300 group-hover:shadow-glow ${isLandscape ? "aspect-video bg-secondary/40" : "aspect-[2/3]"}`}>
       {/* title is a sibling not a child, otherwise it scales up with the hover too */}
-      <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105">
+      <div className={`absolute inset-0 transition-transform duration-300 group-hover:scale-105 ${isLandscape ? "p-4" : ""}`}>
         {posterUrl ? (
           <ImageWithSpinner
             src={posterUrl}
             alt={title}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            className={`w-full h-full transition-transform duration-300 group-hover:scale-110 ${isLandscape ? "object-contain" : "object-cover"}`}
             loading="lazy"
             onError={triggerFallback}
           />
@@ -84,7 +88,9 @@ export function ContentCard({
 
   const className = inGrid
     ? "group relative w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg overflow-hidden"
-    : "group relative flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg overflow-hidden snap-start";
+    : isLandscape
+      ? "group relative flex-shrink-0 w-[220px] sm:w-[260px] md:w-[300px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg overflow-hidden snap-start"
+      : "group relative flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg overflow-hidden snap-start";
 
   if (href) {
     return (

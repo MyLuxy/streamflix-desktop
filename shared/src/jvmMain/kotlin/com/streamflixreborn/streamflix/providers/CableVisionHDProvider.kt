@@ -116,17 +116,10 @@ object CableVisionHDProvider : IptvProvider {
                 categories.addAll(contentCategories)
             }
 
-            categories.add(
-                Category(
-                    name = "Soporte y Ayuda",
-                    list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))
-                )
-            )
-
             categories
         } catch (e: Exception) {
             Log.e(TAG, "❌ ERROR CRÍTICO: ${e.message}")
-            listOf(Category(name = "Soporte y Ayuda", list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))))
+            emptyList()
         }
     }
 
@@ -143,7 +136,7 @@ object CableVisionHDProvider : IptvProvider {
 
     override suspend fun getMovie(id: String): Movie = throw Exception("Not supported")
 
-    override suspend fun getTvShow(id: String): TvShow = if (id == "creador-info" || id == "apoyo-info") getInfoItem(id) else try {
+    override suspend fun getTvShow(id: String): TvShow = try {
         val doc = service.getPage(id)
 
         val t = doc.selectFirst("h1, h2, .title, .entry-title")?.text() ?: "Canal en Vivo"
@@ -297,18 +290,5 @@ object CableVisionHDProvider : IptvProvider {
             } catch (e: Exception) { break }
         }
         return Video("", emptyList())
-    }
-
-    private fun getInfoItem(id: String): TvShow {
-        val t = if(id == "creador-info") "Reportar problemas" else "Apoya al Proveedor"
-        val p = if(id == "creador-info") "https://i.ibb.co/dsknGBHT/Imagen-de-Whats-App-2025-09-06-a-las-19-00-50-e8e5bcaa.jpg" else "https://i.ibb.co/B5gKLkqS/nuevo-formato-2-K-202604112205.jpg"
-        return TvShow(
-            id = id,
-            title = t,
-            poster = p,
-            banner = p,
-            overview = if(id == "creador-info") "@NandoGT" else "Apoya el proyecto.",
-            providerName = name
-        )
     }
 }

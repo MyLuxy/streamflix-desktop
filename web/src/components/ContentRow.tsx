@@ -16,6 +16,8 @@ interface ContentRowProps {
   isLoading?: boolean;
   seeMoreHref?: string;
   resetScroll?: boolean;
+  // live-tv channel logos read better as landscape thumbnails than movie/show posters
+  isIptv?: boolean;
 }
 
 export function ContentRow({
@@ -25,6 +27,7 @@ export function ContentRow({
   isLoading,
   seeMoreHref,
   resetScroll,
+  isIptv,
 }: ContentRowProps) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -100,7 +103,11 @@ export function ContentRow({
           {Array.from({ length: 7 }).map((_, i) => (
             <div
               key={i}
-              className="flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] aspect-[2/3] bg-muted rounded-lg animate-pulse"
+              className={
+                isIptv
+                  ? "flex-shrink-0 w-[220px] sm:w-[260px] md:w-[300px] aspect-video bg-muted rounded-lg animate-pulse"
+                  : "flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] aspect-[2/3] bg-muted rounded-lg animate-pulse"
+              }
             />
           ))}
         </div>
@@ -162,15 +169,20 @@ export function ContentRow({
               href={hrefForItem(locale, item)}
               mediaType={getMediaType(item)}
               provider={providerTagOf(item)?.provider}
+              orientation={isIptv ? "landscape" : "portrait"}
             />
           ))}
 
           {seeMoreHref && (
             <Link
               href={seeMoreHref}
-              className="group/more flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className={
+                isIptv
+                  ? "group/more flex-shrink-0 w-[220px] sm:w-[260px] md:w-[300px] rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  : "group/more flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px] rounded-lg overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              }
             >
-              <div className="relative aspect-[2/3] rounded-lg bg-secondary/60 border border-border/60 flex flex-col items-center justify-center gap-3 transition-all duration-300 group-hover/more:bg-secondary group-hover/more:border-primary/50">
+              <div className={`relative rounded-lg bg-secondary/60 border border-border/60 flex flex-col items-center justify-center gap-3 transition-all duration-300 group-hover/more:bg-secondary group-hover/more:border-primary/50 ${isIptv ? "aspect-video" : "aspect-[2/3]"}`}>
                 <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center transition-transform duration-300 group-hover/more:scale-110 group-hover/more:bg-primary/25">
                   <ArrowRight className="w-6 h-6 text-primary transition-transform duration-300 group-hover/more:translate-x-0.5" />
                 </div>

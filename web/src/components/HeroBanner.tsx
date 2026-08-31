@@ -14,6 +14,9 @@ interface HeroBannerProps {
   items: MediaItem[];
   onPlayClick: (item: MediaItem) => void;
   onInfoClick: (item: MediaItem) => void;
+  // live-tv channel logos are small/low-res, same "shrink so the upscale is less obvious"
+  // treatment as HiAnime's native art
+  isIptv?: boolean;
 }
 
 // scales down as title length grows so it doesnt overflow
@@ -26,7 +29,7 @@ function titleSizeClass(title: string): string {
 // below this ratio the img is a poster used as fallback, not a real banner
 const WIDE_BANNER_MIN_RATIO = 1.4;
 
-export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps) {
+export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   // once a logo 404s just keep showing text instead
   const [failedLogoIds, setFailedLogoIds] = useState<Set<number>>(new Set());
@@ -77,10 +80,10 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
 
   const mediaType = currentItem.media_type || ("title" in currentItem ? "movie" : "tv");
   const inWatchlist = isInWatchlist(currentItem.id, mediaType);
-  // hianime's own hero art is only ~1000x400, stretched full width it looks noticeably
-  // soft, showing it a bit smaller (backed by the same blur fill as a narrow poster)
-  // keeps it from being blown up as much
-  const isHiAnime = providerTagOf(currentItem)?.provider === "HiAnime";
+  // hianime's own hero art is only ~1000x400, and live-tv channel logos are small too,
+  // stretched full width they look noticeably soft, showing them a bit smaller (backed by
+  // the same blur fill as a narrow poster) keeps it from being blown up as much
+  const shrinkArt = providerTagOf(currentItem)?.provider === "HiAnime" || isIptv;
 
   return (
     <div className={`hero-banner relative w-full h-[54vh] md:h-[68vh] overflow-hidden ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}>
@@ -111,7 +114,7 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
                   className="absolute inset-0 w-full h-full object-contain object-top"
                 />
               </>
-            ) : isHiAnime ? (
+            ) : shrinkArt ? (
               <>
                 {/* same blur-fill trick, just shown smaller so the upscale is less obvious */}
                 <img

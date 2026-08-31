@@ -53,6 +53,7 @@ export interface StreamflixProvider {
   movies: boolean;
   tvShows: boolean;
   logo: string;
+  iptv: boolean;
 }
 
 // stub replacing the old TMDB genre-list hook: the provider catalog has no global, queryable

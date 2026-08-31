@@ -27,6 +27,7 @@ export interface BackendProvider {
   movies: boolean;
   tvShows: boolean;
   logo: string;
+  iptv: boolean;
 }
 export interface BackendEpisode {
   id: string;

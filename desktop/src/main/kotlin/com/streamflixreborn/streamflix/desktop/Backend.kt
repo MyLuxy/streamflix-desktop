@@ -7,6 +7,7 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.Show
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
+import com.streamflixreborn.streamflix.providers.IptvProvider
 import com.streamflixreborn.streamflix.providers.Provider
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
@@ -98,7 +99,7 @@ data class ShowDto(
 data class CategoryDto(val name: String, val items: List<ShowDto>)
 
 @Serializable
-data class ProviderDto(val name: String, val language: String, val movies: Boolean, val tvShows: Boolean, val logo: String)
+data class ProviderDto(val name: String, val language: String, val movies: Boolean, val tvShows: Boolean, val logo: String, val iptv: Boolean = false)
 
 @Serializable
 data class StreamRequest(
@@ -205,7 +206,7 @@ private fun handleProviders(exchange: HttpExchange) {
     val dtos = Provider.providers.entries
         .filter { (provider, _) -> provider.name !in HIDDEN_PROVIDERS }
         .map { (provider, support) ->
-            ProviderDto(provider.name, provider.language, support.movies, support.tvShows, faviconUrl(provider.baseUrl))
+            ProviderDto(provider.name, provider.language, support.movies, support.tvShows, faviconUrl(provider.baseUrl), iptv = provider is IptvProvider)
         }.sortedBy { it.name.lowercase() }
     sendJson(exchange, 200, json.encodeToString(dtos))
 }
