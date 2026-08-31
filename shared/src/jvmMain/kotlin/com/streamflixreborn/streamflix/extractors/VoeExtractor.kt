@@ -4,8 +4,10 @@ import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DecryptHelper
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import com.streamflixreborn.streamflix.utils.HeadlessBrowserResolver
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import okhttp3.OkHttpClient
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
 import retrofit2.http.GET
@@ -19,13 +21,28 @@ class VoeExtractor : Extractor() {
     override val mainUrl = "https://voe.sx/"
     override val aliasUrls = listOf("https://jilliandescribecompany.com", "https://mikaylaarealike.com","https://christopheruntilpoint.com","https://walterprettytheir.com","https://crystaltreatmenteast.com","https://lauradaydo.com","https://lancewhosedifficult.com", "https://dianaavoidthey.com", "https://jefferycontrolmodel.com", "https://charlestoughrace.com", "https://richardquestionbuilding.com","https://jessicayeahcatch.com","https://juliewomanwish.com")
 
+    private val webViewResolver = HeadlessBrowserResolver()
+
     override suspend fun extract(link: String): Video {
-        val service = VoeExtractorService.build(mainUrl, link)
+        val (service, resolvedBaseUrl) = VoeExtractorService.build(mainUrl, link)
 
         val parsedUrl = URL(link)
         val originalPath = parsedUrl.path + if (parsedUrl.query != null) "?${parsedUrl.query}" else ""
 
-        val source = service.getSource(originalPath)
+        var source = service.getSource(originalPath)
+
+        // some links now sit behind an altcha human check before showing the real player,
+        // a real browser solves that widget's own challenge itself same as a normal visitor
+        if (source.html().contains("altcha-widget")) {
+            val gatedUrl = resolvedBaseUrl.trimEnd('/') + originalPath
+            val html = webViewResolver.get(
+                url = gatedUrl,
+                headers = mapOf("Referer" to link),
+                completion = { _, html, _ -> !html.contains("altcha-widget") },
+            )
+            source = Jsoup.parse(html)
+        }
+
         val scriptTag = source.selectFirst("script[type=application/json]")
         val encodedStringInScriptTag = scriptTag?.data()?.trim().orEmpty()
         val encodedString = DecryptHelper.findEncodedRegex(source.html())
@@ -36,6 +53,7 @@ class VoeExtractor : Extractor() {
         }
 
         val m3u8 = decryptedContent.get("source")?.asString.orEmpty()
+        if (m3u8.isBlank()) throw Exception("VOE source not found")
 
         val baseSubtitleScript = source.selectFirst("script")?.data()?:""
         var baseSubtitle = ""
@@ -69,7 +87,7 @@ class VoeExtractor : Extractor() {
     private interface VoeExtractorService {
 
         companion object {
-            suspend fun build(baseUrl: String, originalLink: String): VoeExtractorService {
+            suspend fun build(baseUrl: String, originalLink: String): Pair<VoeExtractorService, String> {
                 val client = OkHttpClient.Builder()
                     .dns(DnsResolver.doh)
                     .followRedirects(true)
@@ -99,19 +117,26 @@ class VoeExtractor : Extractor() {
 
                 val retrofitVOEhtml = retrofitVOEBuiled.getSource(relativePath).html()
 
-                val regex = Regex("""https://([a-zA-Z0-9.-]+)(?:/[^'"]*)?""")
-                val match = regex.find(retrofitVOEhtml)
-                val redirectBaseUrl = if (match != null) {
-                    "https://${match.groupValues[1]}/"
-                } else {
-                    throw Exception("Base url not found for VOE")
+                // grabbing the first https:// in the whole page used to catch ads/analytics
+                // links instead of the real redirect, matching the actual window.location.href
+                // assignment first is a lot more reliable
+                val redirectMatch = Regex("""window\.location\.href\s*=\s*['"](https://[^'"]+)['"]""")
+                    .find(retrofitVOEhtml)
+                val fallbackMatch = Regex("""https://([a-zA-Z0-9.-]+)(?:/[^'"]*)?""").find(retrofitVOEhtml)
+                val redirectBaseUrl = when {
+                    redirectMatch != null -> {
+                        val host = URL(redirectMatch.groupValues[1]).host
+                        "https://$host/"
+                    }
+                    fallbackMatch != null -> "https://${fallbackMatch.groupValues[1]}/"
+                    else -> throw Exception("Base url not found for VOE")
                 }
 
                 val retrofitRedirected = Retrofit.Builder()
                     .baseUrl(redirectBaseUrl)
                     .addConverterFactory(JsoupConverterFactory.create())
                     .build()
-                return retrofitRedirected.create(VoeExtractorService::class.java)
+                return retrofitRedirected.create(VoeExtractorService::class.java) to redirectBaseUrl
             }
         }
 

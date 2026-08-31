@@ -29,6 +29,7 @@ class MagaSavorExtractor : Extractor() {
             DecryptHelper.decrypt(encodedStringInScriptTag)
         }
         val m3u8 = decryptedContent.get("source")?.asString.orEmpty()
+        if (m3u8.isBlank()) throw Exception("source not found")
 
         return Video(
             source = m3u8,

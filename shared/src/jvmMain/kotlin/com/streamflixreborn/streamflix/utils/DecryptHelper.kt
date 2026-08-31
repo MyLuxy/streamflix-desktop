@@ -15,20 +15,17 @@ object DecryptHelper {
     }
 
     private fun decryptF7(p8: String): JsonObject {
-        return try {
-            val vF = rot13(p8)
-            val vF2 = replacePatterns(vF)
-            val vF3 = removeUnderscores(vF2)
-            val vF4 = Base64.decode(vF3, Base64.NO_WRAP).toString(Charsets.UTF_8)
-            val vF5 = charShift(vF4, 3)
-            val vF6 = reverse(vF5)
-            val vAtob = Base64.decode(vF6, Base64.NO_WRAP).toString(Charsets.UTF_8)
+        // used to swallow every failure and hand back an empty object, callers never noticed
+        // decryption failed and shipped a video with a blank source url
+        val vF = rot13(p8)
+        val vF2 = replacePatterns(vF)
+        val vF3 = removeUnderscores(vF2)
+        val vF4 = Base64.decode(vF3, Base64.NO_WRAP).toString(Charsets.UTF_8)
+        val vF5 = charShift(vF4, 3)
+        val vF6 = reverse(vF5)
+        val vAtob = Base64.decode(vF6, Base64.NO_WRAP).toString(Charsets.UTF_8)
 
-            JsonParser.parseString(vAtob).asJsonObject
-        } catch (e: Exception) {
-            println("Decryption error: ${e.message}")
-            JsonObject()
-        }
+        return JsonParser.parseString(vAtob).asJsonObject
     }
 
     private fun rot13(input: String): String {
