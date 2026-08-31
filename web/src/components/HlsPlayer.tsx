@@ -128,9 +128,6 @@ export function HlsPlayer({
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const selectedLevelRef = useRef(selectedLevel);
   selectedLevelRef.current = selectedLevel;
-  // switching hls.js levels mid-buffer causes stutter/freezes, pause first and resume
-  // once LEVEL_SWITCHED confirms the new one actually loaded
-  const pendingQualityChangeRef = useRef(false);
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
@@ -316,11 +313,6 @@ export function HlsPlayer({
           applyStartTime();
           video.play().catch(() => {});
         });
-        hls.on(Hls.Events.LEVEL_SWITCHED, () => {
-          if (!pendingQualityChangeRef.current) return;
-          pendingQualityChangeRef.current = false;
-          video.play().catch(() => {});
-        });
         hls.loadSource(manifestUrl);
         hls.attachMedia(video);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -431,11 +423,7 @@ export function HlsPlayer({
 
   const selectQuality = (index: number | null) => {
     setSelectedLevel(index);
-    const hls = hlsRef.current;
-    if (!hls) return;
-    pendingQualityChangeRef.current = true;
-    videoRef.current?.pause();
-    hls.currentLevel = index ?? -1;
+    if (hlsRef.current) hlsRef.current.currentLevel = index ?? -1;
   };
 
   const selectSpeed = (rate: number) => {
@@ -665,7 +653,7 @@ export function HlsPlayer({
                           </span>
                         </div>
 
-                        <div className="max-h-80 overflow-y-auto py-1">
+                        <div className="h-80 overflow-y-auto py-1">
                           {activeTab === "quality" && (
                             <>
                               <button onClick={() => selectQuality(null)} className={optionRowClass(selectedLevel === null)}>
