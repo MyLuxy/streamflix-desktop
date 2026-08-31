@@ -14,7 +14,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import okhttp3.*
-import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
 import retrofit2.http.GET
@@ -60,60 +59,22 @@ object CableVisionHDProvider : IptvProvider {
         ): Document
     }
 
+    // channels now live on /parrilla-directo.php, the root domain is just a marketing splash
+    private const val GRID_PATH = "/parrilla-directo.php"
+
     private fun parseChannels(doc: Document): List<TvShow> {
-        val results = mutableListOf<TvShow>()
+        // both tabs (deportes/regionales) are static in the same page load, the site just
+        // toggles which one is visible client-side, so a plain select already gets everything
+        val results = doc.select("a.channel-card[href]").mapNotNull { a ->
+            val link = a.attr("abs:href").ifEmpty { a.attr("href") }
+            val img = a.selectFirst("img")
+            val title = a.selectFirst("p")?.text()?.trim()?.ifEmpty { null }
+                ?: img?.attr("alt")?.trim().orEmpty()
+            val rawPoster = img?.attr("abs:src")?.ifEmpty { img.attr("src") }.orEmpty()
+            val poster = if (rawPoster.startsWith("http")) rawPoster else "$baseUrl/${rawPoster.removePrefix("/")}"
 
-        doc.select("script").forEach { script ->
-            val data = script.data()
-            if (data.contains("homeChannels") || data.contains("const channels")) {
-                try {
-                    val htmlInsideScript = data.substringAfter("`").substringBeforeLast("`")
-                    if (htmlInsideScript.length > 100) {
-                        val scriptDoc = Jsoup.parse(htmlInsideScript)
-                        scriptDoc.select("a").forEach { a ->
-                            val link = a.attr("href")
-                            val title = a.text().trim().ifEmpty { a.selectFirst("img")?.attr("alt") ?: "" }
-
-                            val imgElement = a.select("img").firstOrNull { img ->
-                                val src = img.attr("src").lowercase()
-                                !src.contains("paypal") && !src.contains("pago") &&
-                                        !src.contains("donar") && !src.contains("pay.png") &&
-                                        !src.contains("cafecito") && !src.contains("qr") &&
-                                        src.isNotEmpty()
-                            } ?: a.selectFirst("img")
-
-                            val rawImg = imgElement?.attr("src") ?: ""
-                            val img = if (rawImg.startsWith("http")) rawImg else "${CableVisionHDProvider.baseUrl}/${rawImg.removePrefix("/")}"
-
-                            if (isValidChannel(link, title)) {
-                                val finalUrl = if (link.startsWith("http")) link else "${CableVisionHDProvider.baseUrl}/${link.removePrefix("/")}"
-                                results.add(TvShow(id = finalUrl, title = title, poster = img, banner = img, providerName = CableVisionHDProvider.name))
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(CableVisionHDProvider.TAG, "Error procesando script de canales: ${e.message}")
-                }
-            }
-        }
-
-        if (results.isEmpty()) {
-            doc.select("a:has(img)").forEach { a ->
-                val link = a.attr("abs:href").ifEmpty { a.attr("href") }
-
-                val imgElement = a.select("img").firstOrNull { img ->
-                    val src = img.attr("src").lowercase()
-                    !src.contains("paypal") && !src.contains("donar") && !src.contains("pago") &&
-                            !src.contains("qr") && src.isNotEmpty()
-                } ?: a.selectFirst("img")
-
-                val title = imgElement?.attr("alt")?.trim() ?: a.text().trim()
-                val poster = imgElement?.attr("abs:src") ?: imgElement?.attr("src") ?: ""
-
-                if (isValidChannel(link, title)) {
-                    results.add(TvShow(id = link, title = title, poster = poster, banner = poster, providerName = TvporinternetHDProvider.name))
-                }
-            }
+            if (!isValidChannel(link, title)) return@mapNotNull null
+            TvShow(id = link, title = title, poster = poster, banner = poster, providerName = name)
         }
 
         return results.distinctBy { it.id }.also {
@@ -139,7 +100,7 @@ object CableVisionHDProvider : IptvProvider {
 
     override suspend fun getHome(): List<Category> = coroutineScope {
         try {
-            val doc = service.getPage(baseUrl)
+            val doc = service.getPage("$baseUrl$GRID_PATH")
             val all = parseChannels(doc)
 
             val categories = mutableListOf<Category>()
@@ -177,7 +138,7 @@ object CableVisionHDProvider : IptvProvider {
     override suspend fun getMovies(page: Int): List<Movie> = emptyList()
 
     override suspend fun getTvShows(page: Int): List<TvShow> = try {
-        parseChannels(service.getPage(baseUrl))
+        parseChannels(service.getPage("$baseUrl$GRID_PATH"))
     } catch (_: Exception) { emptyList() }
 
     override suspend fun getMovie(id: String): Movie = throw Exception("Not supported")
