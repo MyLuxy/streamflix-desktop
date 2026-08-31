@@ -156,7 +156,10 @@
       "hlsUnsupported": "HLS non supportato in questo browser",
       "back": "Indietro",
       "nextEpisode": "Prossimo episodio",
-      "audioTrack": "Audio/Sottotitoli"
+      "audioTrack": "Audio/Sottotitoli",
+      "audio": "Audio",
+      "subtitles": "Sottotitoli",
+      "none": "Nessuno"
     },
     "cast": {
       "role": "Ruolo",

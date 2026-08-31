@@ -156,7 +156,10 @@
       "hlsUnsupported": "HLS non pris en charge sur ce navigateur",
       "back": "Retour",
       "nextEpisode": "Épisode suivant",
-      "audioTrack": "Audio/Sous-titres"
+      "audioTrack": "Audio/Sous-titres",
+      "audio": "Audio",
+      "subtitles": "Sous-titres",
+      "none": "Aucun"
     },
     "cast": {
       "role": "Rôle",

@@ -16,6 +16,8 @@ export interface WatchedItem {
   progress?: number;
   season?: number;
   episode?: number;
+  // audioLabel() output (eg "Japanese"/"English"), lets resume pick the same track back up
+  audioTrack?: string;
 }
 
 const STORAGE_KEY = "streamflix_continue_watching";
@@ -88,7 +90,7 @@ export function useContinueWatching() {
     provider: string,
     realId: string,
     mediaType: "movie" | "tv",
-    updates: { currentTime?: number; duration?: number; season?: number; episode?: number }
+    updates: { currentTime?: number; duration?: number; season?: number; episode?: number; audioTrack?: string }
   ) => {
     setItems((prev) => {
       const idx = prev.findIndex((i) => sameItem(i, { provider, realId, mediaType }));

@@ -180,6 +180,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       backdropPath: data.backdrop_path,
       currentTime: isResumingSameEpisode ? watchedItem?.currentTime : undefined,
       duration: isResumingSameEpisode ? watchedItem?.duration : undefined,
+      audioTrack: isResumingSameEpisode ? watchedItem?.audioTrack : undefined,
       season: season ?? watchedItem?.season,
       episode: episode ?? watchedItem?.episode,
     });
@@ -317,6 +318,12 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
                 ? watchedItem.currentTime
                 : undefined
             }
+            preferredAudioTrack={
+              watchedItem &&
+              (mediaType === "movie" || (watchedItem.season === startSeason && watchedItem.episode === startEpisode))
+                ? watchedItem.audioTrack
+                : undefined
+            }
             onProgress={(ct, dur) => {
               updateProgress(provider, realId, mediaType, {
                 currentTime: ct,
@@ -327,6 +334,9 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
               if (mediaType === "tv") {
                 updateEpisodeProgress(provider, realId, startSeason, startEpisode, { currentTime: ct, duration: dur });
               }
+            }}
+            onAudioTrackChange={(label) => {
+              updateProgress(provider, realId, mediaType, { audioTrack: label });
             }}
             onBack={handleBack}
             nextEpisodeAvailable={!!nextEpisode}

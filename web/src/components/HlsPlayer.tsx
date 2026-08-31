@@ -29,7 +29,10 @@ interface HlsPlayerProps {
   seasonEpisodeLabel?: string;
   // ignored if too close to zero, not worth resuming from
   startTime?: number;
+  // audio label saved from a previous session (see audioLabel), resumes in the same track
+  preferredAudioTrack?: string;
   onProgress?: (currentTime: number, duration: number) => void;
+  onAudioTrackChange?: (label: string) => void;
   onBack: () => void;
   nextEpisodeAvailable?: boolean;
   onNextEpisode?: () => void;
@@ -45,10 +48,11 @@ function formatTime(seconds: number): string {
 }
 
 // most servers are just mirrors named after the host, sites like hianime tag sub/dub
-// in the name instead, pull that out so the picker reads clean
-function serverLabel(name: string): string {
+// in the name instead, that maps to the actual spoken language so the picker reads clean
+function audioLabel(name: string): string {
   const tag = name.match(/\b(sub|dub)\b/i);
-  return tag ? tag[1].toUpperCase() : name;
+  if (!tag) return name;
+  return tag[1].toLowerCase() === "sub" ? "Japanese" : "English";
 }
 
 // custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs
@@ -63,7 +67,9 @@ export function HlsPlayer({
   title,
   seasonEpisodeLabel,
   startTime,
+  preferredAudioTrack,
   onProgress,
+  onAudioTrackChange,
   onBack,
   nextEpisodeAvailable,
   onNextEpisode,
@@ -94,13 +100,19 @@ export function HlsPlayer({
 
   const [servers, setServers] = useState<StreamServer[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | undefined>(undefined);
+  // undefined = follow whatever track came back marked default, null = "None" was picked
+  const [selectedSubtitleUrl, setSelectedSubtitleUrl] = useState<string | null | undefined>(undefined);
   const [showServerMenu, setShowServerMenu] = useState(false);
   const serverMenuRef = useRef<HTMLDivElement>(null);
-  // keeps playback position across a manual sub/dub switch, startTime prop is only the initial resume
+  // keeps playback position across a manual audio switch, startTime prop is only the initial resume
   const resumeTimeRef = useRef<number | null>(null);
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
+  const onAudioTrackChangeRef = useRef(onAudioTrackChange);
+  onAudioTrackChangeRef.current = onAudioTrackChange;
+  const preferredAudioTrackRef = useRef(preferredAudioTrack);
+  preferredAudioTrackRef.current = preferredAudioTrack;
 
   const scheduleHide = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -172,9 +184,10 @@ export function HlsPlayer({
     };
   }, []);
 
-  // a sub/dub pick belongs to one episode, a new one starts back on whatever the provider defaults to
+  // an audio/subtitle pick belongs to one episode, a new one starts back on the provider default
   useEffect(() => {
     setSelectedServerId(undefined);
+    setSelectedSubtitleUrl(undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, episodeId]);
 
@@ -187,15 +200,19 @@ export function HlsPlayer({
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, [showServerMenu]);
 
-  // the default attr on <track> isnt reliable once tracks change dynamically, force it
+  // the default attr on <track> isnt reliable once tracks change dynamically, force it.
+  // undefined means no manual pick yet, follow whatever track came back marked default
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const defaultIndex = subtitles.findIndex((s) => s.default);
-    for (let i = 0; i < video.textTracks.length; i++) {
-      video.textTracks[i].mode = i === defaultIndex ? "showing" : "disabled";
-    }
-  }, [subtitles]);
+    const activeUrl = selectedSubtitleUrl === undefined
+      ? subtitles.find((s) => s.default)?.url ?? null
+      : selectedSubtitleUrl;
+    subtitles.forEach((s, i) => {
+      const track = video.textTracks[i];
+      if (track) track.mode = s.url === activeUrl ? "showing" : "disabled";
+    });
+  }, [subtitles, selectedSubtitleUrl]);
 
   useEffect(() => {
     // captured once here, cleanup runs after react may have already unset the ref
@@ -215,8 +232,23 @@ export function HlsPlayer({
         return;
       }
 
-      setServers(result.servers ?? []);
+      const resultServers = result.servers ?? [];
+
+      // first pass (no manual pick yet), a saved preference from last time wins over
+      // whatever the provider defaulted to, requires resolving this one again
+      if (selectedServerId === undefined && preferredAudioTrackRef.current) {
+        const preferred = resultServers.find((s) => audioLabel(s.name) === preferredAudioTrackRef.current);
+        if (preferred && preferred.id !== resultServers[0]?.id) {
+          setSelectedServerId(preferred.id);
+          return;
+        }
+      }
+
+      setServers(resultServers);
       setSubtitles(result.subtitles ?? []);
+      const activeServerId = selectedServerId ?? resultServers[0]?.id;
+      const activeServer = resultServers.find((s) => s.id === activeServerId);
+      if (activeServer) onAudioTrackChangeRef.current?.(audioLabel(activeServer.name));
 
       const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
 
@@ -356,9 +388,19 @@ export function HlsPlayer({
     setSelectedServerId(id);
   };
 
+  const selectSubtitle = (url: string | null) => {
+    setShowServerMenu(false);
+    setSelectedSubtitleUrl(url);
+  };
+
   const displayedTime = dragging && dragTime !== null ? dragTime : currentTime;
   const progressPct = duration > 0 ? (displayedTime / duration) * 100 : 0;
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const activeSubtitleUrl = selectedSubtitleUrl === undefined
+    ? subtitles.find((s) => s.default)?.url ?? null
+    : selectedSubtitleUrl;
+  const activeServerId = selectedServerId ?? servers[0]?.id;
+  const showTrackMenu = servers.length > 1 || subtitles.length > 0;
 
   return (
     <div
@@ -524,7 +566,7 @@ export function HlsPlayer({
               </div>
 
               <div className="flex items-center gap-4 md:gap-5 flex-shrink-0 relative">
-                {servers.length > 1 && (
+                {showTrackMenu && (
                   <div className="relative" ref={serverMenuRef}>
                     <button
                       onClick={() => setShowServerMenu((v) => !v)}
@@ -534,18 +576,51 @@ export function HlsPlayer({
                       <Captions className="w-7 h-7 md:w-9 md:h-9" />
                     </button>
                     {showServerMenu && (
-                      <div className="absolute bottom-full right-0 mb-3 min-w-32 rounded-lg bg-black/90 border border-white/10 overflow-hidden shadow-xl">
-                        {servers.map((s) => (
-                          <button
-                            key={s.id}
-                            onClick={() => selectServer(s.id)}
-                            className={`w-full text-left px-4 py-2.5 text-sm md:text-base whitespace-nowrap transition-colors ${
-                              s.id === selectedServerId ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
-                            }`}
-                          >
-                            {serverLabel(s.name)}
-                          </button>
-                        ))}
+                      <div className="absolute bottom-full right-0 mb-3 min-w-40 rounded-lg bg-black/90 border border-white/10 overflow-hidden shadow-xl divide-y divide-white/10">
+                        {subtitles.length > 0 && (
+                          <div className="py-1.5">
+                            <p className="px-4 pt-1 pb-1.5 text-xs uppercase tracking-wide text-white/50">
+                              {t("player.subtitles")}
+                            </p>
+                            <button
+                              onClick={() => selectSubtitle(null)}
+                              className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
+                                activeSubtitleUrl === null ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
+                              }`}
+                            >
+                              {t("player.none")}
+                            </button>
+                            {subtitles.map((s) => (
+                              <button
+                                key={s.url}
+                                onClick={() => selectSubtitle(s.url)}
+                                className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
+                                  s.url === activeSubtitleUrl ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {servers.length > 1 && (
+                          <div className="py-1.5">
+                            <p className="px-4 pt-1 pb-1.5 text-xs uppercase tracking-wide text-white/50">
+                              {t("player.audio")}
+                            </p>
+                            {servers.map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => selectServer(s.id)}
+                                className={`w-full text-left px-4 py-2 text-sm md:text-base whitespace-nowrap transition-colors ${
+                                  s.id === activeServerId ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
+                                }`}
+                              >
+                                {audioLabel(s.name)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
