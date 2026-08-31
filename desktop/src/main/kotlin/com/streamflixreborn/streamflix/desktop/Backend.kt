@@ -350,8 +350,10 @@ private fun handleStream(exchange: HttpExchange) {
         SubtitleDto(it.label, "/segment?token=$token&url=" + URLEncoder.encode(it.file, "UTF-8"), it.default)
     }
     val serverDtos = servers.map { ServerDto(it.id, it.name) }
-    // plain file links skip the manifest text path, they get streamed raw
-    val isDirectFile = !video.source.contains(".m3u8", ignoreCase = true)
+    // a real playlist can hide behind any extension (or a data: uri with no extension
+    // at all), only trust an actual video file extension as a sign this isnt one
+    val isDirectFile = !video.source.startsWith("data:", ignoreCase = true) &&
+        Regex("""\.(mp4|mkv|avi|webm|mov|m4v)(?:\?.*)?$""", RegexOption.IGNORE_CASE).containsMatchIn(video.source)
     val url = if (isDirectFile) {
         "/direct?token=$token&url=" + URLEncoder.encode(video.source, "UTF-8")
     } else {
