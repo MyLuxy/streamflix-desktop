@@ -13,6 +13,42 @@ data class Data(
     val searchMovie: List<Show>? = null,
     val listSeasons: List<Season>? = null,
     val listEpisodes: List<Episode>? = null,
+    val detailDorama: DetailShow? = null,
+    val detailMovie: DetailShow? = null,
+    val getEpisodeLinks: LinksResponse? = null,
+    val getMovieLinks: LinksResponse? = null,
+)
+
+// the site moved off server-rendered pages with embedded json (old __NEXT_DATA__ scraping
+// broke completely), these two queries are the graphql replacement for a single item's detail
+data class DetailShow(
+    @SerializedName("_id")
+    val id: String,
+    val name: String,
+    @SerializedName("name_es")
+    val nameEs: String? = null,
+    val overview: String? = null,
+    @SerializedName("poster_path")
+    val posterPath: String? = null,
+    val poster: String? = null,
+    val runtime: Int? = null,
+    @SerializedName("release_date")
+    val releaseDate: String? = null,
+    @SerializedName("number_of_seasons")
+    val numberOfSeasons: Int? = null,
+)
+
+data class LinksResponse(
+    @SerializedName("_id")
+    val id: String,
+    @SerializedName("links_online")
+    val linksOnline: List<LinkOnline> = emptyList(),
+)
+
+data class LinkOnline(
+    val link: String? = null,
+    val embed: String? = null,
+    val lang: String? = null,
 )
 
 data class Pagination(
@@ -66,18 +102,3 @@ data class Episode(
     val stillPath: String? = null,
 )
 
-data class TokenModel(
-    val props: PropsToken? = null,
-)
-
-data class PropsToken(
-    val pageProps: PagePropsToken? = null,
-)
-
-data class PagePropsToken(
-    val token: String? = null,
-)
-
-data class VideoToken(
-    val link: String? = null,
-)
