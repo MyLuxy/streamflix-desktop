@@ -182,7 +182,15 @@ export function HlsPlayer({
         }
       };
 
-      if (Hls.isSupported()) {
+      if (result.type === "direct") {
+        // no playlist here, just a regular file the video tag can handle on its own
+        video.src = manifestUrl;
+        video.addEventListener("loadedmetadata", () => {
+          if (!cancelled) setStatus("playing");
+          applyStartTime();
+          video.play().catch(() => {});
+        });
+      } else if (Hls.isSupported()) {
         const hls = new Hls();
         hlsRef.current = hls;
         hls.on(Hls.Events.ERROR, (_event, data) => {

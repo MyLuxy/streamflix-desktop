@@ -46,6 +46,7 @@ fun main() {
     server.createContext("/api/stream") { withCors(it) { handleStream(it) } }
     server.createContext("/manifest.m3u8") { withCors(it) { serveManifest(it) } }
     server.createContext("/segment") { withCors(it) { serveSegment(it) } }
+    server.createContext("/direct") { withCors(it) { serveDirect(it) } }
     server.createContext("/image") { withCors(it) { serveImage(it) } }
 
     server.start()
@@ -114,6 +115,8 @@ data class SubtitleDto(val label: String, val url: String, val default: Boolean 
 data class StreamResponse(
     val success: Boolean,
     val manifestUrl: String? = null,
+    // direct means a plain file like mp4, not an hls playlist
+    val type: String = "hls",
     val subtitles: List<SubtitleDto> = emptyList(),
     val error: String? = null,
 )
@@ -187,6 +190,7 @@ private val HIDDEN_PROVIDERS = setOf(
     "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
     "Animefenix", "AnimeFLV", "AnimeSaturn", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
     "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
+    "SoloLatino",
 )
 
 private fun handleProviders(exchange: HttpExchange) {
@@ -321,6 +325,7 @@ private fun handleStream(exchange: HttpExchange) {
                 video = runCatching { provider.getVideo(server) }
                     .onFailure { lastError = it }
                     .getOrNull()
+                    ?.takeIf { it.source.isNotBlank() }
                 if (video != null) break
             }
             video ?: throw (lastError ?: Exception("no server available"))
@@ -332,12 +337,29 @@ private fun handleStream(exchange: HttpExchange) {
     val token = UUID.randomUUID().toString()
     streamCache[token] = result
     val subtitles = result.subtitles.map { SubtitleDto(it.label, it.file, it.default) }
-    sendJson(exchange, 200, json.encodeToString(StreamResponse(true, manifestUrl = "/manifest.m3u8?token=$token", subtitles = subtitles)))
+    // plain file links skip the manifest text path, they get streamed raw
+    val isDirectFile = !result.source.contains(".m3u8", ignoreCase = true)
+    val url = if (isDirectFile) {
+        "/direct?token=$token&url=" + URLEncoder.encode(result.source, "UTF-8")
+    } else {
+        "/manifest.m3u8?token=$token"
+    }
+    sendJson(exchange, 200, json.encodeToString(StreamResponse(true, manifestUrl = url, type = if (isDirectFile) "direct" else "hls", subtitles = subtitles)))
 }
 
 private val httpClient: HttpClient = HttpClient.newBuilder()
     .followRedirects(HttpClient.Redirect.NORMAL)
     .build()
+
+// java's HttpClient throws on these instead of just ignoring them, extractors set stuff like
+// "Connection: keep-alive" all the time since a real browser would too
+private val RESTRICTED_HEADERS = setOf(
+    "connection", "content-length", "date", "expect", "from", "host", "upgrade", "via", "warning"
+)
+
+private fun applyHeaders(builder: HttpRequest.Builder, headers: Map<String, String>?) {
+    headers?.forEach { (k, v) -> if (k.lowercase() !in RESTRICTED_HEADERS) builder.header(k, v) }
+}
 
 // forwarding whole header map, extractors dont agree on casing for referer/origin
 private fun manifestTextFor(url: String, headers: Map<String, String>?): String? {
@@ -348,7 +370,7 @@ private fun manifestTextFor(url: String, headers: Map<String, String>?): String?
     }
     return runCatching {
         val builder = HttpRequest.newBuilder(URI.create(url)).GET()
-        headers?.forEach { (k, v) -> builder.header(k, v) }
+        applyHeaders(builder, headers)
         httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString()).body()
     }.getOrNull()
 }
@@ -440,7 +462,7 @@ private fun serveImage(exchange: HttpExchange) {
     runCatching {
         val builder = HttpRequest.newBuilder(URI.create(cleanUrl)).GET()
         if (headers.isNotEmpty()) {
-            headers.forEach { (k, v) -> builder.header(k, v) }
+            applyHeaders(builder, headers)
         } else {
             // some cdns 403 a bare request, faking referer as the img's own domain usually works
             runCatching {
@@ -486,12 +508,49 @@ private fun serveSegment(exchange: HttpExchange) {
     }
     runCatching {
         val builder = HttpRequest.newBuilder(URI.create(targetUrl)).GET()
-        video.headers?.forEach { (k, v) -> builder.header(k, v) }
+        applyHeaders(builder, video.headers)
         val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
         val contentType = response.headers().firstValue("content-type").orElse("application/octet-stream")
         exchange.responseHeaders.add("Content-Type", contentType)
         exchange.sendResponseHeaders(response.statusCode(), response.body().size.toLong())
         exchange.responseBody.use { it.write(response.body()) }
+    }.onFailure {
+        it.printStackTrace()
+        runCatching { exchange.sendResponseHeaders(502, -1) }
+        exchange.close()
+    }
+}
+
+private fun serveDirect(exchange: HttpExchange) {
+    val params = queryParams(exchange)
+    val token = params["token"]
+    val targetUrl = params["url"]
+    if (token == null || targetUrl == null) {
+        exchange.sendResponseHeaders(400, -1)
+        exchange.close()
+        return
+    }
+    val video = streamCache[token]
+    if (video == null) {
+        exchange.sendResponseHeaders(404, -1)
+        exchange.close()
+        return
+    }
+    runCatching {
+        val builder = HttpRequest.newBuilder(URI.create(targetUrl)).GET()
+        applyHeaders(builder, video.headers)
+        // forward the browser's own range so seeking actually works on a plain file
+        exchange.requestHeaders.getFirst("Range")?.let { builder.header("Range", it) }
+
+        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+        val contentType = response.headers().firstValue("content-type").orElse("video/mp4")
+        exchange.responseHeaders.add("Content-Type", contentType)
+        exchange.responseHeaders.add("Accept-Ranges", "bytes")
+        response.headers().firstValue("content-range").ifPresent { exchange.responseHeaders.add("Content-Range", it) }
+        val contentLength = response.headers().firstValue("content-length").map { it.toLong() }.orElse(0L)
+        // streamed not buffered, needed for big files
+        exchange.sendResponseHeaders(response.statusCode(), if (contentLength > 0) contentLength else 0)
+        response.body().use { input -> exchange.responseBody.use { output -> input.copyTo(output) } }
     }.onFailure {
         it.printStackTrace()
         runCatching { exchange.sendResponseHeaders(502, -1) }

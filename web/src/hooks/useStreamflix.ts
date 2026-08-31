@@ -111,6 +111,8 @@ export function useStreamflixSearch(provider: string, query: string, enabled = t
 export interface StreamResult {
   success: boolean;
   manifestUrl?: string;
+  // "direct" is a plain file (mp4 etc) the browser can just play natively, no hls.js needed
+  type?: "hls" | "direct";
   subtitles: { label: string; url: string; default: boolean }[];
   error?: string;
 }
