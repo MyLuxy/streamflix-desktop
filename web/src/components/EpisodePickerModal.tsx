@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-import { X, Play, Film, Check } from "lucide-react";
+import { X, Play, Film, Check, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeasonEpisodes, type StreamflixEpisode } from "@/hooks/useStreamflix";
@@ -10,6 +10,7 @@ import type { EpisodeProgress } from "@/hooks/useEpisodeProgress";
 import { useTranslation } from "react-i18next";
 import type { Season } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
+import { Navigation } from "@/components/Navigation";
 
 // past this % counts as watched instead of in progress
 const WATCHED_THRESHOLD = 90;
@@ -95,16 +96,28 @@ export function EpisodePickerModal({
   return (
     // full screen not a centered dialog, more room for episode titles/descriptions
     <div className="fixed inset-0 z-[90] bg-background flex flex-col">
-      <div className="flex items-center justify-between px-4 sm:px-6 md:px-10 py-4 md:py-6 border-b border-border flex-shrink-0">
-        <div className="min-w-0">
+      <Navigation />
+
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 px-4 sm:px-6 md:px-10 pt-6 md:pt-28 pb-4 md:pb-6 border-b border-border flex-shrink-0">
+        <Button
+          onClick={onClose}
+          variant="secondary"
+          size="sm"
+          className="justify-self-start h-auto py-2 bg-transparent hover:bg-transparent text-foreground text-lg md:text-2xl font-semibold [&_svg]:size-7 md:[&_svg]:size-9"
+        >
+          <ArrowLeft />
+          {t("content.goBack")}
+        </Button>
+
+        <div className="min-w-0 text-center">
           <h3 className="text-lg sm:text-xl md:text-3xl font-bold text-foreground truncate">{title}</h3>
-          <p className="text-sm md:text-base text-muted-foreground">{t("content.selectEpisode")}</p>
         </div>
+
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="rounded-full flex-shrink-0 w-10 h-10 md:w-12 md:h-12 [&_svg]:size-5 md:[&_svg]:size-6"
+          className="justify-self-end rounded-full flex-shrink-0 w-12 h-12 md:w-14 md:h-14 [&_svg]:size-6 md:[&_svg]:size-8"
         >
           <X />
         </Button>
@@ -136,7 +149,7 @@ export function EpisodePickerModal({
           ))}
         </div>
 
-        <div ref={episodesContainerRef} className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 relative">
+        <div ref={episodesContainerRef} className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 lg:p-8 relative">
           <div className="max-w-6xl space-y-3 md:space-y-4">
             {isFetching
               ? Array.from({ length: 6 }).map((_, i) => (
