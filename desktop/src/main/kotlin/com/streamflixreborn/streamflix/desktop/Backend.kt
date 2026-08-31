@@ -365,7 +365,19 @@ private fun handleStream(exchange: HttpExchange) {
 
 private val httpClient: HttpClient = HttpClient.newBuilder()
     .followRedirects(HttpClient.Redirect.NORMAL)
+    // http/2 upgrade negotiation gets flaky across dozens of unrelated hosts on a
+    // long running client, 1.1 keeps connection pooling predictable
+    .version(HttpClient.Version.HTTP_1_1)
+    .connectTimeout(java.time.Duration.ofSeconds(10))
     .build()
+
+private data class CachedImage(val bytes: ByteArray, val contentType: String)
+
+// posters repeat everywhere (home rows, recs, watchlist), keeping them in memory means
+// only the first view ever pays for the round trip to the provider
+private val imageCache = object : LinkedHashMap<String, CachedImage>(256, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedImage>?) = size > 600
+}
 
 // java's HttpClient throws on these instead of just ignoring them, extractors set stuff like
 // "Connection: keep-alive" all the time since a real browser would too
@@ -475,6 +487,15 @@ private fun serveImage(exchange: HttpExchange) {
     val headers = decodeArtworkHeaders(rawUrl)
     val cleanUrl = stripArtworkFragment(rawUrl)
 
+    val cached = synchronized(imageCache) { imageCache[cleanUrl] }
+    if (cached != null) {
+        exchange.responseHeaders.add("Content-Type", cached.contentType)
+        exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
+        exchange.sendResponseHeaders(200, cached.bytes.size.toLong())
+        exchange.responseBody.use { it.write(cached.bytes) }
+        return
+    }
+
     runCatching {
         val builder = HttpRequest.newBuilder(URI.create(cleanUrl)).GET()
         if (headers.isNotEmpty()) {
@@ -493,6 +514,7 @@ private fun serveImage(exchange: HttpExchange) {
         // dont cache failures or a broken img sticks around all day
         if (response.statusCode() in 200..299) {
             exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
+            synchronized(imageCache) { imageCache[cleanUrl] = CachedImage(response.body(), contentType) }
         } else {
             exchange.responseHeaders.add("Cache-Control", "no-store")
         }
