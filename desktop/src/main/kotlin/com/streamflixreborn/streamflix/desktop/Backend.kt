@@ -106,10 +106,15 @@ data class StreamRequest(
     val seasonNumber: Int? = null,
     val episodeId: String? = null,
     val episodeNumber: Int? = null,
+    // pins to one server instead of the usual try-em-all fallback, for the sub/dub picker
+    val serverId: String? = null,
 )
 
 @Serializable
 data class SubtitleDto(val label: String, val url: String, val default: Boolean = false)
+
+@Serializable
+data class ServerDto(val id: String, val name: String)
 
 @Serializable
 data class StreamResponse(
@@ -118,6 +123,7 @@ data class StreamResponse(
     // direct means a plain file like mp4, not an hls playlist
     val type: String = "hls",
     val subtitles: List<SubtitleDto> = emptyList(),
+    val servers: List<ServerDto> = emptyList(),
     val error: String? = null,
 )
 
@@ -318,33 +324,41 @@ private fun handleStream(exchange: HttpExchange) {
             }
             val servers = provider.getServers(itemIdForServers, videoType)
             if (servers.isEmpty()) error("no server available")
+            // a pinned pick (sub/dub toggle) falls back to the full list if it went stale
+            val candidates = request.serverId?.let { id -> servers.filter { it.id == id } }
+                ?.takeIf { it.isNotEmpty() } ?: servers
             // try em all, first one that dies (geoblock etc) shouldnt kill the rest
             var lastError: Throwable? = null
             var video: Video? = null
-            for (server in servers) {
+            for (server in candidates) {
                 video = runCatching { provider.getVideo(server) }
                     .onFailure { lastError = it }
                     .getOrNull()
                     ?.takeIf { it.source.isNotBlank() }
                 if (video != null) break
             }
-            video ?: throw (lastError ?: Exception("no server available"))
+            (video ?: throw (lastError ?: Exception("no server available"))) to servers
         }
     }.getOrElse {
         return sendJson(exchange, 200, json.encodeToString(StreamResponse(false, error = it.message ?: "extraction failed")))
     }
+    val (video, servers) = result
 
     val token = UUID.randomUUID().toString()
-    streamCache[token] = result
-    val subtitles = result.subtitles.map { SubtitleDto(it.label, it.file, it.default) }
+    streamCache[token] = video
+    val subtitles = video.subtitles.map { SubtitleDto(it.label, it.file, it.default) }
+    val serverDtos = servers.map { ServerDto(it.id, it.name) }
     // plain file links skip the manifest text path, they get streamed raw
-    val isDirectFile = !result.source.contains(".m3u8", ignoreCase = true)
+    val isDirectFile = !video.source.contains(".m3u8", ignoreCase = true)
     val url = if (isDirectFile) {
-        "/direct?token=$token&url=" + URLEncoder.encode(result.source, "UTF-8")
+        "/direct?token=$token&url=" + URLEncoder.encode(video.source, "UTF-8")
     } else {
         "/manifest.m3u8?token=$token"
     }
-    sendJson(exchange, 200, json.encodeToString(StreamResponse(true, manifestUrl = url, type = if (isDirectFile) "direct" else "hls", subtitles = subtitles)))
+    sendJson(exchange, 200, json.encodeToString(StreamResponse(
+        true, manifestUrl = url, type = if (isDirectFile) "direct" else "hls",
+        subtitles = subtitles, servers = serverDtos,
+    )))
 }
 
 private val httpClient: HttpClient = HttpClient.newBuilder()

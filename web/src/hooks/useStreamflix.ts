@@ -108,12 +108,18 @@ export function useStreamflixSearch(provider: string, query: string, enabled = t
   });
 }
 
+export interface StreamServer {
+  id: string;
+  name: string;
+}
+
 export interface StreamResult {
   success: boolean;
   manifestUrl?: string;
   // "direct" is a plain file (mp4 etc) the browser can just play natively, no hls.js needed
   type?: "hls" | "direct";
   subtitles: { label: string; url: string; default: boolean }[];
+  servers?: StreamServer[];
   error?: string;
 }
 
@@ -126,11 +132,12 @@ export async function resolveStream(
   seasonNumber?: number,
   episodeId?: string,
   episodeNumber?: number,
+  serverId?: string,
 ): Promise<StreamResult> {
   const res = await fetch(`${BACKEND_URL}/api/stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider, itemId, type, seasonNumber, episodeId, episodeNumber }),
+    body: JSON.stringify({ provider, itemId, type, seasonNumber, episodeId, episodeNumber, serverId }),
   });
   if (!res.ok) return { success: false, subtitles: [], error: `HTTP ${res.status}` };
   return res.json();

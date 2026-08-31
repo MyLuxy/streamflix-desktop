@@ -155,7 +155,8 @@
       "streamUnavailable": "Stream non disponibile",
       "hlsUnsupported": "HLS non supportato in questo browser",
       "back": "Indietro",
-      "nextEpisode": "Prossimo episodio"
+      "nextEpisode": "Prossimo episodio",
+      "audioTrack": "Audio/Sottotitoli"
     },
     "cast": {
       "role": "Ruolo",

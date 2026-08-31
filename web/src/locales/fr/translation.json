@@ -155,7 +155,8 @@
       "streamUnavailable": "Flux indisponible",
       "hlsUnsupported": "HLS non pris en charge sur ce navigateur",
       "back": "Retour",
-      "nextEpisode": "Épisode suivant"
+      "nextEpisode": "Épisode suivant",
+      "audioTrack": "Audio/Sous-titres"
     },
     "cast": {
       "role": "Rôle",

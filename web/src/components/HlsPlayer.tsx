@@ -11,10 +11,11 @@ import {
   Maximize,
   Minimize,
   ArrowLeft,
+  Captions,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
-import { resolveStream } from "@/hooks/useStreamflix";
+import { resolveStream, type StreamServer } from "@/hooks/useStreamflix";
 import { PlayIcon, PauseIcon, SkipIcon, NextIcon } from "@/components/MediaIcons";
 
 interface HlsPlayerProps {
@@ -41,6 +42,13 @@ function formatTime(seconds: number): string {
   const s = Math.floor(seconds % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// most servers are just mirrors named after the host, sites like hianime tag sub/dub
+// in the name instead, pull that out so the picker reads clean
+function serverLabel(name: string): string {
+  const tag = name.match(/\b(sub|dub)\b/i);
+  return tag ? tag[1].toUpperCase() : name;
 }
 
 // custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs
@@ -82,6 +90,13 @@ export function HlsPlayer({
 
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [servers, setServers] = useState<StreamServer[]>([]);
+  const [selectedServerId, setSelectedServerId] = useState<string | undefined>(undefined);
+  const [showServerMenu, setShowServerMenu] = useState(false);
+  const serverMenuRef = useRef<HTMLDivElement>(null);
+  // keeps playback position across a manual sub/dub switch, startTime prop is only the initial resume
+  const resumeTimeRef = useRef<number | null>(null);
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
@@ -156,6 +171,21 @@ export function HlsPlayer({
     };
   }, []);
 
+  // a sub/dub pick belongs to one episode, a new one starts back on whatever the provider defaults to
+  useEffect(() => {
+    setSelectedServerId(undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemId, episodeId]);
+
+  useEffect(() => {
+    if (!showServerMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (!serverMenuRef.current?.contains(e.target as Node)) setShowServerMenu(false);
+    };
+    window.addEventListener("mousedown", onClickOutside);
+    return () => window.removeEventListener("mousedown", onClickOutside);
+  }, [showServerMenu]);
+
   useEffect(() => {
     // captured once here, cleanup runs after react may have already unset the ref
     const video = videoRef.current;
@@ -164,7 +194,7 @@ export function HlsPlayer({
     setStatus("loading");
     setErrorMessage(null);
 
-    resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber).then((result) => {
+    resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId).then((result) => {
       if (cancelled) return;
       if (!result.success || !result.manifestUrl) {
         // raw backend errors arent user friendly, log em and show a generic message
@@ -174,11 +204,15 @@ export function HlsPlayer({
         return;
       }
 
+      setServers(result.servers ?? []);
+
       const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
 
       const applyStartTime = () => {
-        if (startTime && startTime > 5) {
-          video.currentTime = startTime;
+        const resume = resumeTimeRef.current ?? startTime;
+        resumeTimeRef.current = null;
+        if (resume && resume > 5) {
+          video.currentTime = resume;
         }
       };
 
@@ -232,7 +266,7 @@ export function HlsPlayer({
     };
     // startTime and onProgress excluded on purpose, or this reloads the stream every tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber]);
+  }, [provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId]);
 
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
@@ -301,6 +335,13 @@ export function HlsPlayer({
     } else {
       containerRef.current?.requestFullscreen().catch(() => {});
     }
+  };
+
+  const selectServer = (id: string) => {
+    setShowServerMenu(false);
+    if (id === selectedServerId) return;
+    resumeTimeRef.current = videoRef.current?.currentTime ?? null;
+    setSelectedServerId(id);
   };
 
   const displayedTime = dragging && dragTime !== null ? dragTime : currentTime;
@@ -467,6 +508,32 @@ export function HlsPlayer({
               </div>
 
               <div className="flex items-center gap-4 md:gap-5 flex-shrink-0 relative">
+                {servers.length > 1 && (
+                  <div className="relative" ref={serverMenuRef}>
+                    <button
+                      onClick={() => setShowServerMenu((v) => !v)}
+                      aria-label={t("player.audioTrack")}
+                      className={`transition-colors ${showServerMenu ? "text-white" : "text-white/90 hover:text-white"}`}
+                    >
+                      <Captions className="w-7 h-7 md:w-9 md:h-9" />
+                    </button>
+                    {showServerMenu && (
+                      <div className="absolute bottom-full right-0 mb-3 min-w-32 rounded-lg bg-black/90 border border-white/10 overflow-hidden shadow-xl">
+                        {servers.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => selectServer(s.id)}
+                            className={`w-full text-left px-4 py-2.5 text-sm md:text-base whitespace-nowrap transition-colors ${
+                              s.id === selectedServerId ? "text-primary font-semibold" : "text-white/90 hover:bg-white/10"
+                            }`}
+                          >
+                            {serverLabel(s.name)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button onClick={toggleFullscreen} className="text-white/90 hover:text-white transition-colors">
                   {isFullscreen ? (
                     <Minimize className="w-7 h-7 md:w-9 md:h-9" />

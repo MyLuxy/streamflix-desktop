@@ -155,7 +155,8 @@
       "streamUnavailable": "Transmisión no disponible",
       "hlsUnsupported": "HLS no compatible con este navegador",
       "back": "Atrás",
-      "nextEpisode": "Siguiente episodio"
+      "nextEpisode": "Siguiente episodio",
+      "audioTrack": "Audio/Subtítulos"
     },
     "cast": {
       "role": "Papel",
