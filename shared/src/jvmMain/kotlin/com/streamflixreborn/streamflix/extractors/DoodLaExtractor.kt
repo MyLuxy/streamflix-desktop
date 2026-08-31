@@ -2,6 +2,7 @@ package com.streamflixreborn.streamflix.extractors
 
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
+import com.streamflixreborn.streamflix.utils.MimeTypes
 import com.streamflixreborn.streamflix.utils.StringConverterFactory
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
@@ -53,7 +54,9 @@ open class DoodLaExtractor : Extractor() {
             source = url,
             headers = mapOf(
                 "Referer" to finalBaseUrl
-            )
+            ),
+            // a plain progressive mp4 link, not a playlist, the id-looking token in it has no extension
+            type = MimeTypes.VIDEO_MP4,
         )
     }
 

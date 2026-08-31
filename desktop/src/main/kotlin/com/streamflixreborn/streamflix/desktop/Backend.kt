@@ -350,10 +350,13 @@ private fun handleStream(exchange: HttpExchange) {
         SubtitleDto(it.label, "/segment?token=$token&url=" + URLEncoder.encode(it.file, "UTF-8"), it.default)
     }
     val serverDtos = servers.map { ServerDto(it.id, it.name) }
-    // a real playlist can hide behind any extension (or a data: uri with no extension
-    // at all), only trust an actual video file extension as a sign this isnt one
-    val isDirectFile = !video.source.startsWith("data:", ignoreCase = true) &&
+    // trust the extractor's own declared type first, extension guessing is just a
+    // fallback for extractors that dont set it (a real playlist can hide behind any
+    // extension, and a direct link can just as easily have none at all)
+    val isDirectFile = !video.source.startsWith("data:", ignoreCase = true) && (
+        video.type?.startsWith("video/", ignoreCase = true) == true ||
         Regex("""\.(mp4|mkv|avi|webm|mov|m4v)(?:\?.*)?$""", RegexOption.IGNORE_CASE).containsMatchIn(video.source)
+    )
     val url = if (isDirectFile) {
         "/direct?token=$token&url=" + URLEncoder.encode(video.source, "UTF-8")
     } else {
@@ -392,6 +395,11 @@ private fun applyHeaders(builder: HttpRequest.Builder, headers: Map<String, Stri
 }
 
 // forwarding whole header map, extractors dont agree on casing for referer/origin
+// real playlists are a few kb at most, a mislabeled direct video link (no recognized
+// extension so it slips past the isDirectFile check) can be gigabytes, this is what
+// stops that from getting buffered whole and hanging the request
+private const val MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+
 private fun manifestTextFor(url: String, headers: Map<String, String>?): String? {
     if (url.startsWith("data:")) {
         val payload = url.substringAfter(",", "")
@@ -401,7 +409,18 @@ private fun manifestTextFor(url: String, headers: Map<String, String>?): String?
     return runCatching {
         val builder = HttpRequest.newBuilder(URI.create(url)).GET()
         applyHeaders(builder, headers)
-        httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString()).body()
+        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+        response.body().use { input ->
+            val buffer = java.io.ByteArrayOutputStream()
+            val chunk = ByteArray(8192)
+            while (true) {
+                val n = input.read(chunk)
+                if (n == -1) break
+                buffer.write(chunk, 0, n)
+                if (buffer.size() > MAX_MANIFEST_BYTES) return@runCatching null
+            }
+            buffer.toString(Charsets.UTF_8)
+        }
     }.getOrNull()
 }
 
