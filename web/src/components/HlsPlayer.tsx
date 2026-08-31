@@ -74,6 +74,7 @@ export function HlsPlayer({
   const hlsRef = useRef<Hls | null>(null);
   const [status, setStatus] = useState<"loading" | "playing" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [subtitles, setSubtitles] = useState<{ label: string; url: string; default: boolean }[]>([]);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [buffering, setBuffering] = useState(false);
@@ -186,6 +187,16 @@ export function HlsPlayer({
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, [showServerMenu]);
 
+  // the default attr on <track> isnt reliable once tracks change dynamically, force it
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const defaultIndex = subtitles.findIndex((s) => s.default);
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = i === defaultIndex ? "showing" : "disabled";
+    }
+  }, [subtitles]);
+
   useEffect(() => {
     // captured once here, cleanup runs after react may have already unset the ref
     const video = videoRef.current;
@@ -205,6 +216,7 @@ export function HlsPlayer({
       }
 
       setServers(result.servers ?? []);
+      setSubtitles(result.subtitles ?? []);
 
       const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
 
@@ -361,7 +373,11 @@ export function HlsPlayer({
       }}
     >
       {/* no title attr, the native tooltip would fight our own label in the controls bar */}
-      <video ref={videoRef} className="w-full h-full" playsInline />
+      <video ref={videoRef} className="w-full h-full" playsInline crossOrigin="anonymous">
+        {subtitles.map((s) => (
+          <track key={s.url} kind="subtitles" src={s.url} label={s.label} default={s.default} />
+        ))}
+      </video>
 
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 pointer-events-none">
