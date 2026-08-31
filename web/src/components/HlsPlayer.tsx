@@ -128,6 +128,9 @@ export function HlsPlayer({
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const selectedLevelRef = useRef(selectedLevel);
   selectedLevelRef.current = selectedLevel;
+  // switching hls.js levels mid-buffer causes stutter/freezes, pause first and resume
+  // once LEVEL_SWITCHED confirms the new one actually loaded
+  const pendingQualityChangeRef = useRef(false);
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
@@ -313,6 +316,11 @@ export function HlsPlayer({
           applyStartTime();
           video.play().catch(() => {});
         });
+        hls.on(Hls.Events.LEVEL_SWITCHED, () => {
+          if (!pendingQualityChangeRef.current) return;
+          pendingQualityChangeRef.current = false;
+          video.play().catch(() => {});
+        });
         hls.loadSource(manifestUrl);
         hls.attachMedia(video);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -423,7 +431,11 @@ export function HlsPlayer({
 
   const selectQuality = (index: number | null) => {
     setSelectedLevel(index);
-    if (hlsRef.current) hlsRef.current.currentLevel = index ?? -1;
+    const hls = hlsRef.current;
+    if (!hls) return;
+    pendingQualityChangeRef.current = true;
+    videoRef.current?.pause();
+    hls.currentLevel = index ?? -1;
   };
 
   const selectSpeed = (rate: number) => {
@@ -442,9 +454,9 @@ export function HlsPlayer({
   const showQualityTab = levels.length > 0;
   const showSettingsButton = showAudioTab || subtitles.length > 0 || showQualityTab;
   const tabIconClass = (tab: SettingsTab) =>
-    `p-1.5 rounded transition-colors ${activeTab === tab ? "text-card-foreground bg-white/10" : "text-card-foreground/50 hover:text-card-foreground/80"}`;
+    `p-2.5 rounded transition-colors ${activeTab === tab ? "text-card-foreground bg-white/10" : "text-card-foreground/50 hover:text-card-foreground/80"}`;
   const optionRowClass = (active: boolean) =>
-    `w-full text-left px-4 py-2 text-sm transition-colors ${active ? "text-primary font-semibold" : "text-card-foreground/90 hover:bg-white/5"}`;
+    `w-full text-left px-4 py-2.5 text-sm md:text-base transition-colors ${active ? "text-primary font-semibold" : "text-card-foreground/90 hover:bg-white/5"}`;
 
   return (
     <div
@@ -620,40 +632,40 @@ export function HlsPlayer({
                       <Captions className="w-7 h-7 md:w-9 md:h-9" />
                     </button>
                     {showSettingsMenu && (
-                      <div className="absolute bottom-full right-0 mb-3 w-72 bg-card border border-border/50 shadow-xl overflow-hidden">
-                        <div className="flex items-center justify-between px-2 py-1.5 border-b border-border/50">
+                      <div className="absolute bottom-full right-0 mb-3 w-80 md:w-96 bg-card border border-border/50 shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-2 py-2 border-b border-border/50">
                           <div className="flex items-center gap-1">
                             {showQualityTab && (
                               <button onClick={() => setActiveTab("quality")} className={tabIconClass("quality")} aria-label={t("player.quality")}>
-                                <SignalHigh className="w-5 h-5" />
+                                <SignalHigh className="w-7 h-7" />
                               </button>
                             )}
                             <button onClick={() => setActiveTab("speed")} className={tabIconClass("speed")} aria-label={t("player.speed")}>
-                              <Clock className="w-5 h-5" />
+                              <Clock className="w-7 h-7" />
                             </button>
                             {showAudioTab && (
                               <button onClick={() => setActiveTab("audio")} className={tabIconClass("audio")} aria-label={t("player.audio")}>
-                                <AudioLines className="w-5 h-5" />
+                                <AudioLines className="w-7 h-7" />
                               </button>
                             )}
                             {subtitles.length > 0 && (
                               <button onClick={() => setActiveTab("subtitles")} className={tabIconClass("subtitles")} aria-label={t("player.subtitles")}>
-                                <Captions className="w-5 h-5" />
+                                <Captions className="w-7 h-7" />
                               </button>
                             )}
                           </div>
                           <button onClick={() => setShowSettingsMenu(false)} className="text-card-foreground/60 hover:text-card-foreground p-1">
-                            <X className="w-4 h-4" />
+                            <X className="w-5 h-5" />
                           </button>
                         </div>
 
-                        <div className="px-4 py-2 border-b border-border/50 text-right">
-                          <span className="text-xs font-medium text-card-foreground/60 uppercase tracking-wide">
+                        <div className="px-4 py-2.5 border-b border-border/50 text-center">
+                          <span className="text-sm font-medium text-card-foreground/60 uppercase tracking-wide">
                             {t(`player.${activeTab}`)}
                           </span>
                         </div>
 
-                        <div className="max-h-60 overflow-y-auto py-1">
+                        <div className="max-h-80 overflow-y-auto py-1">
                           {activeTab === "quality" && (
                             <>
                               <button onClick={() => selectQuality(null)} className={optionRowClass(selectedLevel === null)}>
