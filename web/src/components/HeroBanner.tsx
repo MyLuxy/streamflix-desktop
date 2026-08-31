@@ -9,6 +9,8 @@ import { providerTagOf } from "@/lib/provider-tag";
 import { useTranslation } from "react-i18next";
 import { useHeroEntrance } from "@/hooks/useHeroEntrance";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
+import { useArtworkFallback } from "@/hooks/useArtworkFallback";
+import { isAnimeProvider } from "@/lib/anime-providers";
 
 interface HeroBannerProps {
   items: MediaItem[];
@@ -58,7 +60,7 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
   if (!currentItem) return null;
 
   const title = "title" in currentItem ? currentItem.title : currentItem.name;
-  const backdropUrl = imageUrl(currentItem.backdrop_path, IMAGE_SIZES.backdrop.original);
+  const mediaType = currentItem.media_type || ("title" in currentItem ? "movie" : "tv");
   const handleBackdropLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
     if (img.naturalWidth && img.naturalHeight) {
@@ -75,7 +77,6 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
     .map((id) => GENRES[id])
     .filter(Boolean);
 
-  const mediaType = currentItem.media_type || ("title" in currentItem ? "movie" : "tv");
   const inWatchlist = isInWatchlist(currentItem.id, mediaType);
 
   return (
@@ -89,36 +90,13 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
           transition={{ duration: 0.8 }}
           className="absolute inset-0"
         >
-          {backdropUrl ? (
-            isNarrowImage ? (
-              <>
-                {/* narrow poster fallback, blurred fill behind the real image */}
-                <img
-                  src={backdropUrl}
-                  alt=""
-                  aria-hidden="true"
-                  className="w-full h-full object-cover object-top scale-110 blur-2xl opacity-70"
-                />
-                <ImageWithSpinner
-                  src={backdropUrl}
-                  alt={title}
-                  onLoad={handleBackdropLoad}
-                  spinnerClassName="w-8 h-8"
-                  className="absolute inset-0 w-full h-full object-contain object-top"
-                />
-              </>
-            ) : (
-              <ImageWithSpinner
-                src={backdropUrl}
-                alt={title}
-                onLoad={handleBackdropLoad}
-                spinnerClassName="w-8 h-8"
-                className="w-full h-full object-cover object-top"
-              />
-            )
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-background" />
-          )}
+          <HeroBackdrop
+            item={currentItem}
+            title={title}
+            mediaType={mediaType}
+            isNarrowImage={isNarrowImage}
+            onBackdropLoad={handleBackdropLoad}
+          />
         </motion.div>
       </AnimatePresence>
 
@@ -230,5 +208,62 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
         </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+interface HeroBackdropProps {
+  item: MediaItem;
+  title: string;
+  mediaType: "movie" | "tv";
+  isNarrowImage: boolean;
+  onBackdropLoad: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+}
+
+// own component so it remounts (fresh useArtworkFallback) on every slide change,
+// the parent only keys its wrapper, hook state there would stick to the first slide
+function HeroBackdrop({ item, title, mediaType, isNarrowImage, onBackdropLoad }: HeroBackdropProps) {
+  const provider = providerTagOf(item)?.provider;
+  const { fallbackBackdrop, triggerFallback } = useArtworkFallback(title, undefined, mediaType, provider);
+
+  // hianime's own hero art tops out around 1000x400, anilist's banners are wider and
+  // sharper, worth fetching even when the native one already loaded fine
+  useEffect(() => {
+    if (isAnimeProvider(provider)) triggerFallback();
+  }, [provider, triggerFallback]);
+
+  const backdropUrl = fallbackBackdrop ?? imageUrl(item.backdrop_path, IMAGE_SIZES.backdrop.original);
+  if (!backdropUrl) {
+    return <div className="w-full h-full bg-gradient-to-br from-primary/20 to-background" />;
+  }
+
+  if (isNarrowImage) {
+    return (
+      <>
+        {/* narrow poster fallback, blurred fill behind the real image */}
+        <img
+          src={backdropUrl}
+          alt=""
+          aria-hidden="true"
+          className="w-full h-full object-cover object-top scale-110 blur-2xl opacity-70"
+        />
+        <ImageWithSpinner
+          src={backdropUrl}
+          alt={title}
+          onLoad={onBackdropLoad}
+          spinnerClassName="w-8 h-8"
+          className="absolute inset-0 w-full h-full object-contain object-top"
+        />
+      </>
+    );
+  }
+
+  return (
+    <ImageWithSpinner
+      src={backdropUrl}
+      alt={title}
+      onLoad={onBackdropLoad}
+      spinnerClassName="w-8 h-8"
+      className="w-full h-full object-cover object-top"
+    />
   );
 }
