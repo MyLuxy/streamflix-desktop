@@ -510,16 +510,20 @@ private fun serveImage(exchange: HttpExchange) {
         }
         val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
         val contentType = response.headers().firstValue("content-type").orElse("image/jpeg")
-        exchange.responseHeaders.add("Content-Type", contentType)
-        // dont cache failures or a broken img sticks around all day
-        if (response.statusCode() in 200..299) {
+        // a missing upload on wp sites 301s to the homepage instead of a real 404, that
+        // lands here as a 200 with html, dont pass that off as a real image
+        val isRealImage = response.statusCode() in 200..299 && contentType.startsWith("image/")
+        if (isRealImage) {
+            exchange.responseHeaders.add("Content-Type", contentType)
             exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
             synchronized(imageCache) { imageCache[cleanUrl] = CachedImage(response.body(), contentType) }
+            exchange.sendResponseHeaders(200, response.body().size.toLong())
+            exchange.responseBody.use { it.write(response.body()) }
         } else {
             exchange.responseHeaders.add("Cache-Control", "no-store")
+            exchange.sendResponseHeaders(404, -1)
+            exchange.close()
         }
-        exchange.sendResponseHeaders(response.statusCode(), response.body().size.toLong())
-        exchange.responseBody.use { it.write(response.body()) }
     }.onFailure {
         runCatching {
             exchange.responseHeaders.add("Cache-Control", "no-store")
