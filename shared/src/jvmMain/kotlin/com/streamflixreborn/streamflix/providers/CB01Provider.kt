@@ -174,6 +174,8 @@ object CB01Provider : Provider {
     }
 
     private fun parseHomeMovie(el: Element): Movie? {
+        // wp pins site announcements (dns change notices etc) as sticky posts, not real content
+        if (el.parent()?.hasClass("sticky") == true) return null
         val titleAnchor = el.selectFirst("h3.card-title a[href]") ?: return null
         val href = titleAnchor.attr("href").trim()
         val rawTitle = titleAnchor.text().trim()
@@ -191,6 +193,8 @@ object CB01Provider : Provider {
     }
 
     private fun parseHomeTvShow(el: Element): TvShow? {
+        // wp pins site announcements (dns change notices etc) as sticky posts, not real content
+        if (el.parent()?.hasClass("sticky") == true) return null
         val titleAnchor = el.selectFirst("h3.card-title a[href]") ?: return null
         val href = titleAnchor.attr("href").trim()
         val rawTitle = titleAnchor.text().trim()
