@@ -18,9 +18,15 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Url
+import java.net.URL
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 
 object HiAnimeProvider : Provider {
@@ -33,6 +39,24 @@ object HiAnimeProvider : Provider {
 
     private val service = HiAnimeService.build()
 
+    // hrefs end in a trailing slash now, keep the full path not just the last segment
+    private fun pathOf(href: String?): String =
+        href?.let { runCatching { URL(it).path.trim('/') }.getOrDefault("") } ?: ""
+
+    private fun lastSegment(href: String?): String =
+        href?.trimEnd('/')?.substringAfterLast('/') ?: ""
+
+    // nonce and numeric anime id both only show up on a detail page, not the listing grids
+    private suspend fun fetchAnimeContext(urlPath: String): Pair<String, String> {
+        val document = service.getPage(urlPath)
+        val html = document.outerHtml()
+        val animeId = document.selectFirst("link[rel=shortlink]")
+            ?.attr("href")?.substringAfterLast("p=") ?: ""
+        val nonce = Regex(""""episode_nonce":"([^"]+)"""").find(html)?.groupValues?.get(1) ?: ""
+        if (animeId.isBlank() || nonce.isBlank()) throw Exception("HiAnime anime context not found")
+        return animeId to nonce
+    }
+
 
     override suspend fun getHome(): List<Category> {
         val document = service.getHome()
@@ -43,8 +67,7 @@ object HiAnimeProvider : Provider {
             Category(
                 name = Category.FEATURED,
                 list = document.select("div#slider div.swiper-slide").map {
-                    val id = it.selectFirst("a")
-                        ?.attr("href")?.substringAfterLast("/") ?: ""
+                    val id = pathOf(it.selectFirst("div.desi-buttons a")?.attr("href"))
                     val title = it.selectFirst("div.desi-head-title")
                         ?.text() ?: ""
                     val overview = it.selectFirst("div.desi-description")
@@ -83,7 +106,7 @@ object HiAnimeProvider : Provider {
                                 ?.text()?.toIntOrNull()?.let { lastEpisode ->
                                     listOf(
                                         Season(
-                                            id = "",
+                                            id = id,
                                             number = 0,
 
                                             episodes = listOf(
@@ -94,7 +117,7 @@ object HiAnimeProvider : Provider {
                                             )
                                         )
                                     )
-                                } ?: listOf(),
+                                } ?: listOf(Season(id = id, number = 0)),
                         )
                     }
                 },
@@ -107,8 +130,7 @@ object HiAnimeProvider : Provider {
                     name = block.selectFirst("div.anif-block-header")
                         ?.text() ?: "",
                     list = block.select("li").map {
-                        val id = it.selectFirst("a")
-                            ?.attr("href")?.substringAfterLast("/") ?: ""
+                        val id = pathOf(it.selectFirst("a")?.attr("href"))
                         val title = it.selectFirst("h3.film-name")
                             ?.text() ?: ""
                         val poster = it.selectFirst("img.film-poster-img")
@@ -130,22 +152,7 @@ object HiAnimeProvider : Provider {
                                 title = title,
                                 poster = poster,
 
-                                seasons = it.selectFirst("div.tick-sub")
-                                    ?.text()?.toIntOrNull()?.let { lastEpisode ->
-                                        listOf(
-                                            Season(
-                                                id = "",
-                                                number = 0,
-
-                                                episodes = listOf(
-                                                    Episode(
-                                                        id = "",
-                                                        number = lastEpisode,
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    } ?: listOf(),
+                                seasons = listOf(Season(id = id, number = 0)),
                             )
                         }
                     }
@@ -162,8 +169,7 @@ object HiAnimeProvider : Provider {
                 Category(
                     name = name,
                     list = block.select("div.flw-item").map {
-                        val id = it.selectFirst("a")
-                            ?.attr("href")?.substringAfterLast("/") ?: ""
+                        val id = pathOf(it.selectFirst("a")?.attr("href"))
                         val title = it.selectFirst("h3.film-name")
                             ?.text() ?: ""
                         val runtime = it.selectFirst("div.fd-infor span.fdi-duration")
@@ -188,22 +194,7 @@ object HiAnimeProvider : Provider {
                                 runtime = runtime,
                                 poster = poster,
 
-                                seasons = it.selectFirst("div.tick-sub")
-                                    ?.text()?.toIntOrNull()?.let { lastEpisode ->
-                                        listOf(
-                                            Season(
-                                                id = "",
-                                                number = 0,
-
-                                                episodes = listOf(
-                                                    Episode(
-                                                        id = "",
-                                                        number = lastEpisode,
-                                                    )
-                                                )
-                                            )
-                                        )
-                                    } ?: listOf(),
+                                seasons = listOf(Season(id = id, number = 0)),
                             )
                         }
                     }
@@ -221,8 +212,7 @@ object HiAnimeProvider : Provider {
             val genres = document.select("div#sidebar_subs_genre a.nav-link")
                 .map {
                     Genre(
-                        id = it.attr("href")
-                            .substringAfterLast("/"),
+                        id = lastSegment(it.attr("href")),
                         name = it.text(),
                     )
                 }
@@ -231,11 +221,10 @@ object HiAnimeProvider : Provider {
             return genres
         }
 
-        val document = service.search(query.replace(" ", "+"), page)
+        val document = service.getByUrl("${URL}?s=${java.net.URLEncoder.encode(query, "UTF-8")}&paged=$page")
 
         val results = document.select("div.flw-item").map {
-            val id = it.selectFirst("a")
-                ?.attr("href")?.substringAfterLast("/") ?: ""
+            val id = pathOf(it.selectFirst("a")?.attr("href"))
             val title = it.selectFirst("h3.film-name")
                 ?.text() ?: ""
             val runtime = it.selectFirst("span.fdi-duration")
@@ -267,12 +256,11 @@ object HiAnimeProvider : Provider {
     }
 
     override suspend fun getMovies(page: Int): List<Movie> {
-        val document = service.getMovies(page)
+        val document = service.getType("movie", page)
 
         val movies = document.select("div.flw-item").map {
             Movie(
-                id = it.selectFirst("a")
-                    ?.attr("href")?.substringAfterLast("/") ?: "",
+                id = pathOf(it.selectFirst("a")?.attr("href")),
                 title = it.selectFirst("h3.film-name")
                     ?.text() ?: "",
                 overview = it.selectFirst("div.description")
@@ -288,12 +276,12 @@ object HiAnimeProvider : Provider {
     }
 
     override suspend fun getTvShows(page: Int): List<TvShow> {
-        val document = service.getTvSeries(page)
+        val document = service.getType("tv", page)
 
         val tvShows = document.select("div.flw-item").map {
+            val id = pathOf(it.selectFirst("a")?.attr("href"))
             TvShow(
-                id = it.selectFirst("a")
-                    ?.attr("href")?.substringAfterLast("/") ?: "",
+                id = id,
                 title = it.selectFirst("h3.film-name")
                     ?.text() ?: "",
                 overview = it.selectFirst("div.description")
@@ -303,22 +291,7 @@ object HiAnimeProvider : Provider {
                 poster = it.selectFirst("img.film-poster-img")
                     ?.attr("data-src"),
 
-                seasons = it.selectFirst("div.tick-sub")
-                    ?.text()?.toIntOrNull()?.let { lastEpisode ->
-                        listOf(
-                            Season(
-                                id = "",
-                                number = 0,
-
-                                episodes = listOf(
-                                    Episode(
-                                        id = "",
-                                        number = lastEpisode,
-                                    )
-                                )
-                            )
-                        )
-                    } ?: listOf(),
+                seasons = listOf(Season(id = id, number = 0)),
             )
         }
 
@@ -327,7 +300,7 @@ object HiAnimeProvider : Provider {
 
 
     override suspend fun getMovie(id: String): Movie {
-        val document = service.getMovie(id)
+        val document = service.getPage(id)
 
         val movie = Movie(
             id = id,
@@ -359,25 +332,15 @@ object HiAnimeProvider : Provider {
                 .find { it.selectFirst("span.item-head")?.text() == "Genres:" }
                 ?.select("a")?.map {
                     Genre(
-                        id = it.attr("href").substringAfter("/genre/"),
+                        id = lastSegment(it.attr("href")),
                         name = it.text(),
                     )
                 } ?: listOf(),
-            cast = document.select("div.block-actors-content div.bac-item").map {
-                People(
-                    id = it.selectFirst("div.rtl a")
-                        ?.attr("href")?.substringAfterLast("/") ?: "",
-                    name = it.selectFirst("div.rtl h4.pi-name")
-                        ?.text() ?: "",
-                    image = it.selectFirst("div.rtl img")
-                        ?.attr("data-src"),
-                )
-            }.filter { it.name.isNotEmpty() },
-            recommendations = document.select("section.block_area_category")
-                .find { it.selectFirst("h2.cat-heading")?.text() == "Recommended for you" }
+            // cast/people pages dont exist on the site anymore
+            recommendations = document.select("section.block_area.block_area_home")
+                .find { it.selectFirst("h2.cat-heading")?.text()?.startsWith("Recommended", ignoreCase = true) == true }
                 ?.select("div.flw-item")?.map {
-                    val showId = it.selectFirst("a")
-                        ?.attr("href")?.substringAfterLast("/") ?: ""
+                    val showId = pathOf(it.selectFirst("a")?.attr("href"))
                     val showTitle = it.selectFirst("h3.film-name")
                         ?.text() ?: ""
                     val showRuntime = it.selectFirst("div.fd-infor span.fdi-duration")
@@ -411,7 +374,7 @@ object HiAnimeProvider : Provider {
 
 
     override suspend fun getTvShow(id: String): TvShow {
-        val document = service.getTvShow(id)
+        val document = service.getPage(id)
 
         val tvShow = TvShow(
             id = id,
@@ -441,7 +404,7 @@ object HiAnimeProvider : Provider {
 
             seasons = listOf(
                 Season(
-                    id = id.substringAfterLast("-"),
+                    id = id,
                     number = 0,
                     title = "Episodes",
                 )
@@ -450,25 +413,14 @@ object HiAnimeProvider : Provider {
                 .find { it.selectFirst("span.item-head")?.text() == "Genres:" }
                 ?.select("a")?.map {
                     Genre(
-                        id = it.attr("href").substringAfter("/genre/"),
+                        id = lastSegment(it.attr("href")),
                         name = it.text(),
                     )
                 } ?: listOf(),
-            cast = document.select("div.block-actors-content div.bac-item").map {
-                People(
-                    id = it.selectFirst("div.rtl a")
-                        ?.attr("href")?.substringAfterLast("/") ?: "",
-                    name = it.selectFirst("div.rtl h4.pi-name")
-                        ?.text() ?: "",
-                    image = it.selectFirst("div.rtl img")
-                        ?.attr("data-src"),
-                )
-            }.filter { it.name.isNotEmpty() },
-            recommendations = document.select("section.block_area_category")
-                .find { it.selectFirst("h2.cat-heading")?.text() == "Recommended for you" }
+            recommendations = document.select("section.block_area.block_area_home")
+                .find { it.selectFirst("h2.cat-heading")?.text()?.startsWith("Recommended", ignoreCase = true) == true }
                 ?.select("div.flw-item")?.map {
-                    val showId = it.selectFirst("a")
-                        ?.attr("href")?.substringAfterLast("/") ?: ""
+                    val showId = pathOf(it.selectFirst("a")?.attr("href"))
                     val showTitle = it.selectFirst("h3.film-name")
                         ?.text() ?: ""
                     val showRuntime = it.selectFirst("div.fd-infor span.fdi-duration")
@@ -501,14 +453,14 @@ object HiAnimeProvider : Provider {
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        val response = service.getTvShowEpisodes(tvShowId = seasonId)
+        val (animeId, nonce) = fetchAnimeContext(seasonId)
+        val response = service.getEpisodeList(animeId = animeId, nonce = nonce)
 
-        val episodes = Jsoup.parse(response.html).select("div.ss-list > a[href].ssl-item.ep-item").map {
+        val episodes = Jsoup.parse(response.html).select("a.ssl-item.ep-item").map {
             Episode(
-                id = it.selectFirst("a")
-                    ?.attr("href")?.substringAfterLast("=") ?: "",
-                number = it.selectFirst("div.ssli-order")
-                    ?.text()?.toIntOrNull() ?: 0,
+                // tagging the season path along so getServers can grab a fresh nonce later
+                id = "${it.attr("data-id")}::$seasonId",
+                number = it.attr("data-number").toIntOrNull() ?: 0,
                 title = it.selectFirst("div.ep-name")
                     ?.text(),
             )
@@ -519,7 +471,7 @@ object HiAnimeProvider : Provider {
 
 
     override suspend fun getGenre(id: String, page: Int): Genre {
-        val document = service.getGenre(id, page)
+        val document = service.getGenreDoc(id, page)
 
         val genre = Genre(
             id = id,
@@ -527,8 +479,7 @@ object HiAnimeProvider : Provider {
                 ?.text() ?: "",
 
             shows = document.select("div.flw-item").map {
-                val showId = it.selectFirst("a")
-                    ?.attr("href")?.substringAfterLast("/") ?: ""
+                val showId = pathOf(it.selectFirst("a")?.attr("href"))
                 val showTitle = it.selectFirst("h3.film-name")
                     ?.text() ?: ""
                 val showOverview = it.selectFirst("div.description")
@@ -566,86 +517,34 @@ object HiAnimeProvider : Provider {
 
 
     override suspend fun getPeople(id: String, page: Int): People {
-        val document = service.getPeople(id)
-
-        if (page > 1) {
-            return People(
-                id = id,
-                name = document.selectFirst("h4.name")
-                    ?.text() ?: "",
-                image = document.selectFirst("div.avatar img")
-                    ?.attr("src"),
-            )
-        }
-
-        val people = People(
-            id = id,
-            name = document.selectFirst("h4.name")
-                ?.text() ?: "",
-            image = document.selectFirst("div.avatar img")
-                ?.attr("src"),
-
-            filmography = document.select("div.bac-item").map {
-                val showId = it.selectFirst("div.anime-info a")
-                    ?.attr("href")?.substringAfterLast("/") ?: ""
-                val showTitle = it.selectFirst("div.anime-info h4.pi-name")
-                    ?.text() ?: ""
-                val showReleased = it.selectFirst("div.anime-info div.pi-detail span.pi-cast")
-                    ?.text()?.substringAfterLast(", ")
-                val showPoster = it.selectFirst("div.anime-info img")
-                    ?.attr("src")
-
-                val isMovie = it.selectFirst("div.anime-info div.pi-detail span.pi-cast")
-                    ?.text()?.substringBefore(", ") == "Movie"
-
-                if (isMovie) {
-                    Movie(
-                        id = showId,
-                        title = showTitle,
-                        released = showReleased,
-                        poster = showPoster,
-                    )
-                } else {
-                    TvShow(
-                        id = showId,
-                        title = showTitle,
-                        released = showReleased,
-                        poster = showPoster,
-                    )
-                }
-            }.distinctBy {
-                when (it) {
-                    is Movie -> it.id
-                    is TvShow -> it.id
-                }
-            }
-        )
-
-        return people
+        throw Exception("People pages are not supported by HiAnime")
     }
 
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
-        val episodeId = when (videoType) {
+        val (episodeId, nonce) = when (videoType) {
             is Video.Type.Movie -> {
-                val response = service.getTvShowEpisodes(tvShowId = id.substringAfterLast("-"))
-
-                Jsoup.parse(response.html).select("div.ss-list > a[href].ssl-item.ep-item")
-                    .firstOrNull()
-                    ?.let {
-                        it.selectFirst("a")
-                            ?.attr("href")?.substringAfterLast("=")
-                    } ?: ""
+                val (animeId, movieNonce) = fetchAnimeContext(id)
+                val listResponse = service.getEpisodeList(animeId = animeId, nonce = movieNonce)
+                val firstEpisodeId = Jsoup.parse(listResponse.html).selectFirst("a.ssl-item.ep-item")
+                    ?.attr("data-id") ?: throw Exception("HiAnime episode not found")
+                firstEpisodeId to movieNonce
             }
-            is Video.Type.Episode -> id
+            is Video.Type.Episode -> {
+                val episodeDataId = id.substringBefore("::")
+                val seasonId = id.substringAfter("::")
+                val (_, episodeNonce) = fetchAnimeContext(seasonId)
+                episodeDataId to episodeNonce
+            }
         }
 
-        val servers = Jsoup.parse(service.getServers(episodeId).html)
-            .select("div.server-item[data-type][data-id]")
+        val response = service.getEpisodeServers(episodeId = episodeId, nonce = nonce)
+
+        val servers = Jsoup.parse(response.html).select("div.server-item[data-hash]")
             .map {
                 Video.Server(
-                    id = it.attr("data-id"),
-                    name = "${it.text().trim()} - ${it.attr("data-type").uppercase()}",
+                    id = it.attr("data-hash"),
+                    name = "${it.attr("data-server-name")} - ${it.attr("data-type").uppercase()}",
                 )
             }
 
@@ -653,9 +552,13 @@ object HiAnimeProvider : Provider {
     }
 
     override suspend fun getVideo(server: Video.Server): Video {
-        val link = service.getLink(server.id)
+        // the hash is just base64 of the real embed url, no separate lookup needed
+        val embedUrl = String(Base64.getDecoder().decode(server.id))
+        val embedPage = service.getByUrl(embedUrl)
+        val iframeSrc = embedPage.selectFirst("iframe")?.attr("src")
+            ?: throw Exception("HiAnime embed not found")
 
-        return Extractor.extract(link.link)
+        return Extractor.extract(iframeSrc)
     }
 
 
@@ -680,62 +583,41 @@ object HiAnimeProvider : Provider {
             }
         }
 
-
         @GET("home")
         suspend fun getHome(): Document
 
-        @GET("search")
-        suspend fun search(
-            @Query("keyword", encoded = true) keyword: String,
-            @Query("page") page: Int
-        ): Document
+        @GET("type/{type}/")
+        suspend fun getType(@Path("type") type: String, @Query("page") page: Int): Document
 
-        @GET("movie")
-        suspend fun getMovies(@Query("page") page: Int): Document
+        @GET("genre/{id}/")
+        suspend fun getGenreDoc(@Path("id") id: String, @Query("page") page: Int): Document
 
-        @GET("tv")
-        suspend fun getTvSeries(@Query("page") page: Int): Document
-
-
+        // id carries a full path like "anime/one-piece", encoded so the slash survives
         @GET("{id}")
-        suspend fun getMovie(@Path("id") id: String): Document
+        suspend fun getPage(@Path("id", encoded = true) id: String): Document
 
+        @GET
+        suspend fun getByUrl(@Url url: String): Document
 
-        @GET("{id}")
-        suspend fun getTvShow(@Path("id") id: String): Document
+        @FormUrlEncoded
+        @POST("wp-admin/admin-ajax.php")
+        suspend fun getEpisodeList(
+            @Field("action") action: String = "hianime_episode_list",
+            @Field("anime_id") animeId: String,
+            @Field("nonce") nonce: String,
+        ): AjaxResponse
 
-        @GET("ajax/v2/episode/list/{id}")
-        suspend fun getTvShowEpisodes(@Path("id") tvShowId: String): Response
+        @FormUrlEncoded
+        @POST("wp-admin/admin-ajax.php")
+        suspend fun getEpisodeServers(
+            @Field("action") action: String = "hianime_episode_servers",
+            @Field("episode_id") episodeId: String,
+            @Field("nonce") nonce: String,
+        ): AjaxResponse
 
-
-        @GET("genre/{id}")
-        suspend fun getGenre(@Path("id") id: String, @Query("page") page: Int): Document
-
-
-        @GET("people/{id}")
-        suspend fun getPeople(@Path("id") id: String): Document
-
-
-        @GET("ajax/v2/episode/servers")
-        suspend fun getServers(@Query("episodeId") episodeId: String): Response
-
-        @GET("ajax/v2/episode/sources")
-        suspend fun getLink(@Query("id") id: String): Link
-
-
-        data class Response(
-            val status: Boolean,
-            val html: String,
-            val totalItems: Int? = null,
-            val continueWatch: Boolean? = null,
-        )
-
-        data class Link(
-            val type: String = "",
-            val link: String = "",
-            val sources: List<String> = listOf(),
-            val tracks: List<String> = listOf(),
-            val title: String = "",
+        data class AjaxResponse(
+            val status: Boolean = false,
+            val html: String = "",
         )
     }
 }
