@@ -174,11 +174,16 @@ object FanpelisProvider : Provider {
         number = item.episodeNumber,
         title = item.title,
         overview = item.overview,
-        poster = image(item.stillPath),
+        // unlike the poster/backdrop paths, still_path is a raw tmdb path, not a local upload
+        poster = tmdbImage(item.stillPath),
     )
 
     private fun image(path: String?): String? = path?.takeIf(String::isNotBlank)?.let {
         "$URL/wp-content/uploads${if (it.startsWith('/')) it else "/$it"}"
+    }
+
+    private fun tmdbImage(path: String?): String? = path?.takeIf(String::isNotBlank)?.let {
+        "https://image.tmdb.org/t/p/w500${if (it.startsWith('/')) it else "/$it"}"
     }
 
     private data class ApiResponse<T>(val error: Boolean = false, val data: T? = null)
