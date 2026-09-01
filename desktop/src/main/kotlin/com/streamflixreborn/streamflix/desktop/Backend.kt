@@ -13,7 +13,9 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -327,16 +329,48 @@ private fun handleStream(exchange: HttpExchange) {
             }
             val servers = provider.getServers(itemIdForServers, videoType)
             if (servers.isEmpty()) error("no server available")
-            // resolve every listed server up front, in parallel, so a dead one (dub not
-            // out yet etc) never shows up in the picker as a choice that just errors
-            val resolved = servers.map { it to async { runCatching { provider.getVideo(it) } } }
-                .map { (server, deferred) -> server to deferred.await() }
-            val working = resolved.filter { (_, result) -> result.getOrNull()?.source?.isNotBlank() == true }
-            if (working.isEmpty()) {
-                throw (resolved.firstNotNullOfOrNull { (_, r) -> r.exceptionOrNull() } ?: Exception("no server available"))
+            // race every listed server instead of waiting on all of them - some extractors
+            // (flixlatam's voe/streamwish mirrors) fall back to a real, one-at-a-time headless
+            // browser session per server that can each take up to two minutes, so waiting for
+            // the slowest one made every stream on those providers hang for minutes even after
+            // a fast server had already resolved. once something usable shows up, a short grace
+            // window still lets genuinely fast siblings (sub/dub mirrors a beat behind) land in
+            // the picker, without waiting on stragglers stuck behind that slow browser fallback
+            val resultChannel = Channel<Pair<Video.Server, Result<Video>>>(servers.size)
+            val jobs = servers.map { server ->
+                async { resultChannel.send(server to runCatching { provider.getVideo(server) }) }
             }
-            val picked = request.serverId?.let { id -> working.firstOrNull { it.first.id == id } } ?: working.first()
-            picked.second.getOrThrow() to working.map { it.first }
+            val working = mutableListOf<Video.Server>()
+            var firstSuccess: Pair<Video.Server, Video>? = null
+            var requestedMatch: Pair<Video.Server, Video>? = null
+            var firstError: Throwable? = null
+            var remaining = servers.size
+
+            suspend fun drainOne() {
+                val (server, videoResult) = resultChannel.receive()
+                remaining--
+                val video = videoResult.getOrNull()
+                if (video != null && video.source.isNotBlank()) {
+                    working.add(server)
+                    if (firstSuccess == null) firstSuccess = server to video
+                    if (request.serverId == server.id) requestedMatch = server to video
+                } else if (firstError == null) {
+                    firstError = videoResult.exceptionOrNull()
+                }
+            }
+
+            while (remaining > 0 && requestedMatch == null && !(request.serverId == null && firstSuccess != null)) {
+                drainOne()
+            }
+            if (firstSuccess != null || requestedMatch != null) {
+                withTimeoutOrNull(3_000L) {
+                    while (remaining > 0) drainOne()
+                }
+            }
+            jobs.forEach { it.cancel() }
+            val picked = requestedMatch ?: firstSuccess
+                ?: throw (firstError ?: Exception("no server available"))
+            picked.second to working
         }
     }.getOrElse {
         return sendJson(exchange, 200, json.encodeToString(StreamResponse(false, error = it.message ?: "extraction failed")))
