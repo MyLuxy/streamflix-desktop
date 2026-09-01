@@ -248,6 +248,17 @@ object TvLibrefutbolProvider : IptvProvider {
             }
         }
 
+        // the site swapped its <a href> server options for <button data-src> ones
+        if (servers.isEmpty()) {
+            doc.select("[data-src]").forEach { el ->
+                val src = el.attr("data-src").trim()
+                if (src.isNotEmpty()) {
+                    val finalUrl = if (src.startsWith("http")) src else "$baseUrl/${src.removePrefix("/")}"
+                    servers.add(Video.Server(finalUrl, el.text().trim().ifEmpty { "Opción" }))
+                }
+            }
+        }
+
         if (servers.isEmpty() && doc.select("iframe").isNotEmpty()) {
             servers.add(Video.Server(id, "Reproductor Automático"))
         }
