@@ -101,7 +101,6 @@ interface Provider {
             AnimeUnityProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeSaturnProvider to ProviderSupport(movies = false, tvShows = true),
             AnimeSugeProvider to ProviderSupport(movies = true, tvShows = true),
-            UniqueStreamProvider to ProviderSupport(movies = true, tvShows = true),
             FshareTvProvider to ProviderSupport(movies = true, tvShows = false),
             FilmoProvider to ProviderSupport(movies = true, tvShows = false),
             FrenchStreamProvider to ProviderSupport(movies = true, tvShows = true),
