@@ -24,7 +24,9 @@ import java.util.concurrent.TimeUnit
 object TvporinternetHDProvider : IptvProvider {
 
     override val name = "TvporinternetHD"
-    override val baseUrl = "https://www.tvporinternet2.com"
+    // tvporinternet2.com's own channel grid links out to this domain now, so scraping the
+    // mirror left every channel link failing the same-domain check in isValidChannel
+    override val baseUrl = "https://www.tvporinternet.org"
     override val logo = "https://i.ibb.co/xtCZS8fR/tvporinternet.png"
     override val language = "es"
 
@@ -133,6 +135,7 @@ object TvporinternetHDProvider : IptvProvider {
                 !link.contains("paypal.com") &&
                 !link.contains("/category/") &&
                 !link.contains("/tag/") &&
+                !link.contains("/redes/") &&
                 !title.contains("Telegram", ignoreCase = true) &&
                 !title.contains("Soporte", ignoreCase = true)
     }
@@ -153,17 +156,10 @@ object TvporinternetHDProvider : IptvProvider {
                 categories.addAll(contentCategories)
             }
 
-            categories.add(
-                Category(
-                    name = "Soporte y Ayuda",
-                    list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))
-                )
-            )
-
             categories
         } catch (e: Exception) {
             Log.e(TAG, "❌ ERROR CRÍTICO: ${e.message}")
-            listOf(Category(name = "Soporte y Ayuda", list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))))
+            emptyList()
         }
     }
 
@@ -180,7 +176,7 @@ object TvporinternetHDProvider : IptvProvider {
 
     override suspend fun getMovie(id: String): Movie = throw Exception("Not supported")
 
-    override suspend fun getTvShow(id: String): TvShow = if (id == "creador-info" || id == "apoyo-info") getInfoItem(id) else try {
+    override suspend fun getTvShow(id: String): TvShow = try {
         val doc = service.getPage(id)
 
         val t = doc.selectFirst("h1, h2, .title, .entry-title")?.text() ?: "Canal en Vivo"
@@ -224,6 +220,17 @@ object TvporinternetHDProvider : IptvProvider {
             if (href.isNotEmpty() && (text.contains("Opción", true) || text.contains("Servidor", true) || text.contains("FHD", true))) {
                 val finalUrl = if (href.startsWith("http")) href else "$baseUrl/${href.removePrefix("/")}"
                 servers.add(Video.Server(finalUrl, text))
+            }
+        }
+
+        // the site swapped its <a href> server options for <button data-src> ones
+        if (servers.isEmpty()) {
+            doc.select("[data-src]").forEach { el ->
+                val src = el.attr("data-src").trim()
+                if (src.isNotEmpty()) {
+                    val finalUrl = if (src.startsWith("http")) src else "$baseUrl/${src.removePrefix("/")}"
+                    servers.add(Video.Server(finalUrl, el.text().trim().ifEmpty { "Opción" }))
+                }
             }
         }
 
@@ -314,18 +321,5 @@ object TvporinternetHDProvider : IptvProvider {
             } catch (e: Exception) { break }
         }
         return Video("", emptyList())
-    }
-
-    private fun getInfoItem(id: String): TvShow {
-        val t = if(id == "creador-info") "Reportar problemas" else "Apoya al Proveedor"
-        val p = if(id == "creador-info") "https://i.ibb.co/dsknGBHT/Imagen-de-Whats-App-2025-09-06-a-las-19-00-50-e8e5bcaa.jpg" else "https://i.ibb.co/B5gKLkqS/nuevo-formato-2-K-202604112205.jpg"
-        return TvShow(
-            id = id,
-            title = t,
-            poster = p,
-            banner = p,
-            overview = if(id == "creador-info") "@NandoGT" else "Apoya el proyecto.",
-            providerName = name
-        )
     }
 }
