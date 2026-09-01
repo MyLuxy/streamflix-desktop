@@ -2,6 +2,7 @@ package com.streamflixreborn.streamflix.extractors
 
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
+import com.streamflixreborn.streamflix.utils.MimeTypes
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
@@ -22,10 +23,12 @@ class OkruExtractor : Extractor() {
             ?.attr("data-options")
             ?: throw Exception("No se encontró 'data-options' en la página de Ok.ru")
 
-        val arrayData = videoString.substringAfterLast("\\\"videos\\\":[{\\\"name\\\":\\\"").substringBefore("]")
-        val videos = arrayData.split("{\\\"name\\\":\\\"").reversed().mapNotNull {
-            val videoUrl = it.substringAfter("url\\\":\\\"").substringBefore("\\\"").replace("\\\\u0026", "&")
-            val quality = fixQuality(it.substringBefore("\\\""))
+        // jsoup already html-unescapes the attribute (&quot; -> "), so the json underneath
+        // has plain quotes now, not the backslash-escaped ones this used to look for
+        val arrayData = videoString.substringAfterLast("\"videos\":[{\"name\":\"").substringBefore("]")
+        val videos = arrayData.split("{\"name\":\"").reversed().mapNotNull {
+            val videoUrl = it.substringAfter("url\":\"").substringBefore("\"").replace("\\u0026", "&")
+            val quality = fixQuality(it.substringBefore("\""))
 
             if (videoUrl.startsWith("https://")) {
                 Pair(quality, videoUrl)
@@ -45,7 +48,9 @@ class OkruExtractor : Extractor() {
             headers = mapOf(
                 "Referer" to mainUrl,
                 "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-            )
+            ),
+            // a plain progressive mp4 download link, not a playlist, and the url has no extension
+            type = MimeTypes.VIDEO_MP4
         )
     }
 
