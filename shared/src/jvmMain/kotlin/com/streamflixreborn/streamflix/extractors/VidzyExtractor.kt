@@ -2,39 +2,46 @@ package com.streamflixreborn.streamflix.extractors
 
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
-import com.streamflixreborn.streamflix.utils.JsUnpacker
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Url
 import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.streamflixreborn.streamflix.utils.UserPreferences
+import com.streamflixreborn.streamflix.utils.Base64
 import okhttp3.OkHttpClient
+import java.net.URL
 
 class VidzyExtractor : Extractor() {
 
     override val name = "Vidzy"
     override val mainUrl = "https://vidzy.org"
 
-    fun extractSubtitles(text: String): List<Video.Subtitle> {
-        val loadTracksRegex = Regex("""loadTracks\s*\(\s*\[(.*?)]\s*\)""")
-        val tracksContent = loadTracksRegex.find(text)?.groupValues?.get(1) ?: return emptyList()
+    // the source used to hide behind eval() packed js, now it's an inline iife that
+    // xor-decodes a base64 blob with a key derived from the embed page's own hostname
+    private fun decodeXorSource(encoded: String, host: String): String {
+        val hostSum = host.sumOf { it.code } and 0xFF
+        val reversedBytes = Base64.decode(encoded, Base64.DEFAULT).reversedArray()
+        return buildString {
+            reversedBytes.forEachIndexed { i, b ->
+                val key = (0x3d + i * 89 + hostSum) and 0xFF
+                append(((b.toInt() and 0xFF) xor key).toChar())
+            }
+        }
+    }
 
-        val objectRegex = Regex("""\{(.*?)\}""")
-
-        return objectRegex.findAll(tracksContent).mapNotNull { match ->
-            val obj = match.groupValues[1]
-
-            val label = Regex("""label:'([^']+)'""").find(obj)?.groupValues?.get(1)
-            val file = Regex("""src:'([^']+)'""").find(obj)?.groupValues?.get(1)
-            val default = Regex("""default:(true|false)""").find(obj)?.groupValues?.get(1)?.toBoolean() ?: false
-
-            if (label == null || file == null || !file.startsWith("http")) return@mapNotNull null
+    // subtitle urls aren't obfuscated anymore, just wrapped in a same-origin rewrite that's
+    // a no-op for us since the literal url already points at the right host
+    private fun extractSubtitles(html: String): List<Video.Subtitle> {
+        val trackRegex = Regex(
+            """kind:\s*'subtitles',\s*srclang:\s*'([^']*)',\s*label:\s*'([^']*)',\s*src:\s*\(function\(u\).*?\}\)\('([^']+)'\)"""
+        )
+        return trackRegex.findAll(html).map { match ->
+            val (_, label, file) = match.destructured
             Video.Subtitle(
                 file = file,
                 label = label,
-                initialDefault = default,
-                default = if (UserPreferences.serverAutoSubtitlesDisabled) false else default
+                default = !UserPreferences.serverAutoSubtitlesDisabled
             )
         }.toList()
     }
@@ -43,23 +50,19 @@ class VidzyExtractor : Extractor() {
         val service = Service.build(mainUrl)
 
         val document = service.get(link)
+        val html = document.html()
 
-        val packedJS = Regex("""(\}\s*\('.*?'\.split\('\|'\))""")
-            .find(document.html().substringAfter("function(p,a,c,k,e,d){"))
-            ?.groupValues?.get(1)
+        val encoded = Regex("""\}\)\("([A-Za-z0-9+/=]+)"\)""").find(html)?.groupValues?.get(1)
             ?: throw Exception("Packed JS not found")
 
-        val unPacked = JsUnpacker(packedJS).unpack()
-            ?: throw Exception("Unpacked is null")
-
-        val fileMatch = Regex("""src\s*:\s*["']([^"']+)["']""").find(unPacked)
-        val streamUrl = fileMatch?.groupValues?.get(1)
+        val host = runCatching { URL(link).host }.getOrDefault("")
+        val streamUrl = decodeXorSource(encoded, host).takeIf { it.startsWith("http") }
             ?: throw Exception("No src found")
 
         return Video(
-            source = streamUrl ?: throw Exception("Can't retrieve source"),
+            source = streamUrl,
             headers = mapOf("Referer" to mainUrl),
-            subtitles = extractSubtitles(unPacked),
+            subtitles = extractSubtitles(html),
             useServerSubtitleSetting = true
         )
     }
