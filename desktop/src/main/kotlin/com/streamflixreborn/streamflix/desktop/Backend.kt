@@ -34,9 +34,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 // run: ./gradlew :desktop:runBackend
+private val backendPort = System.getenv("STREAMFLIX_BACKEND_PORT")?.toIntOrNull() ?: 3001
+
 fun main() {
-    val port = System.getenv("STREAMFLIX_BACKEND_PORT")?.toIntOrNull() ?: 3001
-    val server = HttpServer.create(InetSocketAddress("0.0.0.0", port), 0)
+    val server = HttpServer.create(InetSocketAddress("0.0.0.0", backendPort), 0)
     server.executor = Executors.newCachedThreadPool()
 
     server.createContext("/api/providers") { withCors(it) { handleProviders(it) } }
@@ -53,9 +54,10 @@ fun main() {
     server.createContext("/segment") { withCors(it) { serveSegment(it) } }
     server.createContext("/direct") { withCors(it) { serveDirect(it) } }
     server.createContext("/image") { withCors(it) { serveImage(it) } }
+    server.createContext("/assets") { withCors(it) { serveAsset(it) } }
 
     server.start()
-    println("StreamFlix backend listening on http://0.0.0.0:$port")
+    println("StreamFlix backend listening on http://0.0.0.0:$backendPort")
 }
 
 private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -195,6 +197,12 @@ private fun faviconUrl(baseUrl: String): String {
     return if (host.isNullOrBlank()) "" else "https://www.google.com/s2/favicons?domain=$host&sz=128"
 }
 
+// pulls its m3u8 playlist from raw.githubusercontent.com, so the google favicon lookup
+// on baseUrl shows github's icon instead of pluto's - serve our own bundled logo instead
+private fun faviconOverride(providerName: String): String? {
+    return if (providerName.startsWith("Pluto TV")) "http://localhost:$backendPort/assets/pluto-tv.webp" else null
+}
+
 // these are busted rn, still work if queried directly, just dont show em in the picker
 private val HIDDEN_PROVIDERS = setOf(
     "AnyMovie", "SerienStream", "Moflix-stream", "FrenchStream", "CineHax",
@@ -208,7 +216,8 @@ private fun handleProviders(exchange: HttpExchange) {
     val dtos = Provider.providers.entries
         .filter { (provider, _) -> provider.name !in HIDDEN_PROVIDERS }
         .map { (provider, support) ->
-            ProviderDto(provider.name, provider.language, support.movies, support.tvShows, faviconUrl(provider.baseUrl), iptv = provider is IptvProvider)
+            val favicon = faviconOverride(provider.name) ?: faviconUrl(provider.baseUrl)
+            ProviderDto(provider.name, provider.language, support.movies, support.tvShows, favicon, iptv = provider is IptvProvider)
         }.sortedBy { it.name.lowercase() }
     sendJson(exchange, 200, json.encodeToString(dtos))
 }
@@ -596,6 +605,25 @@ private fun serveImage(exchange: HttpExchange) {
         }
         exchange.close()
     }
+}
+
+// bundled local images (currently just the pluto tv logo, see faviconOverride) - a fixed
+// allowlist instead of resolving the request path directly, no path traversal to worry about
+private val BUNDLED_ASSETS = mapOf("pluto-tv.webp" to "image/webp")
+
+private fun serveAsset(exchange: HttpExchange) {
+    val name = exchange.requestURI.path.substringAfterLast('/')
+    val contentType = BUNDLED_ASSETS[name]
+    val bytes = contentType?.let { object {}.javaClass.classLoader.getResourceAsStream("assets/$name")?.use { it.readBytes() } }
+    if (bytes == null) {
+        exchange.sendResponseHeaders(404, -1)
+        exchange.close()
+        return
+    }
+    exchange.responseHeaders.add("Content-Type", contentType)
+    exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
+    exchange.sendResponseHeaders(200, bytes.size.toLong())
+    exchange.responseBody.use { it.write(bytes) }
 }
 
 private fun serveSegment(exchange: HttpExchange) {
