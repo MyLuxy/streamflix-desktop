@@ -13,6 +13,7 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import okhttp3.Cache
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -57,10 +58,24 @@ object LaCartoonsProvider : Provider {
         suspend fun getPage(@Url url: String): Document
     }
 
-    override suspend fun getHome(): List<Category> {
-        return try {
-            val shows = getTvShows(page = 1)
-            listOf(Category(name = "Series", list = shows))
+    // the site's own category buttons (Categoria_id on the homepage form), reused here so the
+    // home screen has more than just one giant "everything" row under the hero
+    private val homeGenreIds = listOf("1", "2", "5", "6")
+
+    override suspend fun getHome(): List<Category> = coroutineScope {
+        try {
+            val allDeferred = async { getTvShows(page = 1) }
+            val genreDeferreds = homeGenreIds.map { id -> async { runCatching { getGenre(id, 1) }.getOrNull() } }
+
+            val categories = mutableListOf<Category>()
+            categories.add(Category(name = "Series", list = allDeferred.await()))
+            genreDeferreds.forEach { deferred ->
+                val genre = deferred.await()
+                if (genre != null && genre.shows.isNotEmpty()) {
+                    categories.add(Category(name = genre.name, list = genre.shows))
+                }
+            }
+            categories
         } catch (_: Exception) { emptyList() }
     }
 
