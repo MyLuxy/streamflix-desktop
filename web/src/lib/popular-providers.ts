@@ -4,4 +4,4 @@ export const POPULAR_PROVIDERS_BY_LANGUAGE: Record<string, string[]> = {
   it: ["StreamingCommunity", "Altadefinizione01"],
 };
 
-export const ANIME_PROVIDERS = ["AnimeUnity", "AnimeWorld", "HiAnime", "AniWorld"];
+export const ANIME_PROVIDERS = ["AnimeUnity", "AnimeWorld", "HiAnime", "Anikoto"];
