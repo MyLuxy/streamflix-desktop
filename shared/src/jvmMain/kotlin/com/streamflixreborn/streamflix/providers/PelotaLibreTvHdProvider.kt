@@ -18,16 +18,20 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
+import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
 object PelotaLibreTvHdProvider : IptvProvider {
     override val name = "Pelota Libre TV"
-    override val baseUrl = "https://pelotalibretvhd.live"
+    // pelotalibretvhd.live is dead (NXDOMAIN); this is the closest live successor - same
+    // eventos.html?r=<base64 streamtp url> agenda scheme our getServers/getVideo already handle
+    override val baseUrl = "https://pelotalibretv2.online"
     override val logo = "https://i.ibb.co/qYgyrsYS/Pelota-Libre.jpg"
     override val language = "es"
 
@@ -59,27 +63,57 @@ object PelotaLibreTvHdProvider : IptvProvider {
     private interface ApiService {
         @GET
         suspend fun getHtml(@Url url: String): Document
+
+        @GET
+        suspend fun getText(@Url url: String): String
     }
 
     private val api = Retrofit.Builder()
         .baseUrl(baseUrl)
         .client(client)
         .addConverterFactory(JsoupConverterFactory.create())
+        .addConverterFactory(ScalarsConverterFactory.create())
         .build()
         .create(ApiService::class.java)
+
+    private data class StreamConfig(val activeDomain: String, val basePath: String)
+
+    // the site itself only reads this from a small JS file at runtime (config.js), so fetching
+    // it dynamically instead of hardcoding the CDN domain survives that domain rotating on its
+    // own, same as the site's real player does
+    private var cachedStreamConfig: StreamConfig? = null
+    private var streamConfigFetchedAt = 0L
+
+    private suspend fun getStreamConfig(): StreamConfig {
+        val fallback = StreamConfig("streamtp99a.sbs", "/global1.php?stream=")
+        val now = System.currentTimeMillis()
+        cachedStreamConfig?.let { if (now - streamConfigFetchedAt < 10 * 60 * 1000) return it }
+        return try {
+            val text = api.getText("$baseUrl/config.js")
+            val domain = Regex("""activeDomain\s*:\s*["']([^"']+)["']""").find(text)?.groupValues?.getOrNull(1) ?: fallback.activeDomain
+            val path = Regex("""basePath\s*:\s*["']([^"']+)["']""").find(text)?.groupValues?.getOrNull(1) ?: fallback.basePath
+            StreamConfig(domain, path).also {
+                cachedStreamConfig = it
+                streamConfigFetchedAt = now
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error obteniendo config.js: ${e.message}")
+            fallback
+        }
+    }
 
     private suspend fun fetchChannels(): List<TvShow> {
         val channels = mutableListOf<TvShow>()
         try {
             val doc = api.getHtml(baseUrl)
-            val channelElements = doc.select(".grid-container a, a#canal")
+            val channelElements = doc.select("section#canales a[href*='canal.html']")
 
             for (aTag in channelElements) {
                 val href = aTag.attr("href")
                 val img = aTag.selectFirst("img") ?: continue
 
                 val posterUrl = img.attr("src").ifEmpty { img.attr("data-src") }
-                val title = img.attr("alt").takeIf { it.isNotEmpty() } ?: "Canal en Vivo"
+                val title = img.attr("alt").takeIf { it.isNotEmpty() }?.removePrefix("Logo ")?.trim() ?: "Canal en Vivo"
 
                 if (href.isNotEmpty() && posterUrl.isNotEmpty() && !href.contains("javascript")) {
                     val url = if (href.startsWith("http")) href else "$baseUrl/${href.removePrefix("/")}"
@@ -97,62 +131,38 @@ object PelotaLibreTvHdProvider : IptvProvider {
         return channels
     }
 
+    // the agenda is rendered client-side from a JS array in eventos.js, not present in the
+    // static homepage html at all - fetch and parse that array directly instead
     private suspend fun fetchAgenda(): List<TvShow> {
         val matches = mutableListOf<TvShow>()
         try {
-            val doc = api.getHtml(baseUrl)
-            val iframeSrc = doc.selectFirst("iframe[src*='agenda']")?.attr("src")
+            val raw = api.getText("$baseUrl/eventos.js")
+            val jsonText = raw.substringAfter("=").trim().removeSuffix(";").trim()
+            val eventos = JSONArray(jsonText)
 
-            if (!iframeSrc.isNullOrEmpty()) {
-                val agendaUrl = if (iframeSrc.startsWith("//")) "https:$iframeSrc"
-                else if (iframeSrc.startsWith("http")) iframeSrc
-                else "$baseUrl/${iframeSrc.removePrefix("/")}"
+            for (i in 0 until eventos.length()) {
+                val evento = eventos.getJSONObject(i)
+                val titulo = evento.optString("titulo")
+                val hora = evento.optString("hora")
+                val canales = evento.optJSONArray("canales") ?: continue
 
-                val agendaDoc = api.getHtml(agendaUrl)
+                for (j in 0 until canales.length()) {
+                    val canal = canales.getJSONObject(j)
+                    val nombre = canal.optString("nombre")
+                    val calidad = canal.optString("calidad")
+                    val relUrl = canal.optString("url")
+                    if (relUrl.isBlank()) continue
 
-                // flag images live in css bg, not inline
-                val styleBlocks = agendaDoc.select("style").joinToString("\n") { it.html() }
-                val cssRegex = """\.([a-zA-Z0-9_-]+)\s*>\s*a:before\s*\{\s*background-image:\s*url\(['"]?([^)'"]+)['"]?\)""".toRegex()
-                val classToImage = mutableMapOf<String, String>()
+                    val channelLabel = if (calidad.isNotEmpty()) "$nombre ($calidad)" else nombre
+                    val displayTitle = if (hora.isNotEmpty()) "[$hora] $titulo - $channelLabel" else "$titulo - $channelLabel"
+                    val url = if (relUrl.startsWith("http")) relUrl else "$baseUrl/${relUrl.removePrefix("/")}"
 
-                cssRegex.findAll(styleBlocks).forEach { matchResult ->
-                    val className = matchResult.groupValues[1]
-                    var imgUrl = matchResult.groupValues[2].trim('\'', '"')
-                    if (imgUrl.startsWith("//")) imgUrl = "https:$imgUrl"
-                    classToImage[className] = imgUrl
-                }
-
-                val matchElements = agendaDoc.select("ul.menu > li")
-                for (element in matchElements) {
-                    val mainLink = element.selectFirst("> a") ?: continue
-
-                    val rawTitle = mainLink.ownText().trim()
-                    val titleClean = if (rawTitle.contains(":")) rawTitle.substringAfter(":").trim() else rawTitle
-                    val time = mainLink.selectFirst("span.t")?.text()?.trim() ?: ""
-
-                    val liClass = element.className().split(" ").firstOrNull { it.isNotEmpty() } ?: ""
-                    val matchPoster = classToImage[liClass] ?: logo
-
-                    val subChannels = element.select("ul li a")
-                    for (channelTag in subChannels) {
-                        val href = channelTag.attr("href")
-                        val channelName = channelTag.ownText().trim()
-                        val quality = channelTag.selectFirst("span")?.text()?.trim() ?: ""
-
-                        val channelLabel = if (quality.isNotEmpty()) "$channelName ($quality)" else channelName
-                        val displayTitle = if (time.isNotEmpty()) "[$time] $titleClean - $channelLabel" else "$titleClean - $channelLabel"
-
-                        if (href.isNotEmpty() && !href.contains("javascript")) {
-                            val url = if (href.startsWith("http")) href else "$baseUrl/${href.removePrefix("/")}"
-
-                            matches.add(TvShow(
-                                id = url,
-                                title = displayTitle,
-                                poster = matchPoster,
-                                banner = matchPoster
-                            ))
-                        }
-                    }
+                    matches.add(TvShow(
+                        id = url,
+                        title = displayTitle,
+                        poster = logo,
+                        banner = logo
+                    ))
                 }
             }
         } catch (e: Exception) { Log.e(TAG, "Error parseando Agenda: ${e.message}") }
@@ -175,17 +185,8 @@ object PelotaLibreTvHdProvider : IptvProvider {
             if (channels.isNotEmpty()) {
                 categories.add(Category(name = "Canales 24/7", list = channels))
             }
-
-            categories.add(
-                Category(
-                    name = "Soporte y Ayuda",
-                    list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))
-                )
-            )
-
         } catch (e: Exception) {
             Log.e(TAG, "Error crítico al cargar getHome: ${e.message}")
-            return@coroutineScope listOf(Category(name = "Soporte y Ayuda", list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))))
         }
 
         return@coroutineScope categories
@@ -217,9 +218,12 @@ object PelotaLibreTvHdProvider : IptvProvider {
     override suspend fun getMovie(id: String): Movie = throw NotImplementedError()
 
     override suspend fun getTvShow(id: String): TvShow {
-        if (id == "creador-info" || id == "apoyo-info") return getInfoItem(id)
-
-        val nameGuess = try { id.toHttpUrl().pathSegments.last().removeSuffix(".html").replace("-", " ").uppercase() } catch(e:Exception) { "Canal 24/7" }
+        val nameGuess = try {
+            val url = id.toHttpUrl()
+            val canalParam = url.queryParameter("canal")
+            if (!canalParam.isNullOrBlank()) canalParam.replace("-", " ").uppercase()
+            else url.pathSegments.last().removeSuffix(".html").replace("-", " ").uppercase()
+        } catch(e:Exception) { "Canal 24/7" }
         return TvShow(
             id = id,
             title = nameGuess,
@@ -231,8 +235,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        if (seasonId == "creador-info" || seasonId == "apoyo-info") return emptyList()
-
         return listOf(
             Episode(
                 id = seasonId,
@@ -246,8 +248,6 @@ object PelotaLibreTvHdProvider : IptvProvider {
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
         val servers = mutableListOf<Video.Server>()
 
-        if (id == "creador-info" || id == "apoyo-info") return emptyList()
-
         if (id.contains("eventos.html?r=")) {
             try {
                 val encodedParam = id.substringAfter("r=").substringBefore("&")
@@ -255,6 +255,18 @@ object PelotaLibreTvHdProvider : IptvProvider {
                 servers.add(Video.Server(id = decodedUrl, name = "Reproductor Agenda"))
                 return servers
             } catch(e: Exception) { Log.e(TAG, "Error decodificando atajo: ${e.message}") }
+        }
+
+        // 24/7 channel pages (canal.html?canal=X) only build their iframe client-side from
+        // config.js, there's nothing to scrape in the static html - build the real stream url
+        // the same way the page's own script does
+        if (id.contains("canal.html?canal=")) {
+            val canalId = id.substringAfter("canal=").substringBefore("&")
+            if (canalId.isNotEmpty()) {
+                val config = getStreamConfig()
+                servers.add(Video.Server(id = "https://${config.activeDomain}${config.basePath}$canalId", name = "Reproductor Directo"))
+                return servers
+            }
         }
 
         if (id.contains("latamplay") || id.contains("streamtpday") || id.contains("streamx741") || id.contains("zonalive.click")) {
@@ -477,16 +489,4 @@ object PelotaLibreTvHdProvider : IptvProvider {
         return Video("", emptyList())
     }
 
-    private fun getInfoItem(id: String): TvShow {
-        val t = if(id == "creador-info") "Reportar problemas" else "Apoya al Proveedor"
-        val p = if(id == "creador-info") "https://i.ibb.co/dsknGBHT/Imagen-de-Whats-App-2025-09-06-a-las-19-00-50-e8e5bcaa.jpg" else "https://i.ibb.co/B5gKLkqS/nuevo-formato-2-K-202604112205.jpg"
-        return TvShow(
-            id = id,
-            title = t,
-            poster = p,
-            banner = p,
-            overview = if(id == "creador-info") "@NandoGT" else "Apoya el proyecto.",
-            providerName = name
-        )
-    }
 }
