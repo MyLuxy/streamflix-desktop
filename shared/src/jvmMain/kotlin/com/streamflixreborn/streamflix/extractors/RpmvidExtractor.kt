@@ -144,6 +144,12 @@ class RpmvidExtractor : Extractor() {
             }
             else -> throw Exception("Missing hls, hlsVideoTiktok, cf or source in response")
         }
+        // the swarm/cdn backing this occasionally answers with a placeholder ("Not Found", a
+        // raw nginx 404 page, etc) in an otherwise well-formed response instead of a real
+        // source - catch that here instead of handing a fake "success" downstream
+        if (finalUrl.isNullOrBlank() || !finalUrl.startsWith("http")) {
+            throw Exception("No valid source in response: $finalUrl")
+        }
 
         val defaultSub = json.getAsJsonObject("defaultSubtitle")
                                 ?.get("defaultSubtitle")?.asString?:""

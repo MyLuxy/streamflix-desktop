@@ -441,22 +441,31 @@ private fun manifestTextFor(url: String, headers: Map<String, String>?): String?
         if (payload.isBlank()) return null
         return runCatching { String(Base64.getDecoder().decode(payload)) }.getOrNull()
     }
-    return runCatching {
-        val builder = HttpRequest.newBuilder(URI.create(url)).GET()
-        applyHeaders(builder, headers)
-        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
-        response.body().use { input ->
-            val buffer = java.io.ByteArrayOutputStream()
-            val chunk = ByteArray(8192)
-            while (true) {
-                val n = input.read(chunk)
-                if (n == -1) break
-                buffer.write(chunk, 0, n)
-                if (buffer.size() > MAX_MANIFEST_BYTES) return@runCatching null
+    // some cdns (e.g. the tiktok-hijack proxy some extractors ride on) are genuinely flaky -
+    // a plain curl retry a second later turns an error page into a real manifest often enough
+    // that it's worth one retry here, and either way a non-2xx status must never be handed
+    // downstream as if its error body were real manifest text
+    repeat(2) {
+        val text = runCatching {
+            val builder = HttpRequest.newBuilder(URI.create(url)).GET()
+            applyHeaders(builder, headers)
+            val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+            if (response.statusCode() !in 200..299) return@runCatching null
+            response.body().use { input ->
+                val buffer = java.io.ByteArrayOutputStream()
+                val chunk = ByteArray(8192)
+                while (true) {
+                    val n = input.read(chunk)
+                    if (n == -1) break
+                    buffer.write(chunk, 0, n)
+                    if (buffer.size() > MAX_MANIFEST_BYTES) return@runCatching null
+                }
+                buffer.toString(Charsets.UTF_8)
             }
-            buffer.toString(Charsets.UTF_8)
-        }
-    }.getOrNull()
+        }.getOrNull()
+        if (text != null) return text
+    }
+    return null
 }
 
 private fun serveManifest(exchange: HttpExchange) {
