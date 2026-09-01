@@ -12,6 +12,8 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -133,23 +135,34 @@ object MEGAKinoProvider : Provider {
         }
     }
 
-    override suspend fun getHome(): List<Category> {
+    // the home page's own "recently added" widget and its news feed use markup with no posters
+    // at all, so pulling real genre pages (which use the same poster-grid markup as the one
+    // section on home that does have posters) is what actually gives the home screen more rows
+    private val homeGenrePaths = listOf("/action/", "/comedy/", "/drama/", "/horror/")
+
+    override suspend fun getHome(): List<Category> = coroutineScope {
         ensureToken()
         val document = service.getHome()
         val categories = mutableListOf<Category>()
 
-        val section = document.select("section.sect").find {
-            it.select("h2.sect__title").text().contains("Topaktuelle Neuheiten", ignoreCase = true)
-        }
-
-        if (section != null) {
+        document.select("section.sect").forEach { section ->
+            val title = section.select("h2.sect__title").text().trim()
+            if (title.isEmpty()) return@forEach
             val items = parseContentItems(section)
             if (items.isNotEmpty()) {
-                categories.add(Category(name = "Topaktuelle Neuheiten", list = items))
+                categories.add(Category(name = title, list = items))
             }
         }
 
-        return categories
+        val genreDeferreds = homeGenrePaths.map { path -> async { runCatching { getGenre(path, 1) }.getOrNull() } }
+        genreDeferreds.forEach { deferred ->
+            val genre = deferred.await()
+            if (genre != null && genre.shows.isNotEmpty()) {
+                categories.add(Category(name = genre.name, list = genre.shows))
+            }
+        }
+
+        categories
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
