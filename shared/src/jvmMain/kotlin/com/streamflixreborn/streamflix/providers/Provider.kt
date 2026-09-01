@@ -103,6 +103,7 @@ interface Provider {
             AnimeSugeProvider to ProviderSupport(movies = true, tvShows = true),
             UniqueStreamProvider to ProviderSupport(movies = true, tvShows = true),
             FshareTvProvider to ProviderSupport(movies = true, tvShows = false),
+            FilmoProvider to ProviderSupport(movies = true, tvShows = false),
             FrenchStreamProvider to ProviderSupport(movies = true, tvShows = true),
             GuardaSerieProvider to ProviderSupport(movies = true, tvShows = true),
             EinschaltenProvider to ProviderSupport(movies = true, tvShows = false),
