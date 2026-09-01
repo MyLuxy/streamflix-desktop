@@ -201,7 +201,7 @@ private val HIDDEN_PROVIDERS = setOf(
     "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
     "Animefenix", "AnimeFLV", "AnimeSaturn", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
     "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
-    "SoloLatino", "Poseidonhd2", "Doramasflix", "FlixLatam",
+    "SoloLatino", "Poseidonhd2", "Doramasflix", "FlixLatam", "GuardaFlix",
 )
 
 private fun handleProviders(exchange: HttpExchange) {
