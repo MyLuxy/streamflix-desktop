@@ -66,7 +66,7 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                     asChild
                     variant={isActive(tab.path) ? "secondary" : "ghost"}
                     size="lg"
-                    className="gap-2 text-lg hover:bg-secondary hover:text-secondary-foreground"
+                    className="gap-2 text-lg h-14 hover:bg-secondary hover:text-secondary-foreground"
                   >
                     <Link href={localePath(locale, tab.path)}>
                       <tab.icon className="w-6 h-6" />
