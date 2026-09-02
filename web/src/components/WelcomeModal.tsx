@@ -29,10 +29,11 @@ export function WelcomeModal() {
   const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
   const [tmdbKeyInput, setTmdbKeyInput] = useState("");
   const [tmdbKeyError, setTmdbKeyError] = useState<string | null>(null);
-  const [isCheckingTmdbKey, setIsCheckingTmdbKey] = useState(false);
+  // idle = nothing typed, only "valid" lets Continue actually mean continue
+  const [tmdbKeyStatus, setTmdbKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   // disables the button after click so a double click cant fire two navigations
   const [isFinishing, setIsFinishing] = useState(false);
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const pathname = usePathname();
   const { data: providers, isLoading: loadingProviders } = useProviders();
 
@@ -95,33 +96,43 @@ export function WelcomeModal() {
     setStep("tmdb");
   };
 
-  const handleTmdbKeyContinue = async () => {
+  // checks the key against tmdb itself as the user types (debounced), instead of waiting for
+  // them to hit continue - that's also the point where a valid key actually gets saved, so by
+  // the time continue says "Continue" instead of "Skip" there's nothing left to do but advance
+  useEffect(() => {
     const key = tmdbKeyInput.trim();
     if (!key) {
-      setStep("provider");
+      setTmdbKeyStatus("idle");
+      setTmdbKeyError(null);
       return;
     }
-    setIsCheckingTmdbKey(true);
+    setTmdbKeyStatus("checking");
     setTmdbKeyError(null);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/settings/tmdb-key`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setTmdbKeyError(data.error || "That key doesn't seem to work");
-        return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/settings/tmdb-key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          setTmdbKeyStatus("invalid");
+          setTmdbKeyError(t("setup.tmdb.invalidKey"));
+          return;
+        }
+        setCustomTmdbKeyClient(key);
+        setTmdbKeyStatus("valid");
+        setTmdbKeyError(null);
+      } catch {
+        setTmdbKeyStatus("invalid");
+        setTmdbKeyError(t("setup.tmdb.networkError"));
       }
-      setCustomTmdbKeyClient(key);
-      setStep("provider");
-    } catch {
-      setTmdbKeyError("Couldn't reach the backend, try again");
-    } finally {
-      setIsCheckingTmdbKey(false);
-    }
-  };
+    }, 600);
+    return () => clearTimeout(timer);
+    // only the typed key should retrigger this, not every t() reference change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tmdbKeyInput]);
 
   const finish = (providerName?: string) => {
     if (isFinishing) return;
@@ -179,12 +190,12 @@ export function WelcomeModal() {
               className="flex items-center gap-2 text-xl md:text-2xl font-semibold text-foreground hover:opacity-70 transition-opacity drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]"
             >
               <ChevronLeft className="w-7 h-7 md:w-8 md:h-8" />
-              Back
+              {t("content.goBack", { lng: selectedUiLang ?? undefined })}
             </button>
           )}
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-6 pb-16 md:pb-24 overflow-y-auto">
+        <div className="flex-1 flex items-center justify-center px-6 pb-8 md:pb-14 overflow-y-auto">
           <AnimatePresence mode="wait">
             {step === "welcome" && (
               <motion.div
@@ -195,11 +206,11 @@ export function WelcomeModal() {
                 transition={{ duration: 0.35, ease: "easeOut" }}
                 className="w-full max-w-3xl flex flex-col items-center text-center py-8"
               >
-                <img src="/logo.png" alt="StreamFlix" className="h-48 md:h-64 w-auto object-contain mb-2 md:mb-3 drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]" />
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                <img src="/logo-mark.png" alt="StreamFlix" className="h-24 sm:h-28 md:h-32 w-auto object-contain mb-5 md:mb-6 drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]" />
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
                   Welcome to StreamFlix
                 </h1>
-                <p className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed mb-12 md:mb-14 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                <p className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed mb-8 md:mb-10 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
                   StreamFlix brings movies, shows and anime from free sources into one simple app.
                 </p>
                 <Button
@@ -259,7 +270,7 @@ export function WelcomeModal() {
                   disabled={!selectedUiLang}
                   className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
                 >
-                  Continue
+                  {t("setup.continue", { lng: selectedUiLang ?? undefined })}
                   <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
                 </Button>
               </motion.div>
@@ -274,32 +285,43 @@ export function WelcomeModal() {
                 transition={{ duration: 0.35, ease: "easeOut" }}
                 className="w-full max-w-3xl flex flex-col items-center text-center py-8"
               >
-                <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
-                  TMDB API key
-                </h2>
+                <div className="flex items-center justify-center gap-5 md:gap-6 mb-6">
+                  <img src={PROVIDER_LOGO_FALLBACK} alt="" className="h-16 sm:h-20 md:h-24 w-auto object-contain opacity-90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]" />
+                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                    {t("setup.tmdb.title")}
+                  </h2>
+                </div>
                 <p className="max-w-xl text-lg md:text-xl text-muted-foreground drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] mb-8">
-                  Optional. Use your own TMDB key, or just continue with the one built into the app.
+                  {t("setup.tmdb.description")}
                 </p>
 
                 <div className="w-full max-w-md">
-                  <input
-                    type="text"
-                    value={tmdbKeyInput}
-                    onChange={(e) => {
-                      setTmdbKeyInput(e.target.value);
-                      if (tmdbKeyError) setTmdbKeyError(null);
-                    }}
-                    placeholder="Your TMDB API key"
-                    disabled={isCheckingTmdbKey}
-                    className="w-full h-14 px-5 rounded-xl border-2 border-border bg-background/40 backdrop-blur-sm text-foreground placeholder:text-muted-foreground text-base outline-none focus-visible:border-white transition-colors"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={tmdbKeyInput}
+                      onChange={(e) => setTmdbKeyInput(e.target.value)}
+                      placeholder={t("setup.tmdb.placeholder")}
+                      className={`w-full h-14 pl-5 pr-12 rounded-xl border-2 bg-background/40 backdrop-blur-sm text-foreground placeholder:text-muted-foreground text-base outline-none transition-colors ${
+                        tmdbKeyStatus === "valid"
+                          ? "border-emerald-400"
+                          : tmdbKeyStatus === "invalid"
+                          ? "border-red-400"
+                          : "border-border focus-visible:border-white"
+                      }`}
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      {tmdbKeyStatus === "checking" && <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />}
+                      {tmdbKeyStatus === "valid" && <Check className="w-5 h-5 text-emerald-400" />}
+                    </div>
+                  </div>
                   <a
                     href="https://www.themoviedb.org/settings/api"
                     target="_blank"
                     rel="noreferrer"
                     className="inline-block mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
                   >
-                    Get a free key at themoviedb.org
+                    {t("setup.tmdb.getKeyLink")}
                   </a>
                   {tmdbKeyError && (
                     <p className="mt-3 text-sm text-red-400 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">{tmdbKeyError}</p>
@@ -307,12 +329,11 @@ export function WelcomeModal() {
                 </div>
 
                 <Button
-                  onClick={handleTmdbKeyContinue}
-                  disabled={isCheckingTmdbKey}
+                  onClick={() => setStep("provider")}
+                  variant={tmdbKeyStatus === "valid" ? "default" : "secondary"}
                   className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group mt-10"
                 >
-                  {isCheckingTmdbKey && <Loader2 className="w-5 h-5 animate-spin" />}
-                  Continue
+                  {tmdbKeyStatus === "valid" ? t("setup.continue") : t("setup.tmdb.skip")}
                   <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
                 </Button>
               </motion.div>
@@ -329,10 +350,10 @@ export function WelcomeModal() {
               >
                 <div className="text-center mb-7 w-full">
                   <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
-                    Choose a source
+                    {t("setup.provider.title")}
                   </h2>
                   <p className="text-lg md:text-xl text-muted-foreground drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-                    You can change this later in Settings
+                    {t("setup.provider.description")}
                   </p>
                 </div>
 
@@ -347,7 +368,7 @@ export function WelcomeModal() {
                 />
 
                 {loadingProviders ? (
-                  <p className="text-base text-muted-foreground text-center py-8 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">Loading...</p>
+                  <p className="text-base text-muted-foreground text-center py-8 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">{t("settings.loadingProviders")}</p>
                 ) : filteredProviders.length > 0 ? (
                   <div className="relative w-full mb-12">
                     <button
@@ -413,10 +434,10 @@ export function WelcomeModal() {
                 ) : (
                   <div className="text-center py-8 mb-2">
                     <p className="text-base text-muted-foreground mb-4 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-                      No providers for this language.
+                      {t("setup.provider.noProviders")}
                     </p>
                     <Button variant="outline" onClick={() => setLangFilter(null)}>
-                      Show all languages
+                      {t("setup.provider.showAllLanguages")}
                     </Button>
                   </div>
                 )}
@@ -427,7 +448,7 @@ export function WelcomeModal() {
                   className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
                 >
                   {isFinishing && <Loader2 className="w-5 h-5 animate-spin" />}
-                  Continue
+                  {t("setup.continue")}
                   <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
                 </Button>
               </motion.div>

@@ -206,6 +206,24 @@
     "hero": {
       "playNow": "Riproduci Ora"
     },
+    "setup": {
+      "continue": "Continua",
+      "tmdb": {
+        "title": "Chiave API TMDB",
+        "description": "Facoltativo. Usa la tua chiave TMDB personale, oppure continua con quella integrata nell'app.",
+        "placeholder": "La tua chiave API TMDB",
+        "getKeyLink": "Ottieni una chiave gratuita su themoviedb.org",
+        "invalidKey": "Questa chiave non sembra funzionare",
+        "networkError": "Impossibile contattare il backend, riprova",
+        "skip": "Salta"
+      },
+      "provider": {
+        "title": "Scegli una fonte",
+        "description": "Puoi cambiarla in seguito nelle Impostazioni",
+        "noProviders": "Nessun provider per questa lingua.",
+        "showAllLanguages": "Mostra tutte le lingue"
+      }
+    },
     "hentai": {
       "title": "Hentai",
       "tagline": "Senza filtri, senza limiti",

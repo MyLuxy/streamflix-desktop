@@ -206,6 +206,24 @@
     "hero": {
       "playNow": "Lire Maintenant"
     },
+    "setup": {
+      "continue": "Continuer",
+      "tmdb": {
+        "title": "Clé API TMDB",
+        "description": "Facultatif. Utilisez votre propre clé TMDB, ou continuez avec celle intégrée à l'application.",
+        "placeholder": "Votre clé API TMDB",
+        "getKeyLink": "Obtenez une clé gratuite sur themoviedb.org",
+        "invalidKey": "Cette clé ne semble pas fonctionner",
+        "networkError": "Impossible de joindre le serveur, réessayez",
+        "skip": "Passer"
+      },
+      "provider": {
+        "title": "Choisissez une source",
+        "description": "Vous pourrez la changer plus tard dans les Paramètres",
+        "noProviders": "Aucun fournisseur pour cette langue.",
+        "showAllLanguages": "Afficher toutes les langues"
+      }
+    },
     "hentai": {
       "title": "Hentai",
       "tagline": "Sans filtre, sans limite",

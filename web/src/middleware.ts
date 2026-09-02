@@ -1,20 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale } from "@/lib/i18n-config";
 
-// cookie, then accept-language header, then default
+// cookie if the user picked one (setup or Settings), otherwise always english - no
+// accept-language auto-detection, so a fresh visitor always lands on /en first
 function detectLocale(req: NextRequest): string {
   const cookie = req.cookies.get("NEXT_LOCALE")?.value;
   if (cookie && (locales as readonly string[]).includes(cookie)) return cookie;
-
-  const accept = req.headers.get("accept-language");
-  if (accept) {
-    const preferred = accept
-      .split(",")
-      .map((s) => s.split(";")[0].trim().slice(0, 2).toLowerCase());
-    for (const p of preferred) {
-      if ((locales as readonly string[]).includes(p)) return p;
-    }
-  }
   return defaultLocale;
 }
 

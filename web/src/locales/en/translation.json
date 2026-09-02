@@ -206,6 +206,24 @@
     "hero": {
       "playNow": "Play Now"
     },
+    "setup": {
+      "continue": "Continue",
+      "tmdb": {
+        "title": "TMDB API key",
+        "description": "Optional. Use your own TMDB key, or just continue with the one built into the app.",
+        "placeholder": "Your TMDB API key",
+        "getKeyLink": "Get a free key at themoviedb.org",
+        "invalidKey": "That key doesn't seem to work",
+        "networkError": "Couldn't reach the backend, try again",
+        "skip": "Skip"
+      },
+      "provider": {
+        "title": "Choose a source",
+        "description": "You can change this later in Settings",
+        "noProviders": "No providers for this language.",
+        "showAllLanguages": "Show all languages"
+      }
+    },
     "hentai": {
       "title": "Hentai",
       "tagline": "Unfiltered, uncensored",

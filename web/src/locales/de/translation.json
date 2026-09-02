@@ -206,6 +206,24 @@
     "hero": {
       "playNow": "Jetzt ansehen"
     },
+    "setup": {
+      "continue": "Weiter",
+      "tmdb": {
+        "title": "TMDB-API-Schlüssel",
+        "description": "Optional. Verwenden Sie Ihren eigenen TMDB-Schlüssel oder fahren Sie mit dem in der App integrierten fort.",
+        "placeholder": "Ihr TMDB-API-Schlüssel",
+        "getKeyLink": "Kostenlosen Schlüssel auf themoviedb.org holen",
+        "invalidKey": "Dieser Schlüssel scheint nicht zu funktionieren",
+        "networkError": "Server konnte nicht erreicht werden, bitte erneut versuchen",
+        "skip": "Überspringen"
+      },
+      "provider": {
+        "title": "Quelle auswählen",
+        "description": "Sie können dies später in den Einstellungen ändern",
+        "noProviders": "Keine Anbieter für diese Sprache.",
+        "showAllLanguages": "Alle Sprachen anzeigen"
+      }
+    },
     "hentai": {
       "title": "Hentai",
       "tagline": "Ungefiltert, unzensiert",
