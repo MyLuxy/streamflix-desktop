@@ -1,27 +1,19 @@
-<h1 align="center">Streamflix Reborn</h1>
+<h1 align="center">Streamflix Desktop</h1>
 
 <p align="center">
-  <img src="./app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" height="100px" />
+  <img src="./web/public/logo.png" height="100px" />
   <br />
-  <strong>🔄 Reborn Version</strong> - Community continuation of the original Streamflix project
+  <strong>🖥️ Desktop Port</strong> - Standalone desktop version of Streamflix Reborn
   <br />
-  An open-source Android TV and mobile app for educational streaming interface, made with Android Studio, in Kotlin
+  An open-source desktop app for educational streaming interface, with a Kotlin backend and a Next.js/Electron frontend
   <br />
-  <a href="https://github.com/streamflix-reborn2/streamflix/releases/latest">
-    <strong>Download app »</strong>
-  </a>
-  <br />
-  <br />
-  <a href="https://github.com/streamflix-reborn2/streamflix/issues">Report Bug</a>
-  ·
-  <a href="https://github.com/streamflix-reborn2/streamflix/issues">Request Feature</a>
 </p>
 
 <details>
   <summary>Table of Contents</summary>
 
 - [About the project](#about-the-project)
-  - [What is Streamflix Reborn?](#-what-is-streamflix-reborn2)
+  - [What is Streamflix Desktop?](#-what-is-streamflix-desktop)
   - [Features](#features)
   - [Built with](#built-with)
 - [Getting started](#getting-started)
@@ -36,24 +28,18 @@
 
 ## About the project
 
-<p align="center">
-  <img src="./.github/docs/screenshot.png" alt="Streamflix Preview">
-</p>
+**Streamflix Desktop** is a standalone desktop port of [Streamflix Reborn](https://github.com/streamflix-reborn2/streamflix), itself a community continuation of the original Streamflix project created by [Lory-Stan TANASI](https://github.com/stantanasi). This port swaps the Android app shell for a Kotlin/JVM backend and a Next.js web UI, packaged as a native desktop app with Electron.
 
-**Streamflix Reborn** is an independent continuation of the original Streamflix project created by [Lory-Stan TANASI](https://github.com/stantanasi). This reborn version maintains the same educational purpose and functionality while ensuring continued development and support.
-
-### 🔄 What is Streamflix Reborn?
-
-- **Independent Continuation**: This is an independent continuation of the original Streamflix project
-- **Same Vision**: Maintains the original educational and open-source philosophy
-- **Enhanced Support**: Continued development and bug fixes by an independent developer
-- **Respectful Fork**: Built with full respect for the original creator's work
-
-Streamflix Reborn is an open-source Android TV and mobile app that provides a user interface for accessing publicly available streaming content from various third-party providers.
+Streamflix Desktop provides a user interface for accessing publicly available streaming content from various third-party providers, aggregated behind a single local backend.
 
 This app is designed for educational purposes and personal use only. Users are responsible for ensuring they have proper authorization to access any content they view through this application.
 
-The interface aggregates content from multiple sources and provides a convenient way to browse available streaming options.
+### 🖥️ What is Streamflix Desktop?
+
+- **Standalone fork**: independent from the original Android-focused repo, packaged for Windows/macOS/Linux
+- **Same vision**: maintains the original educational and open-source philosophy
+- **Native desktop shell**: no Android Studio, no phone/emulator required
+- **Respectful fork**: built with full respect for the original creator's work
 
 ### Features
 
@@ -61,44 +47,46 @@ The interface aggregates content from multiple sources and provides a convenient
 - Aggregates content from multiple third-party providers
 - No account required for the app interface
 - Educational and personal use only
-- Optimized UI & UX
-- Multiple providers
 - Resume from last playback position
-- In-app update
+- Runs as a native desktop app (Windows/macOS/Linux)
 
 ### Built with
 
-- [Android Studio](https://developer.android.com/studio)
-- [Kotlin](https://kotlinlang.org)
-- [Retrofit](https://square.github.io/retrofit)
-- [ExoPlayer](https://exoplayer.dev)
-- Leanback
+- [Kotlin](https://kotlinlang.org) (backend, `shared/` + `desktop/`)
+- [Retrofit](https://square.github.io/retrofit) / [OkHttp](https://square.github.io/okhttp) / [Jsoup](https://jsoup.org)
+- [Next.js](https://nextjs.org) / [React](https://react.dev) (frontend, `web/`)
+- [Electron](https://www.electronjs.org) (desktop shell, `desktop-client/`)
 - Coroutines
-- MVVM Architecture
-- Android Architecture Components
-
 
 ## Getting started
 
 ### Prerequisites
 
-Install [Android Studio](https://developer.android.com/studio)
+- [JDK 17](https://adoptium.net) (Temurin recommended)
+- [Node.js](https://nodejs.org) (LTS)
 
 ### Setup
 
-1. Clone the project to your local machine
+Clone the project to your local machine:
 
 ```bash
-git clone https://github.com/streamflix-reborn2/streamflix.git
+git clone https://github.com/MyLuxy/streamflix-desktop.git
 ```
-
-2. Open the project in Android Studio
 
 ## Development
 
-1. Select the device that you want to run the app
+Backend (Kotlin HTTP API + HLS proxy), from the repo root:
 
-2. Click **Run**
+```bash
+./gradlew :desktop:runBackend
+```
+
+Frontend (Next.js), from `web/`:
+
+```bash
+npm install
+npm run dev
+```
 
 ## Contributing
 
@@ -137,22 +125,19 @@ This application is provided "as is" for educational purposes. The developers:
 ### Original Creator
 - **[Lory-Stan TANASI](https://github.com/stantanasi)** - Original Streamflix project creator
 
-### Reborn Development
-- **Independent Developer** - Streamflix Reborn maintainer
-- **Special thanks** to the original creator for the excellent foundation
+### Streamflix Reborn
+- **Independent Developer** - Streamflix Reborn maintainer (Android version)
+
+### Desktop Port
+- **[MyLuxy](https://github.com/MyLuxy)** - Desktop port maintainer
 
 ## License
 
 This project is licensed under the `Apache-2.0` License - see the [LICENSE](LICENSE) file for details
 
-### Original Project
 <p align="center">
   <br />
-  © 2022 Lory-Stan TANASI. All rights reserved
-</p>
-
-### Reborn Project
-<p align="center">
+  © 2022 Lory-Stan TANASI. All rights reserved (original project)
   <br />
   © 2025 Streamflix Reborn. Built with respect for the original work.
 </p>
