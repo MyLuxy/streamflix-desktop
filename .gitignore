@@ -11,3 +11,6 @@ local.properties
 *.salive
 *.log
 app/src/main/cpp/native-lib.cpp
+.aider*
+.playwright-mcp/
+/segment_test.ts
