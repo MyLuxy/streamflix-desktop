@@ -16,7 +16,7 @@
       "darkModeDesc": "Zwischen hellem und dunklem Design wechseln",
       "contentSource": "Inhaltsquelle",
       "contentSourceDesc": "Wählen Sie die Seite, von der Ihr Katalog und Ihre Streams stammen.",
-      "contentSourceCurrent": " Aktuell: {{provider}}.",
+      "contentSourceCurrent": "Aktuell:",
       "loadingProviders": "Wird geladen...",
       "switchingProvider": "Anbieter wird gewechselt...",
       "popularProviders": "Beliebt",

@@ -15,7 +15,8 @@ import {
 } from "@/lib/provider";
 import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
-import { POPULAR_PROVIDERS_BY_LANGUAGE, ANIME_PROVIDERS } from "@/lib/popular-providers";
+import { POPULAR_PROVIDERS_BY_LANGUAGE } from "@/lib/popular-providers";
+import { isAnimeProvider } from "@/lib/anime-providers";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -57,6 +58,8 @@ export function SettingsPage() {
     window.location.assign(parts.join("/") || "/");
   };
 
+  const currentProviderLogo = providers?.find((p) => p.name === selectedProvider)?.logo;
+
   const availableProviderLanguages = useMemo(
     () => Array.from(new Set((providers ?? []).map((p) => p.language))).sort(),
     [providers]
@@ -83,10 +86,13 @@ export function SettingsPage() {
 
   const animeProviders = useMemo(() => {
     const q = providerSearch.trim().toLowerCase();
-    return ANIME_PROVIDERS
-      .map((name) => providers?.find((p) => p.name === name))
-      .filter((p): p is StreamflixProvider => !!p && (!q || p.name.toLowerCase().includes(q)));
-  }, [providers, providerSearch]);
+    return (providers ?? []).filter(
+      (p) =>
+        isAnimeProvider(p.name) &&
+        (!providerLangFilter || p.language === providerLangFilter) &&
+        (!q || p.name.toLowerCase().includes(q))
+    );
+  }, [providers, providerLangFilter, providerSearch]);
 
   return (
     <div className="max-w-6xl mx-auto px-1 md:px-0 -mt-6 md:mt-0">
@@ -131,8 +137,25 @@ export function SettingsPage() {
                 <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.contentSource')}</p>
                 <p className="text-sm md:text-base text-muted-foreground">
                   {t('settings.contentSourceDesc')}
-                  {selectedProvider ? t('settings.contentSourceCurrent', { provider: selectedProvider }) : ""}
                 </p>
+                {selectedProvider && (
+                  <p className="flex items-center gap-2 mt-1 text-sm md:text-base font-medium text-muted-foreground">
+                    {t('settings.contentSourceCurrent')}
+                    {currentProviderLogo && (
+                      <img
+                        src={proxyImage(currentProviderLogo)}
+                        alt=""
+                        className="w-5 h-5 rounded object-cover flex-shrink-0"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
+                          img.src = PROVIDER_LOGO_FALLBACK;
+                        }}
+                      />
+                    )}
+                    {selectedProvider}
+                  </p>
+                )}
               </div>
             </div>
 

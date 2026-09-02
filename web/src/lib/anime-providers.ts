@@ -9,11 +9,13 @@ export const ANIME_PROVIDERS = new Set([
   "AnimeWorld",
   "AnimeUnity",
   "AnimeSaturn",
+  "AnimeSuge",
   "Anime Online Ninja",
   "HiAnime",
   "JKAnime",
   "TioAnime",
   "FrenchAnime",
+  "FrenchManga",
   "Latanime",
   "Otakufr",
 ]);

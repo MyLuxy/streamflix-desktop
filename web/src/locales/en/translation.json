@@ -16,7 +16,7 @@
       "darkModeDesc": "Switch between light and dark themes",
       "contentSource": "Content Source",
       "contentSourceDesc": "Choose the site your catalog and streaming come from.",
-      "contentSourceCurrent": " Current: {{provider}}.",
+      "contentSourceCurrent": "Current:",
       "loadingProviders": "Loading...",
       "switchingProvider": "Switching provider...",
       "popularProviders": "Popular",

@@ -16,7 +16,7 @@
       "darkModeDesc": "Cambiar entre temas claro y oscuro",
       "contentSource": "Fuente de contenido",
       "contentSourceDesc": "Elige el sitio del que provienen el catálogo y el streaming.",
-      "contentSourceCurrent": " Actual: {{provider}}.",
+      "contentSourceCurrent": "Actual:",
       "loadingProviders": "Cargando...",
       "switchingProvider": "Cambiando proveedor...",
       "popularProviders": "Populares",
