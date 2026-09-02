@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Globe } from "lucide-react";
 import { languageLabel, languageFlagUrl } from "@/lib/content-languages";
+import { cn } from "@/lib/utils";
 
 interface LanguageFilterDropdownProps {
   value: string | null; // null = all languages
@@ -10,6 +11,9 @@ interface LanguageFilterDropdownProps {
   availableLanguages: string[];
   allLabel?: string;
   className?: string;
+  buttonClassName?: string;
+  chevronClassName?: string;
+  align?: "left" | "right";
 }
 
 // custom dropdown so we can show real flag images, windows has no flag emoji glyphs anyway
@@ -19,6 +23,9 @@ export function LanguageFilterDropdown({
   availableLanguages,
   allLabel = "All languages",
   className = "",
+  buttonClassName = "",
+  chevronClassName = "",
+  align = "right",
 }: LanguageFilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -42,7 +49,10 @@ export function LanguageFilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 pl-3 pr-3.5 py-2.5 text-sm border-2 border-border bg-card text-foreground hover:border-primary transition-colors rounded-md"
+        className={cn(
+          "flex items-center gap-2 pl-3 pr-3.5 py-2.5 text-sm border-2 border-border bg-card text-foreground hover:border-primary transition-colors rounded-md",
+          buttonClassName
+        )}
       >
         {value && languageFlagUrl(value) ? (
           <img src={languageFlagUrl(value)} alt="" className="w-5 h-3.5 object-cover flex-shrink-0" />
@@ -50,11 +60,11 @@ export function LanguageFilterDropdown({
           <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
         )}
         <span className="whitespace-nowrap">{value ? languageLabel(value) : allLabel}</span>
-        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={cn("w-3.5 h-3.5 flex-shrink-0 transition-transform", open ? "rotate-180" : "", chevronClassName)} />
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1 z-20 min-w-[180px] border-2 border-border bg-card shadow-lg py-1 rounded-md overflow-hidden">
+        <div className={`absolute ${align === "left" ? "left-0" : "right-0"} mt-1 z-20 min-w-[180px] border-2 border-border bg-card shadow-lg py-1 rounded-md overflow-hidden`}>
           <button
             onClick={() => select(null)}
             className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-secondary transition-colors ${

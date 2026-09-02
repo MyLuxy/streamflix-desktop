@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Languages, Check, Server, ChevronLeft, ChevronRight, Globe, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { usePathname } from "next/navigation";
@@ -10,22 +10,43 @@ import { languages } from "@/i18n";
 import { useProviders } from "@/hooks/useStreamflix";
 import { setSelectedProviderClient } from "@/lib/provider";
 import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
-import { languageFlagUrl } from "@/lib/content-languages";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 
 const WELCOME_STORAGE_KEY = "streamflix_welcome_accepted";
 
+type Step = "welcome" | "language" | "provider";
+const STEPS: Step[] = ["welcome", "language", "provider"];
+
 export function WelcomeModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<"language" | "provider">("language");
+  const [bgLoaded, setBgLoaded] = useState(false);
+  const [step, setStep] = useState<Step>("welcome");
   const [pendingLang, setPendingLang] = useState<string | null>(null);
+  const [selectedUiLang, setSelectedUiLang] = useState<string | null>(null);
   const [langFilter, setLangFilter] = useState<string | null>(null); // null = all languages
-  const [providerIndex, setProviderIndex] = useState(0);
+  const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
   // disables the button after click so a double click cant fire two navigations
   const [isFinishing, setIsFinishing] = useState(false);
   const { i18n } = useTranslation();
   const pathname = usePathname();
   const { data: providers, isLoading: loadingProviders } = useProviders();
+
+  const providerScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollProviderLeft, setCanScrollProviderLeft] = useState(false);
+  const [canScrollProviderRight, setCanScrollProviderRight] = useState(true);
+
+  const checkProviderScroll = () => {
+    const el = providerScrollRef.current;
+    if (!el) return;
+    setCanScrollProviderLeft(el.scrollLeft > 4);
+    setCanScrollProviderRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  const scrollProviders = (direction: "left" | "right") => {
+    const el = providerScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const hasAccepted = localStorage.getItem(WELCOME_STORAGE_KEY);
@@ -51,9 +72,16 @@ export function WelcomeModal() {
     [providers, langFilter]
   );
 
+  // keeps the pick if it's still in the (possibly re-filtered) list, otherwise falls back to the first one
   useEffect(() => {
-    setProviderIndex(0);
-  }, [langFilter]);
+    // direct scrollLeft assignment jumps instantly, scrollTo() would animate because of the
+    // container's scroll-smooth class and leave the left arrow visible until it catches up
+    if (providerScrollRef.current) providerScrollRef.current.scrollLeft = 0;
+    setSelectedProviderName((prev) =>
+      prev && filteredProviders.some((p) => p.name === prev) ? prev : filteredProviders[0]?.name ?? null
+    );
+    checkProviderScroll();
+  }, [filteredProviders]);
 
   const handleLanguageSelect = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -83,151 +111,256 @@ export function WelcomeModal() {
 
   if (!isOpen) return null;
 
-  const providerCount = filteredProviders.length;
-  const currentProvider = providerCount > 0 ? filteredProviders[providerIndex % providerCount] : null;
+  const selectedProvider = filteredProviders.find((p) => p.name === selectedProviderName) ?? null;
+  const stepIndex = STEPS.indexOf(step);
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="relative w-full max-w-3xl my-8 bg-card rounded-xl shadow-2xl overflow-hidden"
-        >
-          {step === "language" && (
-            <div className="p-6 md:p-8 lg:p-10">
-              <div className="flex items-start gap-4 mb-6 md:mb-8">
-                <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Languages className="w-6 h-6 md:w-7 md:h-7 text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                    Choose Your Language
+    <div className="fixed inset-0 z-[100] bg-background overflow-hidden">
+      <motion.img
+        aria-hidden
+        src="/setup-bg.webp"
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+        onLoad={() => setBgLoaded(true)}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: bgLoaded ? 1 : 0 }}
+        transition={{ duration: 0.9, ease: "easeOut" }}
+      />
+      <motion.div
+        aria-hidden
+        className="absolute inset-0 bg-black/55"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: bgLoaded ? 1 : 0 }}
+        transition={{ duration: 0.9, ease: "easeOut" }}
+      />
+      <motion.div
+        className="relative h-full flex flex-col"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+      >
+        <div className="h-20 md:h-24 flex items-center px-6 md:px-10 flex-shrink-0">
+          {stepIndex > 0 && (
+            <button
+              onClick={() => setStep(STEPS[stepIndex - 1])}
+              className="flex items-center gap-2 text-xl md:text-2xl font-semibold text-foreground hover:opacity-70 transition-opacity drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]"
+            >
+              <ChevronLeft className="w-7 h-7 md:w-8 md:h-8" />
+              Back
+            </button>
+          )}
+        </div>
+
+        <div className="flex-1 flex items-center justify-center px-6 pb-16 md:pb-24 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            {step === "welcome" && (
+              <motion.div
+                key="welcome"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full max-w-3xl flex flex-col items-center text-center py-8"
+              >
+                <img src="/logo.png" alt="StreamFlix" className="h-48 md:h-64 w-auto object-contain mb-2 md:mb-3 drop-shadow-[0_2px_20px_rgba(0,0,0,0.6)]" />
+                <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                  Welcome to StreamFlix
+                </h1>
+                <p className="max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed mb-12 md:mb-14 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                  StreamFlix brings movies, shows and anime from free sources into one simple app.
+                </p>
+                <Button
+                  onClick={() => setStep("language")}
+                  className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
+                >
+                  Continue
+                  <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
+                </Button>
+              </motion.div>
+            )}
+
+            {step === "language" && (
+              <motion.div
+                key="language"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full max-w-3xl py-8 flex flex-col items-center"
+              >
+                <div className="text-center mb-10 md:mb-12">
+                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                    Choose your language
                   </h2>
-                  <p className="text-sm md:text-base text-muted-foreground">
+                  <p className="text-lg md:text-xl text-muted-foreground drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
                     Select your preferred language for the interface
                   </p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 md:mb-6">
-                {Object.entries(languages).map(([code, { nativeName, flagUrl }]) => (
-                  <button
-                    key={code}
-                    onClick={() => handleLanguageSelect(code)}
-                    className="flex items-center gap-4 p-4 md:p-5 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 group"
-                  >
-                    <img src={flagUrl} alt="" className="w-10 h-7 md:w-12 md:h-8 object-cover flex-shrink-0" />
-                    <p className="font-semibold text-base md:text-lg text-foreground group-hover:text-primary transition-colors flex-1 text-left">
-                      {nativeName}
-                    </p>
-                    <Check className="w-5 h-5 opacity-0 group-hover:opacity-100 text-primary transition-opacity" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+                <div className="w-full max-w-xl grid grid-cols-2 gap-4 md:gap-5 mb-10">
+                  {Object.entries(languages).map(([code, { nativeName, flagUrl }], i, entries) => {
+                    const isLastOdd = entries.length % 2 === 1 && i === entries.length - 1;
+                    const selected = selectedUiLang === code;
+                    return (
+                    <button
+                      key={code}
+                      onClick={() => setSelectedUiLang(code)}
+                      className={`flex items-center gap-4 p-5 md:p-6 rounded-xl border-2 backdrop-blur-sm transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        selected
+                          ? "border-white bg-white/10"
+                          : "border-border bg-background/40 hover:border-foreground/40 hover:bg-secondary/50"
+                      } ${isLastOdd ? "col-span-2 w-[calc(50%-0.5rem)] md:w-[calc(50%-0.625rem)] mx-auto" : ""}`}
+                    >
+                      <img src={flagUrl} alt="" className="w-10 h-7 md:w-11 md:h-8 object-cover flex-shrink-0 rounded-sm" />
+                      <span className="font-medium text-base md:text-lg text-foreground flex-1 text-left drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
+                        {nativeName}
+                      </span>
+                      <Check className={`w-7 h-7 text-white transition-opacity flex-shrink-0 ${selected ? "opacity-100" : "opacity-0"}`} />
+                    </button>
+                    );
+                  })}
+                </div>
 
-          {step === "provider" && (
-            <div className="p-6 md:p-8 lg:p-10">
-              <div className="flex items-start justify-between gap-3 mb-6 md:mb-8">
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Server className="w-6 h-6 md:w-7 md:h-7 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                      Choose a Provider
-                    </h2>
-                    <p className="text-sm md:text-base text-muted-foreground">
-                      Select which source to use. You can change this later in Settings.
-                    </p>
-                  </div>
+                <Button
+                  onClick={() => selectedUiLang && handleLanguageSelect(selectedUiLang)}
+                  disabled={!selectedUiLang}
+                  className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
+                >
+                  Continue
+                  <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
+                </Button>
+              </motion.div>
+            )}
+
+            {step === "provider" && (
+              <motion.div
+                key="provider"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full max-w-4xl flex flex-col items-center py-8"
+              >
+                <div className="text-center mb-7 w-full">
+                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                    Choose a source
+                  </h2>
+                  <p className="text-lg md:text-xl text-muted-foreground drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                    You can change this later in Settings
+                  </p>
                 </div>
 
                 <LanguageFilterDropdown
                   value={langFilter}
                   onChange={setLangFilter}
                   availableLanguages={availableLanguages}
+                  className="mb-10"
+                  buttonClassName="pl-4 pr-5 py-4 text-base gap-3"
+                  chevronClassName="w-4 h-4"
+                  align="left"
                 />
-              </div>
 
-              {loadingProviders ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>
-              ) : currentProvider ? (
-                <div className="flex items-center justify-center gap-4 md:gap-8 mb-6 md:mb-8">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="rounded-full h-11 w-11 md:h-14 md:w-14 flex-shrink-0"
-                    onClick={() => setProviderIndex((i) => (i - 1 + providerCount) % providerCount)}
-                    disabled={isFinishing}
-                    aria-label="Previous provider"
-                  >
-                    <ChevronLeft className="w-6 h-6 md:w-7 md:h-7" />
-                  </Button>
+                {loadingProviders ? (
+                  <p className="text-base text-muted-foreground text-center py-8 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">Loading...</p>
+                ) : filteredProviders.length > 0 ? (
+                  <div className="relative w-full mb-12">
+                    <button
+                      onClick={() => scrollProviders("left")}
+                      disabled={isFinishing || !canScrollProviderLeft}
+                      aria-label="Scroll left"
+                      className={`absolute -left-16 md:-left-24 top-0 bottom-0 z-10 flex items-center transition-opacity duration-200 ${
+                        canScrollProviderLeft ? "opacity-100" : "opacity-0 pointer-events-none"
+                      }`}
+                    >
+                      <ChevronLeft className="w-14 h-14 md:w-16 md:h-16 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" />
+                    </button>
 
-                  <div className="flex flex-col items-center gap-3 border-2 border-border rounded-xl p-6 md:p-8 w-full max-w-sm">
-                    <img
-                      // fresh img per provider name, otherwise a stale onError fallback src sticks around
-                      key={currentProvider.name}
-                      src={proxyImage(currentProvider.logo)}
-                      alt=""
-                      className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover bg-muted"
-                      onError={(e) => {
-                        const img = e.target as HTMLImageElement;
-                        if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                        img.src = PROVIDER_LOGO_FALLBACK;
-                      }}
-                    />
-                    <p className="font-semibold text-lg md:text-xl text-foreground text-center">
-                      {currentProvider.name}
-                    </p>
-                    <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1.5">
-                      {languageFlagUrl(currentProvider.language) ? (
-                        <img src={languageFlagUrl(currentProvider.language)} alt="" className="w-4 h-3 object-cover" />
-                      ) : (
-                        <Globe className="w-3.5 h-3.5" />
-                      )}
-                      <span>{providerIndex % providerCount + 1} / {providerCount}</span>
-                    </p>
+                    <div
+                      ref={providerScrollRef}
+                      onScroll={checkProviderScroll}
+                      className="flex gap-4 md:gap-5 overflow-x-auto scrollbar-hide scroll-smooth px-2 py-1"
+                    >
+                      {filteredProviders.map((p) => {
+                        const selected = p.name === selectedProviderName;
+                        return (
+                          <button
+                            key={p.name}
+                            onClick={() => setSelectedProviderName(p.name)}
+                            disabled={isFinishing}
+                            className={`flex flex-col items-center gap-3 flex-shrink-0 w-36 sm:w-44 md:w-52 rounded-xl border-2 p-5 md:p-6 backdrop-blur-sm transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                              selected
+                                ? "border-white bg-white/10"
+                                : "border-border bg-background/40 hover:border-foreground/40 hover:bg-secondary/50"
+                            }`}
+                          >
+                            <img
+                              // fresh img per provider name, otherwise a stale onError fallback src sticks around
+                              key={p.name}
+                              src={proxyImage(p.logo)}
+                              alt=""
+                              className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover bg-muted"
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
+                                img.src = PROVIDER_LOGO_FALLBACK;
+                              }}
+                            />
+                            <p className="font-semibold text-base md:text-lg text-foreground text-center line-clamp-1 drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]">
+                              {p.name}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => scrollProviders("right")}
+                      disabled={isFinishing || !canScrollProviderRight}
+                      aria-label="Scroll right"
+                      className={`absolute -right-16 md:-right-24 top-0 bottom-0 z-10 flex items-center transition-opacity duration-200 ${
+                        canScrollProviderRight ? "opacity-100" : "opacity-0 pointer-events-none"
+                      }`}
+                    >
+                      <ChevronRight className="w-14 h-14 md:w-16 md:h-16 text-foreground drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]" />
+                    </button>
                   </div>
+                ) : (
+                  <div className="text-center py-8 mb-2">
+                    <p className="text-base text-muted-foreground mb-4 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+                      No providers for this language.
+                    </p>
+                    <Button variant="outline" onClick={() => setLangFilter(null)}>
+                      Show all languages
+                    </Button>
+                  </div>
+                )}
 
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="rounded-full h-11 w-11 md:h-14 md:w-14 flex-shrink-0"
-                    onClick={() => setProviderIndex((i) => (i + 1) % providerCount)}
-                    disabled={isFinishing}
-                    aria-label="Next provider"
-                  >
-                    <ChevronRight className="w-6 h-6 md:w-7 md:h-7" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    No providers for this language.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => setLangFilter(null)}>
-                    Show all languages
-                  </Button>
-                </div>
-              )}
+                <Button
+                  onClick={() => finish(selectedProvider?.name)}
+                  disabled={!selectedProvider || isFinishing}
+                  className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
+                >
+                  {isFinishing && <Loader2 className="w-5 h-5 animate-spin" />}
+                  Continue
+                  <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-              <Button
-                onClick={() => finish(currentProvider?.name)}
-                disabled={!currentProvider || isFinishing}
-                className="w-full h-12 md:h-14 text-base md:text-lg font-semibold gap-2"
-              >
-                {isFinishing && <Loader2 className="w-5 h-5 animate-spin" />}
-                Continue
-              </Button>
-            </div>
-          )}
-        </motion.div>
-      </div>
-    </AnimatePresence>
+        {/* progress: this really is a 3-step sequence, so dots earn their place here */}
+        <div className="flex items-center justify-center gap-2.5 pb-10 md:pb-12 flex-shrink-0">
+          {STEPS.map((s, i) => (
+            <span
+              key={s}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === stepIndex ? "w-8 bg-foreground" : "w-2 bg-foreground/20"
+              }`}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </div>
   );
 }
