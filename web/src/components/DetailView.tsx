@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Check, Star, Clock, Calendar, Video, ArrowLeft } from "lucide-react";
 import { PlayIcon } from "@/components/MediaIcons";
 import { motion } from "framer-motion";
@@ -13,6 +13,7 @@ import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 import { useSeasonEpisodes } from "@/hooks/useStreamflix";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { HlsPlayer } from "@/components/HlsPlayer";
+import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 import { EpisodePickerModal } from "@/components/EpisodePickerModal";
 import { ContentRow } from "@/components/ContentRow";
 import { Navigation } from "@/components/Navigation";
@@ -156,18 +157,10 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;
-  const backdropImgRef = useRef<HTMLImageElement>(null);
-  const posterImgRef = useRef<HTMLImageElement>(null);
   // no native backdrop at all (common for hianime), dont wait for an onError that'll never fire
   useEffect(() => {
     if (!backdropUrl) triggerFallback();
   }, [backdropUrl, triggerFallback]);
-  // these are server rendered, the browser can fail to load them before react hydrates
-  // and attaches onError, so the event never reaches it, check what actually landed too
-  useEffect(() => {
-    if (backdropImgRef.current?.complete && backdropImgRef.current.naturalWidth === 0) triggerFallback();
-    if (posterImgRef.current?.complete && posterImgRef.current.naturalWidth === 0) triggerFallback();
-  }, [effectiveBackdropUrl, effectivePosterUrl, triggerFallback]);
 
   const trailer = data.videos?.results?.find(
     (video) =>
@@ -368,8 +361,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
           <div className="relative w-full">
               <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[62vh]">
                 {effectiveBackdropUrl ? (
-                  <img
-                    ref={backdropImgRef}
+                  <ImageWithSpinner
                     src={effectiveBackdropUrl}
                     alt={title}
                     className="w-full h-full object-cover object-top"
@@ -386,13 +378,14 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
             <div className="detail-info max-w-5xl mx-auto px-4 sm:px-6 relative z-10 -mt-24 md:-mt-[31vh]">
               <div className="flex gap-4 sm:gap-6 mb-6">
                 {effectivePosterUrl && (
-                  <img
-                    ref={posterImgRef}
-                    src={effectivePosterUrl}
-                    alt={title}
-                    className="detail-poster w-24 sm:w-36 md:w-96 rounded-lg md:rounded-xl shadow-2xl border-2 md:border-4 border-card flex-shrink-0 self-start mt-12 sm:mt-16 md:mt-28"
-                    onError={triggerFallback}
-                  />
+                  <div className="detail-poster relative w-24 sm:w-36 md:w-96 aspect-[2/3] rounded-lg md:rounded-xl overflow-hidden shadow-2xl border-2 md:border-4 border-card flex-shrink-0 self-start mt-12 sm:mt-16 md:mt-28">
+                    <ImageWithSpinner
+                      src={effectivePosterUrl}
+                      alt={title}
+                      className="w-full h-full object-cover"
+                      onError={triggerFallback}
+                    />
+                  </div>
                 )}
 
                 <div className="flex-1 min-w-0 pt-12 sm:pt-16 md:pt-28">

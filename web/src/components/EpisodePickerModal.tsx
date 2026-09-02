@@ -126,7 +126,7 @@ export function EpisodePickerModal({
       <div className="flex flex-col md:flex-row min-h-0 flex-1">
         {backdropUrl && (
           <div className="hidden md:block md:w-96 lg:w-[28rem] flex-shrink-0 relative overflow-hidden">
-            <img src={backdropUrl} alt="" className="w-full h-full object-cover" />
+            <ImageWithSpinner src={backdropUrl} alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/55" />
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/60 to-background" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />

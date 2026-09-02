@@ -110,7 +110,6 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
                   src={backdropUrl}
                   alt={title}
                   onLoad={handleBackdropLoad}
-                  spinnerClassName="w-8 h-8"
                   className="absolute inset-0 w-full h-full object-contain object-top"
                 />
               </>
@@ -127,7 +126,6 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
                   src={backdropUrl}
                   alt={title}
                   onLoad={handleBackdropLoad}
-                  spinnerClassName="w-8 h-8"
                   className="absolute inset-0 w-[85%] h-[85%] m-auto object-contain"
                 />
               </>
@@ -136,7 +134,6 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
                 src={backdropUrl}
                 alt={title}
                 onLoad={handleBackdropLoad}
-                spinnerClassName="w-8 h-8"
                 className="w-full h-full object-cover object-top"
               />
             )

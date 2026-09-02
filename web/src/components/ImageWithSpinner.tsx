@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 
-interface ImageWithSpinnerProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  spinnerClassName?: string;
-}
+// drag/animation handlers excluded: framer-motion's own gesture and animation-lifecycle
+// types collide with the native DOM ones on <img>, and nothing here uses the native versions
+type ImageWithSpinnerProps = Omit<
+  React.ImgHTMLAttributes<HTMLImageElement>,
+  "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration"
+>;
 
-// generic img with a centered loading spinner until the image is ready. needs to sit
-// inside a position:relative (or absolute) container, same as a normal <img>
-export function ImageWithSpinner({
-  spinnerClassName = "w-6 h-6",
-  onLoad,
-  onError,
-  ...imgProps
-}: ImageWithSpinnerProps) {
+// generic img with a slow pulsing placeholder until it's ready, then a quick fade in
+// (same reveal technique as the hero banner). needs to sit inside a position:relative
+// (or absolute) container, same as a normal <img>
+export function ImageWithSpinner({ onLoad, onError, ...imgProps }: ImageWithSpinnerProps) {
   const [loaded, setLoaded] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -34,8 +33,11 @@ export function ImageWithSpinner({
 
   return (
     <>
-      <img
+      <motion.img
         ref={imgRef}
+        initial={false}
+        animate={{ opacity: loaded ? 1 : 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         onLoad={(e) => {
           setLoaded(true);
           onLoad?.(e);
@@ -46,11 +48,7 @@ export function ImageWithSpinner({
         }}
         {...imgProps}
       />
-      {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/40 pointer-events-none">
-          <Loader2 className={`${spinnerClassName} text-muted-foreground animate-spin`} />
-        </div>
-      )}
+      {!loaded && <div className="absolute inset-0 bg-muted/40 animate-pulse pointer-events-none" />}
     </>
   );
 }
