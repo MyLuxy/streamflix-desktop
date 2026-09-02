@@ -447,23 +447,26 @@ private fun applyHeaders(builder: HttpRequest.Builder, headers: Map<String, Stri
 // stops that from getting buffered whole and hanging the request
 private const val MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 
-private fun manifestTextFor(url: String, headers: Map<String, String>?): String? {
+// url is the post-redirect location, relative paths in the manifest resolve against that, not the original request url
+private data class ManifestFetch(val url: String, val text: String)
+
+private fun manifestTextFor(url: String, headers: Map<String, String>?): ManifestFetch? {
     if (url.startsWith("data:")) {
         val payload = url.substringAfter(",", "")
         if (payload.isBlank()) return null
-        return runCatching { String(Base64.getDecoder().decode(payload)) }.getOrNull()
+        return runCatching { ManifestFetch(url, String(Base64.getDecoder().decode(payload))) }.getOrNull()
     }
     // some cdns (e.g. the tiktok-hijack proxy some extractors ride on) are genuinely flaky -
     // a plain curl retry a second later turns an error page into a real manifest often enough
     // that it's worth one retry here, and either way a non-2xx status must never be handed
     // downstream as if its error body were real manifest text
     repeat(2) {
-        val text = runCatching {
+        val fetch = runCatching {
             val builder = HttpRequest.newBuilder(URI.create(url)).GET()
             applyHeaders(builder, headers)
             val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
             if (response.statusCode() !in 200..299) return@runCatching null
-            response.body().use { input ->
+            val text = response.body().use { input ->
                 val buffer = java.io.ByteArrayOutputStream()
                 val chunk = ByteArray(8192)
                 while (true) {
@@ -474,8 +477,9 @@ private fun manifestTextFor(url: String, headers: Map<String, String>?): String?
                 }
                 buffer.toString(Charsets.UTF_8)
             }
+            ManifestFetch(response.uri().toString(), text)
         }.getOrNull()
-        if (text != null) return text
+        if (fetch != null) return fetch
     }
     return null
 }
@@ -487,16 +491,17 @@ private fun serveManifest(exchange: HttpExchange) {
     val targetUrl = params["url"] ?: video.source
     val referer = video.headers?.entries?.firstOrNull { it.key.equals("referer", ignoreCase = true) }?.value
 
-    val text = manifestTextFor(targetUrl, video.headers)
-    if (text == null) {
+    val fetch = manifestTextFor(targetUrl, video.headers)
+    if (fetch == null) {
         exchange.sendResponseHeaders(502, -1)
         exchange.close()
         return
     }
+    val text = fetch.text
 
     fun resolve(uri: String): String {
         if (uri.startsWith("http://") || uri.startsWith("https://")) return uri
-        val base = targetUrl.takeIf { it.startsWith("http") } ?: referer ?: return uri
+        val base = fetch.url.takeIf { it.startsWith("http") } ?: referer ?: return uri
         return runCatching { URI.create(base).resolve(uri).toString() }.getOrDefault(uri)
     }
 
