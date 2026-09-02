@@ -30,14 +30,7 @@ import retrofit2.http.Query
 import retrofit2.http.Url
 import java.util.concurrent.TimeUnit
 
-// server-rendered tmdb-backed catalog (ids in urls are literal tmdb ids), so scraping is mostly
-// plain html. the interesting part is the watch page: it never embeds a real player itself, it
-// just drops a window.PLAYER config blob with a list of upstream "providers" (multi-source
-// aggregator, same family as vidsrc/2embed) and a GET /api/player/sources?type=&tmdbId=&provider=
-// endpoint that scrapes that provider server-side and hands back a source. the returned url isn't
-// the raw upstream link though, it's already rewritten through vuflix's own /api/player/v-relay
-// proxy (master playlist, variant playlists AND segments all go through it), so no per-embed
-// extractor is needed here, just carry the response's own User-Agent along with the source
+// watch page never embeds a real player, just a window.PLAYER config plus a /api/player/sources endpoint that scrapes each upstream provider and returns a url already proxied through vuflix's own v-relay, so no per-embed extractor is needed
 object VuflixProvider : Provider {
 
     override val name = "Vuflix"
@@ -47,9 +40,7 @@ object VuflixProvider : Provider {
 
     private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    // getServers() can list 15+ provider mirrors, all landing on vuflix.co itself (the sources
-    // api), and OkHttp's default dispatcher only allows 5 concurrent requests per host. raise the
-    // cap so the race in getVideo() below isn't throttled to 5 at a time.
+    // getServers() can list 15+ mirrors all hitting vuflix.co, so bump past OkHttp's default 5-per-host cap
     private val client = OkHttpClient.Builder()
         .dns(DnsResolver.doh)
         .dispatcher(okhttp3.Dispatcher().apply { maxRequestsPerHost = 20 })
@@ -82,12 +73,7 @@ object VuflixProvider : Provider {
         suspend fun getTvShows(@Query("page") page: Int): Document
     }
 
-    // getVideo() below runs concurrently, once per mirror, in Backend.kt's race, which cancels
-    // the losing jobs once one mirror wins. a blocking OkHttp .execute() call ignores that
-    // cancellation (a coroutine can't interrupt a synchronous read already in flight), so a slow
-    // mirror used to keep the whole response stuck waiting on it anyway (seen up to 20s). enqueue()
-    // plus suspendCancellableCoroutine wires cancellation straight to call.cancel(), so it actually
-    // aborts the socket read.
+    // enqueue() + suspendCancellableCoroutine so Backend.kt's race can actually cancel a losing mirror mid request, plain execute() ignores coroutine cancellation
     private suspend fun fetchJson(url: String, referer: String): JSONObject {
         val request = Request.Builder()
             .url(url)
