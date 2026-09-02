@@ -16,6 +16,9 @@ import com.streamflixreborn.streamflix.utils.MimeTypes
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -44,8 +47,14 @@ object VuflixProvider : Provider {
 
     private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+    // getServers() can list up to ~9 provider mirrors, and Backend.kt races getVideo() for all of
+    // them concurrently - all landing on vuflix.co itself (the sources API), so OkHttp's default
+    // dispatcher (maxRequestsPerHost = 5) queues the rest behind whichever 5 happen to start first,
+    // which can add tens of seconds if a slow mirror wins that early slot. Raise the per-host cap
+    // so the race is actually parallel instead of half-serialized.
     private val client = OkHttpClient.Builder()
         .dns(DnsResolver.doh)
+        .dispatcher(okhttp3.Dispatcher().apply { maxRequestsPerHost = 20 })
         .readTimeout(30, TimeUnit.SECONDS)
         .connectTimeout(30, TimeUnit.SECONDS)
         .addInterceptor { chain ->
@@ -75,14 +84,33 @@ object VuflixProvider : Provider {
         suspend fun getTvShows(@Query("page") page: Int): Document
     }
 
-    private fun fetchJson(url: String, referer: String): JSONObject {
+    // getVideo() below is called concurrently (once per listed provider mirror, sometimes 15+) by
+    // Backend.kt's race, which cancels the losing jobs once one mirror wins. A plain blocking
+    // OkHttp .execute() call doesn't honor that cancellation (cancelling a coroutine can't
+    // interrupt a synchronous network read already in flight), so a single slow mirror used to
+    // keep runBlocking - and the HTTP response - stuck waiting on it for as long as it took to
+    // finish on its own (seen up to ~20s on a slow mirror). enqueue() + suspendCancellableCoroutine
+    // ties the coroutine's cancellation to call.cancel(), which actually aborts the socket read.
+    private suspend fun fetchJson(url: String, referer: String): JSONObject {
         val request = Request.Builder()
             .url(url)
             .header("Accept", "application/json")
             .header("Referer", referer)
             .build()
-        return client.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
+        val call = client.newCall(request)
+        val response = suspendCancellableCoroutine<okhttp3.Response> { cont ->
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : okhttp3.Callback {
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    cont.resume(response)
+                }
+                override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                    if (cont.isActive) cont.resumeWithException(e)
+                }
+            })
+        }
+        return response.use {
+            val body = it.body?.string().orEmpty()
             if (body.isBlank()) throw Exception("Vuflix empty response from $url")
             JSONObject(body)
         }
