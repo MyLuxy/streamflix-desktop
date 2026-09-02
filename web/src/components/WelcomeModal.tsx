@@ -11,11 +11,13 @@ import { useProviders } from "@/hooks/useStreamflix";
 import { setSelectedProviderClient } from "@/lib/provider";
 import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
+import { BACKEND_URL } from "@/lib/backend";
+import { setCustomTmdbKeyClient } from "@/lib/tmdb-key";
 
 const WELCOME_STORAGE_KEY = "streamflix_welcome_accepted";
 
-type Step = "welcome" | "language" | "provider";
-const STEPS: Step[] = ["welcome", "language", "provider"];
+type Step = "welcome" | "language" | "tmdb" | "provider";
+const STEPS: Step[] = ["welcome", "language", "tmdb", "provider"];
 
 export function WelcomeModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,6 +27,9 @@ export function WelcomeModal() {
   const [selectedUiLang, setSelectedUiLang] = useState<string | null>(null);
   const [langFilter, setLangFilter] = useState<string | null>(null); // null = all languages
   const [selectedProviderName, setSelectedProviderName] = useState<string | null>(null);
+  const [tmdbKeyInput, setTmdbKeyInput] = useState("");
+  const [tmdbKeyError, setTmdbKeyError] = useState<string | null>(null);
+  const [isCheckingTmdbKey, setIsCheckingTmdbKey] = useState(false);
   // disables the button after click so a double click cant fire two navigations
   const [isFinishing, setIsFinishing] = useState(false);
   const { i18n } = useTranslation();
@@ -87,7 +92,35 @@ export function WelcomeModal() {
     i18n.changeLanguage(lng);
     setPendingLang(lng);
     setLangFilter(lng);
-    setStep("provider");
+    setStep("tmdb");
+  };
+
+  const handleTmdbKeyContinue = async () => {
+    const key = tmdbKeyInput.trim();
+    if (!key) {
+      setStep("provider");
+      return;
+    }
+    setIsCheckingTmdbKey(true);
+    setTmdbKeyError(null);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/settings/tmdb-key`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setTmdbKeyError(data.error || "That key doesn't seem to work");
+        return;
+      }
+      setCustomTmdbKeyClient(key);
+      setStep("provider");
+    } catch {
+      setTmdbKeyError("Couldn't reach the backend, try again");
+    } finally {
+      setIsCheckingTmdbKey(false);
+    }
   };
 
   const finish = (providerName?: string) => {
@@ -226,6 +259,59 @@ export function WelcomeModal() {
                   disabled={!selectedUiLang}
                   className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group"
                 >
+                  Continue
+                  <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
+                </Button>
+              </motion.div>
+            )}
+
+            {step === "tmdb" && (
+              <motion.div
+                key="tmdb"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+                className="w-full max-w-3xl flex flex-col items-center text-center py-8"
+              >
+                <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground mb-6 sm:whitespace-nowrap drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">
+                  TMDB API key
+                </h2>
+                <p className="max-w-xl text-lg md:text-xl text-muted-foreground drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] mb-8">
+                  Optional. Use your own TMDB key, or just continue with the one built into the app.
+                </p>
+
+                <div className="w-full max-w-md">
+                  <input
+                    type="text"
+                    value={tmdbKeyInput}
+                    onChange={(e) => {
+                      setTmdbKeyInput(e.target.value);
+                      if (tmdbKeyError) setTmdbKeyError(null);
+                    }}
+                    placeholder="Your TMDB API key"
+                    disabled={isCheckingTmdbKey}
+                    className="w-full h-14 px-5 rounded-xl border-2 border-border bg-background/40 backdrop-blur-sm text-foreground placeholder:text-muted-foreground text-base outline-none focus-visible:border-white transition-colors"
+                  />
+                  <a
+                    href="https://www.themoviedb.org/settings/api"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
+                  >
+                    Get a free key at themoviedb.org
+                  </a>
+                  {tmdbKeyError && (
+                    <p className="mt-3 text-sm text-red-400 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">{tmdbKeyError}</p>
+                  )}
+                </div>
+
+                <Button
+                  onClick={handleTmdbKeyContinue}
+                  disabled={isCheckingTmdbKey}
+                  className="w-full max-w-sm h-16 text-lg font-semibold gap-2 group mt-10"
+                >
+                  {isCheckingTmdbKey && <Loader2 className="w-5 h-5 animate-spin" />}
                   Continue
                   <ArrowRight className="w-7 h-7 transition-transform duration-200 group-hover:translate-x-1.5" />
                 </Button>

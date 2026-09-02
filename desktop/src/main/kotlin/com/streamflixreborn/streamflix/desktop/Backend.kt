@@ -9,6 +9,8 @@ import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.providers.IptvProvider
 import com.streamflixreborn.streamflix.providers.Provider
+import com.streamflixreborn.streamflix.utils.TMDb3
+import com.streamflixreborn.streamflix.utils.UserPreferences
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.async
@@ -50,6 +52,7 @@ fun main() {
     server.createContext("/api/movies") { withCors(it) { handleMovies(it) } }
     server.createContext("/api/tvshows") { withCors(it) { handleTvShows(it) } }
     server.createContext("/api/stream") { withCors(it) { handleStream(it) } }
+    server.createContext("/api/settings/tmdb-key") { withCors(it) { handleTmdbKeySettings(it) } }
     server.createContext("/manifest.m3u8") { withCors(it) { serveManifest(it) } }
     server.createContext("/segment") { withCors(it) { serveSegment(it) } }
     server.createContext("/direct") { withCors(it) { serveDirect(it) } }
@@ -290,6 +293,47 @@ private fun handleTvShows(exchange: HttpExchange) {
     val page = params["page"]?.toIntOrNull() ?: 1
     val tvShows = runBlocking { provider.getTvShows(page) }.map { it.toDto(includeRecommendations = false) }
     sendJson(exchange, 200, json.encodeToString(tvShows))
+}
+
+@Serializable
+data class TmdbKeySettingsDto(val hasCustomKey: Boolean, val apiKey: String? = null)
+
+@Serializable
+data class SetTmdbKeyRequest(val apiKey: String? = null)
+
+private fun handleTmdbKeySettings(exchange: HttpExchange) {
+    when (exchange.requestMethod) {
+        "GET" -> {
+            val hasCustom = UserPreferences.hasCustomTmdbApiKey()
+            val dto = TmdbKeySettingsDto(hasCustom, if (hasCustom) UserPreferences.tmdbApiKey else null)
+            sendJson(exchange, 200, json.encodeToString(dto))
+        }
+        "POST" -> {
+            val body = exchange.requestBody.use { it.readBytes().decodeToString() }
+            val request = runCatching { json.decodeFromString<SetTmdbKeyRequest>(body) }.getOrNull()
+                ?: return sendJson(exchange, 400, """{"error":"invalid body"}""")
+            val apiKey = request.apiKey?.trim()
+
+            if (apiKey.isNullOrBlank()) {
+                UserPreferences.clearCustomTmdbApiKey()
+                TMDb3.rebuildService()
+                return sendJson(exchange, 200, """{"success":true}""")
+            }
+
+            // a bad key doesnt error at request time, tmdb just answers as if nothing's
+            // wrong with an empty/401 body, so check it against a cheap real endpoint first
+            val valid = runCatching {
+                val req = HttpRequest.newBuilder(URI.create("https://api.themoviedb.org/3/configuration?api_key=$apiKey")).GET().build()
+                httpClient.send(req, HttpResponse.BodyHandlers.discarding()).statusCode() == 200
+            }.getOrDefault(false)
+            if (!valid) return sendJson(exchange, 400, """{"success":false,"error":"invalid TMDB API key"}""")
+
+            UserPreferences.tmdbApiKey = apiKey
+            TMDb3.rebuildService()
+            sendJson(exchange, 200, """{"success":true}""")
+        }
+        else -> sendJson(exchange, 405, """{"error":"method not allowed"}""")
+    }
 }
 
 private fun handleGenre(exchange: HttpExchange) {

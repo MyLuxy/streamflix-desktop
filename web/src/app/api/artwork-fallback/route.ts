@@ -1,24 +1,15 @@
 import { NextResponse } from "next/server";
+import { tmdbFetch } from "@/lib/tmdb";
 
-const TMDB_BEARER = process.env.TMDB_BEARER_TOKEN || "";
-const TMDB_API_KEY =
-  process.env.TMDB_API_KEY || "2dca580c2a14b55200e784d157207b4d";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const ANILIST_URL = "https://graphql.anilist.co";
 
 async function searchTmdb(title: string, year: string | null, type: "movie" | "tv") {
-  const headers: Record<string, string> = { accept: "application/json" };
-  let url = `${TMDB_BASE_URL}/search/${type}?query=${encodeURIComponent(title)}&language=en-US`;
+  let query = `/search/${type}?query=${encodeURIComponent(title)}&language=en-US`;
   if (year) {
-    url += `&${type === "movie" ? "year" : "first_air_date_year"}=${encodeURIComponent(year)}`;
-  }
-  if (TMDB_BEARER) {
-    headers.Authorization = `Bearer ${TMDB_BEARER}`;
-  } else {
-    url += `&api_key=${TMDB_API_KEY}`;
+    query += `&${type === "movie" ? "year" : "first_air_date_year"}=${encodeURIComponent(year)}`;
   }
 
-  const res = await fetch(url, { headers, next: { revalidate: 86400 } });
+  const res = await tmdbFetch(query);
   if (!res.ok) return { poster: null, backdrop: null };
   const data = await res.json();
   const match = data.results?.[0];

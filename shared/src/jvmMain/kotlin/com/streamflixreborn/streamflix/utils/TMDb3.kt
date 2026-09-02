@@ -949,14 +949,20 @@ object TMDb3 {
                 val client = OkHttpClient.Builder().addInterceptor { chain ->
                     val original = chain.request()
 
-                    val requestBuilder = original.newBuilder()
-                        .url(
-                            original.url.newBuilder()
-                                .addQueryParameter("api_key", apiKey)
-                                .build()
-                        )
+                    fun withKey(key: String) = original.newBuilder()
+                        .url(original.url.newBuilder().addQueryParameter("api_key", key).build())
+                        .build()
 
-                    chain.proceed(requestBuilder.build())
+                    var response = chain.proceed(withKey(apiKey))
+                    // whether the primary key is a personal one the user entered or whatever's
+                    // baked into this build, retry once with the fallback if it's rate limited
+                    // or got revoked instead of failing every tmdb-backed request outright
+                    val fallbackKey = UserPreferences.tmdbApiKeyFallback
+                    if (response.code in intArrayOf(401, 403, 429) && fallbackKey != apiKey) {
+                        response.close()
+                        response = chain.proceed(withKey(fallbackKey))
+                    }
+                    response
                 }.build()
 
                 val retrofit = Retrofit.Builder()
