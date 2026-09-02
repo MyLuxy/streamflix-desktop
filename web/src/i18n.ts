@@ -5,6 +5,7 @@ import enTranslation from "./locales/en/translation.json";
 import itTranslation from "./locales/it/translation.json";
 import frTranslation from "./locales/fr/translation.json";
 import esTranslation from "./locales/es/translation.json";
+import deTranslation from "./locales/de/translation.json";
 import { locales, defaultLocale, localeToTmdb, type Locale } from "@/lib/i18n-config";
 
 export const languages = {
@@ -12,6 +13,7 @@ export const languages = {
   it: { nativeName: "Italiano", flag: "🇮🇹", flagUrl: "/flags/it.png" },
   fr: { nativeName: "Français", flag: "🇫🇷", flagUrl: "/flags/fr.png" },
   es: { nativeName: "Español", flag: "🇪🇸", flagUrl: "/flags/es.png" },
+  de: { nativeName: "Deutsch", flag: "🇩🇪", flagUrl: "/flags/de.svg" },
 };
 
 export const tmdbLanguages = localeToTmdb;
@@ -21,6 +23,7 @@ const resources = {
   it: itTranslation,
   fr: frTranslation,
   es: esTranslation,
+  de: deTranslation,
 };
 
 // one instance per request avoids state clashing across concurrent ssr in different langs

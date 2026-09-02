@@ -21,6 +21,7 @@ const titleSuffix: Record<Locale, string> = {
   it: "streaming ITA",
   fr: "streaming VF",
   es: "ver online",
+  de: "online ansehen",
 };
 
 async function loadTV(slug: string): Promise<{ data: TVShowDetails; provider: string; realId: string } | null> {

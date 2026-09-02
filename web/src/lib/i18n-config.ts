@@ -1,4 +1,4 @@
-export const locales = ["en", "it", "fr", "es"] as const;
+export const locales = ["en", "it", "fr", "es", "de"] as const;
 export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = "en";
@@ -8,6 +8,7 @@ export const localeToTmdb: Record<Locale, string> = {
   it: "it-IT",
   fr: "fr-FR",
   es: "es-ES",
+  de: "de-DE",
 };
 
 export const localeToHreflang: Record<Locale, string> = {
@@ -15,6 +16,7 @@ export const localeToHreflang: Record<Locale, string> = {
   it: "it",
   fr: "fr",
   es: "es",
+  de: "de",
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {

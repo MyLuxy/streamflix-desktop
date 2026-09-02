@@ -33,6 +33,11 @@ const homeMeta: Record<Locale, { title: string; description: string }> = {
     description:
       "Mira miles de películas y series en HD. Anime, películas y series, sin registro.",
   },
+  de: {
+    title: `${SITE_NAME} — Filme & Serien in HD streamen`,
+    description:
+      "Streamen Sie tausende Filme und Serien in HD. Anime, Filme und Serien, ohne Registrierung.",
+  },
 };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
