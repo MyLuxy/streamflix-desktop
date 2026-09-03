@@ -216,12 +216,7 @@ export function ContentRow({
           <ChevronRight className="w-12 h-12 md:w-16 md:h-16 translate-x-px" />
         </button>
 
-        {/* the horizontal scroll needs overflow-x-auto, which forces overflow-y to clip too
-            (can't mix visible/auto across axes) - that would cut off the hover glow above and
-            below every card, since this container is exactly as tall as the cards themselves.
-            py-12 opens up clipping-safe room on both edges for the glow to render into, and
-            -my-12 cancels the resulting height increase so the row's footprint in the page
-            doesn't change */}
+        {/* overflow-x-auto forces overflow-y to clip too, so py-12 gives the card shadows room (canceled by -my-12 so the row's height stays the same) */}
         <div
           ref={scrollRef}
           onScroll={checkScroll}

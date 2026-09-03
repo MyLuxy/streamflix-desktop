@@ -41,11 +41,8 @@ export function ContentCard({
   const posterUrl = fallbackPoster ?? imageUrl(posterPath, IMAGE_SIZES.poster.medium);
 
   const inner = (
-    // shadow lives on this div, a direct child of the "group" element below (group-hover
-    // only matches descendants, not the group element itself) and with nothing above it in
-    // the tree that clips overflow - the actual overflow-hidden is one level further in, on
-    // the div that only wraps the poster/gradient/title, so it never clips its own parent's shadow
-    <div className={`relative rounded-lg shadow-card transition-shadow duration-300 group-hover:shadow-glow ${isLandscape ? "aspect-video bg-secondary/40" : "aspect-[2/3]"}`}>
+    // overflow-hidden lives one div deeper so it never clips this div's own shadow
+    <div className={`relative rounded-lg shadow-card ${isLandscape ? "aspect-video bg-secondary/40" : "aspect-[2/3]"}`}>
       <div className="absolute inset-0 rounded-lg overflow-hidden">
         {/* title is a sibling not a child, otherwise it scales up with the hover too */}
         <div className={`absolute inset-0 transition-transform duration-300 group-hover:scale-105 ${isLandscape ? "p-4" : ""}`}>
