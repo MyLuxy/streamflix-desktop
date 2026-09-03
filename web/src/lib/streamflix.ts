@@ -9,7 +9,9 @@ import type {
   CastMember,
 } from "@/lib/types";
 import { tagProvider, providerTagOf } from "@/lib/provider-tag";
-import { searchTmdbArtwork } from "@/lib/tmdb";
+import { searchTmdbArtwork, cleanTitle } from "@/lib/tmdb";
+import { searchAniList } from "@/lib/anilist-artwork";
+import { usesAniListArtwork } from "@/lib/anime-providers";
 import {
   stableNumericId,
   toMediaItem,
@@ -167,7 +169,15 @@ export async function getHomeRows(provider: string, isIptv = false): Promise<Hom
         if (isIptv) return enrichedItem;
         const title = "title" in enrichedItem ? enrichedItem.title : enrichedItem.name;
         const year = ("release_date" in enrichedItem ? enrichedItem.release_date : enrichedItem.first_air_date)?.slice(0, 4) || null;
-        const art = await searchTmdbArtwork(title, year, "title" in enrichedItem ? "movie" : "tv").catch(() => null);
+        const mediaType = "title" in enrichedItem ? "movie" : "tv";
+        // anilist only ever searches anime, so it can't accidentally return a live-action
+        // adaptation the way a plain tmdb title search can (e.g. "One Piece")
+        let art = usesAniListArtwork(provider)
+          ? await searchAniList(cleanTitle(title)).catch(() => null)
+          : null;
+        if (!art?.poster && !art?.backdrop) {
+          art = await searchTmdbArtwork(title, year, mediaType).catch(() => null);
+        }
         if (art?.poster || art?.backdrop) {
           enrichedItem = {
             ...enrichedItem,

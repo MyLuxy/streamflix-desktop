@@ -1,38 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchTmdbArtwork, cleanTitle } from "@/lib/tmdb";
-
-const ANILIST_URL = "https://graphql.anilist.co";
-
-// anime tends to land on anilist before tmdb even catalogs it, no key needed either
-async function searchAniList(title: string) {
-  const query = `
-    query ($search: String) {
-      Media(search: $search, type: ANIME) {
-        coverImage { extraLarge large }
-        bannerImage
-      }
-    }
-  `;
-  try {
-    const res = await fetch(ANILIST_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", accept: "application/json" },
-      body: JSON.stringify({ query, variables: { search: title } }),
-      next: { revalidate: 86400 },
-    });
-    if (!res.ok) return { poster: null, backdrop: null };
-    const data = await res.json();
-    const media = data.data?.Media;
-    // already full urls, unlike tmdb's relative paths
-    return {
-      poster: media?.coverImage?.extraLarge ?? media?.coverImage?.large ?? null,
-      backdrop: media?.bannerImage ?? null,
-    };
-  } catch {
-    // caller retries via tmdb when this comes back empty
-    return { poster: null, backdrop: null };
-  }
-}
+import { searchAniList } from "@/lib/anilist-artwork";
 
 // last resort when a provider's own poster/backdrop 404s, tries to find the same
 // title elsewhere instead of leaving the card blank
