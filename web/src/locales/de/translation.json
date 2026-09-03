@@ -51,6 +51,9 @@
     "content": {
       "play": "Abspielen",
       "trailer": "Trailer",
+      "mute": "Stummschalten",
+      "unmute": "Ton aktivieren",
+      "volume": "Lautstärke",
       "watchlist": "Merkliste",
       "inWatchlist": "Auf der Merkliste",
       "overview": "Übersicht",

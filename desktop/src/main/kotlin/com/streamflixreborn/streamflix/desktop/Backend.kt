@@ -96,6 +96,7 @@ data class ShowDto(
     val rating: Double? = null,
     val released: String? = null,
     val runtime: Int? = null,
+    val trailer: String? = null,
     val genres: List<GenreDto> = emptyList(),
     val cast: List<PeopleDto> = emptyList(),
     val seasons: List<SeasonDto> = emptyList(),
@@ -145,14 +146,14 @@ data class StreamResponse(
 private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (this) {
     is Movie -> ShowDto(
         id = id, title = title, type = "movie", poster = poster, banner = banner, logo = logo, overview = overview,
-        rating = rating, released = released, runtime = runtime,
+        rating = rating, released = released, runtime = runtime, trailer = trailer,
         genres = genres.map { GenreDto(it.id, it.name) },
         cast = cast.map { PeopleDto(it.id, it.name, it.image) },
         recommendations = if (includeRecommendations) recommendations.map { it.toDto(includeRecommendations = false) } else emptyList(),
     )
     is TvShow -> ShowDto(
         id = id, title = title, type = "tv", poster = poster, banner = banner, logo = logo, overview = overview,
-        rating = rating, released = released, runtime = runtime,
+        rating = rating, released = released, runtime = runtime, trailer = trailer,
         genres = genres.map { GenreDto(it.id, it.name) },
         cast = cast.map { PeopleDto(it.id, it.name, it.image) },
         seasons = seasons.map { SeasonDto(it.id, it.number, it.title) },

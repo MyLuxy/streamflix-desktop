@@ -51,6 +51,9 @@
     "content": {
       "play": "Lire",
       "trailer": "Bande-annonce",
+      "mute": "Couper le son",
+      "unmute": "Activer le son",
+      "volume": "Volume",
       "watchlist": "Ma Liste",
       "inWatchlist": "Dans Ma Liste",
       "overview": "Synopsis",

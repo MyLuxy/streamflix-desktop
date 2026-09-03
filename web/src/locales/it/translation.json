@@ -51,6 +51,9 @@
     "content": {
       "play": "Riproduci",
       "trailer": "Trailer",
+      "mute": "Disattiva audio",
+      "unmute": "Attiva audio",
+      "volume": "Volume",
       "watchlist": "Lista",
       "inWatchlist": "Nella Lista",
       "overview": "Panoramica",

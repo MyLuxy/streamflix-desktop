@@ -37,6 +37,7 @@ export interface BackendShow {
   rating: number | null;
   released: string | null;
   runtime: number | null;
+  trailer: string | null;
   genres: BackendGenre[];
   cast: BackendPerson[];
   seasons: BackendSeason[];

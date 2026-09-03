@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Check, Star, Clock, Calendar, Video, ArrowLeft } from "lucide-react";
+import { Plus, Check, Star, Clock, Calendar, ArrowLeft, Volume2, Volume1, VolumeX } from "lucide-react";
 import { PlayIcon } from "@/components/MediaIcons";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,6 +11,7 @@ import { useContinueWatching } from "@/hooks/useContinueWatching";
 import { useEpisodeProgress } from "@/hooks/useEpisodeProgress";
 import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 import { useSeasonEpisodes } from "@/hooks/useStreamflix";
+import { useYoutubeTrailer } from "@/hooks/useYoutubeTrailer";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { HlsPlayer } from "@/components/HlsPlayer";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
@@ -75,7 +76,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const seasons = mediaType === "tv" && "seasons" in data ? data.seasons : [];
 
   const [playing, setPlaying] = useState(!!initialWatch);
-  const [showTrailer, setShowTrailer] = useState(false);
   const [showEpisodePicker, setShowEpisodePicker] = useState(false);
   // season 0 is a real thing for some providers (AnimeUnity), cant just default to 1
   const [startSeason, setStartSeason] = useState(
@@ -168,6 +168,25 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       (video.type === "Trailer" || video.type === "Teaser")
   );
   const trailerKey = trailer?.key;
+
+  // hidden behind the poster until playing, no loop (restarting would flash the pause icon again)
+  const {
+    containerRef: trailerRef,
+    muted: trailerMuted,
+    volume: trailerVolume,
+    toggleMute: toggleTrailerMute,
+    changeVolume: changeTrailerVolume,
+    playing: trailerPlaying,
+    ended: trailerEnded,
+  } = useYoutubeTrailer(trailerKey, !!trailerKey);
+  const [trailerRevealed, setTrailerRevealed] = useState(false);
+  useEffect(() => {
+    if (!trailerPlaying) return;
+    const timer = setTimeout(() => setTrailerRevealed(true), 4000);
+    return () => clearTimeout(timer);
+  }, [trailerPlaying]);
+  // youtube shows its own replay button once the video ends, so the poster covers it back up
+  const trailerShowing = trailerRevealed && !trailerEnded;
 
   const inWatchlist = isInWatchlist(id, mediaType);
 
@@ -272,17 +291,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         {t("content.play")}
       </Button>
 
-      {trailerKey && (
-        <Button
-          onClick={() => setShowTrailer(true)}
-          variant="secondary"
-          className="gap-1.5 sm:gap-2 md:gap-3 text-sm sm:text-base md:text-xl h-9 sm:h-11 md:h-16 px-4 sm:px-6 md:px-10"
-        >
-          <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          <span className="hidden sm:inline">{t("content.trailer")}</span>
-        </Button>
-      )}
-
       <Button
         variant="outline"
         onClick={handleToggleWatchlist}
@@ -360,17 +368,59 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         <main className="pb-24">
           <div className="relative w-full">
               <div className="relative w-full h-[32vh] min-h-[200px] sm:h-[40vh] md:h-[62vh]">
-                {effectiveBackdropUrl ? (
-                  <ImageWithSpinner
-                    src={effectiveBackdropUrl}
-                    alt={title}
-                    className="w-full h-full object-cover object-top"
-                    onError={triggerFallback}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-muted" />
+                {trailerKey && (
+                  <div className="trailer-bg-fill absolute inset-0 overflow-hidden pointer-events-none">
+                    <div ref={trailerRef} className="pointer-events-none" />
+                  </div>
                 )}
+
+                <motion.div
+                  initial={false}
+                  animate={{ opacity: trailerKey && trailerShowing ? 0 : 1 }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  className="absolute inset-0 pointer-events-none"
+                >
+                  {effectiveBackdropUrl ? (
+                    <ImageWithSpinner
+                      src={effectiveBackdropUrl}
+                      alt={title}
+                      className="w-full h-full object-cover object-top"
+                      onError={triggerFallback}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-muted" />
+                  )}
+                </motion.div>
+
                 <div className="detail-backdrop-fade absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+
+                {trailerKey && trailerShowing && (
+                  <div className="group/volume absolute bottom-4 left-4 z-20 flex items-center gap-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full px-2.5 py-2.5 transition-colors">
+                    <button
+                      onClick={toggleTrailerMute}
+                      aria-label={trailerMuted ? t("content.unmute") : t("content.mute")}
+                      className="text-white flex-shrink-0"
+                    >
+                      {trailerMuted || trailerVolume === 0 ? (
+                        <VolumeX className="w-7 h-7 md:w-9 md:h-9 translate-x-[3px]" />
+                      ) : trailerVolume < 0.5 ? (
+                        <Volume1 className="w-7 h-7 md:w-9 md:h-9 translate-x-[3px]" />
+                      ) : (
+                        <Volume2 className="w-7 h-7 md:w-9 md:h-9 translate-x-[3px]" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={trailerMuted ? 0 : trailerVolume}
+                      onChange={(e) => changeTrailerVolume(Number(e.target.value))}
+                      aria-label={t("content.volume")}
+                      className="w-0 group-hover/volume:w-16 md:group-hover/volume:w-24 opacity-0 group-hover/volume:opacity-100 transition-all duration-200 accent-white h-1 cursor-pointer"
+                    />
+                  </div>
+                )}
               </div>
               {backButton("fixed top-3 left-3 z-30 gap-2 md:top-28 md:left-6")}
             </div>
@@ -477,29 +527,6 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
           getEpisodeProgress={(season, episode) => getEpisodeProgress(provider, realId, season, episode)}
           backdropUrl={effectiveBackdropUrl}
         />
-      )}
-
-      {showTrailer && trailerKey && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowTrailer(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-5xl aspect-video"
-          >
-            <iframe
-              src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&rel=0&modestbranding=1`}
-              className="w-full h-full rounded-lg shadow-2xl"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title={`${title} Trailer`}
-            />
-          </div>
-        </motion.div>
       )}
     </div>
   );

@@ -55,6 +55,19 @@ function toCastMembers(cast: BackendPerson[]): CastMember[] {
   }));
 }
 
+// providers hand back watch?v=, /embed/ and youtu.be links depending on where they scraped it from
+function youtubeIdFrom(url: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/);
+  return match?.[1] ?? null;
+}
+
+function videosFrom(trailer: string | null): MovieDetails["videos"] {
+  const key = youtubeIdFrom(trailer);
+  if (!key) return undefined;
+  return { results: [{ id: key, key, name: "Trailer", site: "YouTube", type: "Trailer", official: true }] };
+}
+
 function toMovieDetails(dto: BackendShow, provider: string): MovieDetails {
   const base = toMediaItem(dto, provider) as Movie;
   return {
@@ -70,6 +83,7 @@ function toMovieDetails(dto: BackendShow, provider: string): MovieDetails {
     status: "",
     tagline: "",
     credits: { cast: toCastMembers(dto.cast), crew: [] },
+    videos: videosFrom(dto.trailer),
   };
 }
 
@@ -103,6 +117,7 @@ function toTVShowDetails(dto: BackendShow, provider: string): TVShowDetails {
     tagline: "",
     type: "",
     credits: { cast: toCastMembers(dto.cast), crew: [] },
+    videos: videosFrom(dto.trailer),
   };
 }
 

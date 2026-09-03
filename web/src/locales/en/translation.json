@@ -51,6 +51,9 @@
     "content": {
       "play": "Play",
       "trailer": "Trailer",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "volume": "Volume",
       "watchlist": "Watchlist",
       "inWatchlist": "In Watchlist",
       "overview": "Overview",
