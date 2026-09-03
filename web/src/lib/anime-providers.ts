@@ -33,3 +33,11 @@ export function isAnimeProvider(provider: string | undefined): boolean {
 export function usesAniListArtwork(provider: string | undefined): boolean {
   return !!provider && ANIME_PROVIDERS_USE_ANILIST.has(provider);
 }
+
+// hianime.cv hotlink-protects its own images (they 404 loaded from anywhere but their own
+// pages), so there's no point even trying them - go straight to the tmdb fallback instead
+const SKIP_OWN_ARTWORK = new Set(["HiAnime"]);
+
+export function skipsOwnArtwork(provider: string | undefined): boolean {
+  return !!provider && SKIP_OWN_ARTWORK.has(provider);
+}

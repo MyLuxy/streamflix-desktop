@@ -13,6 +13,7 @@ import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 import { useSeasonEpisodes } from "@/hooks/useStreamflix";
 import { useYoutubeTrailer } from "@/hooks/useYoutubeTrailer";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
+import { skipsOwnArtwork } from "@/lib/anime-providers";
 import { HlsPlayer } from "@/components/HlsPlayer";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 import { EpisodePickerModal } from "@/components/EpisodePickerModal";
@@ -150,17 +151,19 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       ? data.episode_run_time?.[0]
       : null;
 
+  const skipOwnArtwork = skipsOwnArtwork(provider);
   const backdropUrl = imageUrl(data.backdrop_path, IMAGE_SIZES.backdrop.large);
-  const posterUrl = imageUrl(data.poster_path, IMAGE_SIZES.poster.medium);
+  const posterUrl = skipOwnArtwork ? null : imageUrl(data.poster_path, IMAGE_SIZES.poster.medium);
   const { fallbackPoster, fallbackBackdrop, triggerFallback } = useArtworkFallback(
     title, year ? String(year) : undefined, mediaType, provider
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;
-  // no native backdrop at all (common for hianime), dont wait for an onError that'll never fire
+  // no native backdrop at all (common for hianime), and hianime's own poster is hotlink-protected
+  // dead weight too - dont wait for an onError that'll never fire
   useEffect(() => {
-    if (!backdropUrl) triggerFallback();
-  }, [backdropUrl, triggerFallback]);
+    if (!backdropUrl || skipOwnArtwork) triggerFallback();
+  }, [backdropUrl, skipOwnArtwork, triggerFallback]);
 
   const trailer = data.videos?.results?.find(
     (video) =>

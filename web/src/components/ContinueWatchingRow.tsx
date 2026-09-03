@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useContinueWatching } from "@/hooks/useContinueWatching";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 import { useArtworkFallback } from "@/hooks/useArtworkFallback";
+import { skipsOwnArtwork } from "@/lib/anime-providers";
 
 interface ContinueWatchingRowProps {
   items: WatchedItem[];
@@ -139,10 +140,17 @@ function ContinueWatchingCard({ item, onItemClick, onRemove }: ContinueWatchingC
   const { fallbackBackdrop, fallbackPoster, triggerFallback } = useArtworkFallback(
     item.title, undefined, item.mediaType, item.provider
   );
-  const nativeUrl =
-    resolveImageUrl(item.backdropPath, IMAGE_SIZES.backdrop.medium) ??
-    resolveImageUrl(item.posterPath, IMAGE_SIZES.poster.medium);
+  const skipOwn = skipsOwnArtwork(item.provider);
+  const nativeUrl = skipOwn
+    ? null
+    : resolveImageUrl(item.backdropPath, IMAGE_SIZES.backdrop.medium) ??
+      resolveImageUrl(item.posterPath, IMAGE_SIZES.poster.medium);
   const imageUrl = fallbackBackdrop ?? fallbackPoster ?? nativeUrl;
+
+  // provider's own image is known dead, don't wait for an onError that'll never fire
+  useEffect(() => {
+    if (skipOwn) triggerFallback();
+  }, [skipOwn, triggerFallback]);
 
   return (
     <div

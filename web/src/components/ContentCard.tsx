@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Star, Loader2 } from "lucide-react";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 import { useArtworkFallback } from "@/hooks/useArtworkFallback";
+import { skipsOwnArtwork } from "@/lib/anime-providers";
 
 interface ContentCardProps {
   posterPath: string | null;
@@ -37,8 +38,14 @@ export function ContentCard({
   const [loading, setLoading] = useState(false);
   const { fallbackPoster, triggerFallback } = useArtworkFallback(title, year, mediaType, provider);
   const isLandscape = orientation === "landscape";
+  const skipOwn = skipsOwnArtwork(provider);
 
-  const posterUrl = fallbackPoster ?? imageUrl(posterPath, IMAGE_SIZES.poster.medium);
+  const posterUrl = fallbackPoster ?? (skipOwn ? null : imageUrl(posterPath, IMAGE_SIZES.poster.medium));
+
+  // provider's own poster is known dead, don't wait for an onError that'll never fire
+  useEffect(() => {
+    if (skipOwn) triggerFallback();
+  }, [skipOwn, triggerFallback]);
 
   const inner = (
     // overflow-hidden lives one div deeper so it never clips this div's own shadow
