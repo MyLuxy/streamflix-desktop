@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchTmdbArtwork } from "@/lib/tmdb";
+import { searchTmdbArtwork, cleanTitle } from "@/lib/tmdb";
 
 const ANILIST_URL = "https://graphql.anilist.co";
 
@@ -46,8 +46,7 @@ export async function GET(request: Request) {
   if (!rawTitle) {
     return NextResponse.json({ poster: null, backdrop: null });
   }
-  // a trailing (2026) throws off the match more often than it helps, year is passed separately
-  const title = rawTitle.replace(/\s*\(\d{4}\)\s*$/, "").trim();
+  const title = cleanTitle(rawTitle);
 
   try {
     let result = anime ? await searchAniList(title) : await searchTmdbArtwork(title, year, type);

@@ -40,9 +40,28 @@ export async function tmdbFetch(pathWithQuery: string): Promise<Response> {
   return res;
 }
 
+// a trailing "(2026)", "(Alt Title)", "- Season 2" or "Part 2 French" (also fr/it/es/de)
+// throws off the match more than it helps - some providers tack these onto every title
+// since each season/cour is its own entry, or append a dub-language tag after the number
+const TITLE_NOISE =
+  /\s*\([^)]*\)\s*$|\s*[-–:]?\s*(season|saison|stagione|temporada|staffel|part|parte|partie|teil|cour)\s*\d+(?:\s+\S+)?\s*$/i;
+
+// strips one layer of noise at a time since some providers double it up, e.g.
+// "Reacher - Saison 4 - Saison 4 French"
+export function cleanTitle(rawTitle: string): string {
+  let title = rawTitle;
+  let prev;
+  do {
+    prev = title;
+    title = title.replace(TITLE_NOISE, "").trim();
+  } while (title !== prev);
+  return title;
+}
+
 // best-match poster/backdrop for a title, used both as a broken-image fallback and to
 // swap a provider's own art for tmdb's on the homepage hero
-export async function searchTmdbArtwork(title: string, year: string | null, type: "movie" | "tv") {
+export async function searchTmdbArtwork(rawTitle: string, year: string | null, type: "movie" | "tv") {
+  const title = cleanTitle(rawTitle);
   let query = `/search/${type}?query=${encodeURIComponent(title)}&language=en-US`;
   if (year) {
     query += `&${type === "movie" ? "year" : "first_air_date_year"}=${encodeURIComponent(year)}`;
