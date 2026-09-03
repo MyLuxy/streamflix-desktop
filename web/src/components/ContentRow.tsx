@@ -20,31 +20,27 @@ interface ContentRowProps {
   isIptv?: boolean;
   // streamingcommunity-style "Top 10" treatment: big rank numbers, capped to 10 items
   rank?: boolean;
-  // experimental: skip mounting a card's image/animation until it's about to scroll into
-  // view, instead of all of them at once - trialing on one provider before it goes everywhere
-  lazyMount?: boolean;
 }
 
 // reserves the card's exact footprint immediately (so scrollWidth/layout never shifts) but
 // only mounts the real, animated card once it's within rootMargin of the scroll container -
 // a home row with dozens of items otherwise pays the react+framer-motion cost for every
-// single one up front, most of which the user may never scroll to
+// single one up front, most of which the user may never scroll to. applies to every row/
+// provider uniformly, current and future - no per-provider opt-in needed
 function LazyCard({
   rootRef,
   isIptv,
-  enabled,
   children,
 }: {
   rootRef: React.RefObject<HTMLDivElement | null>;
   isIptv?: boolean;
-  enabled: boolean;
   children: React.ReactNode;
 }) {
-  const [visible, setVisible] = useState(!enabled);
+  const [visible, setVisible] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!enabled || visible) return;
+    if (visible) return;
     const el = slotRef.current;
     const root = rootRef.current;
     if (!el || !root) return;
@@ -56,9 +52,7 @@ function LazyCard({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [enabled, visible, rootRef]);
-
-  if (!enabled) return <>{children}</>;
+  }, [visible, rootRef]);
 
   return (
     <div
@@ -83,7 +77,6 @@ export function ContentRow({
   resetScroll,
   isIptv,
   rank,
-  lazyMount,
 }: ContentRowProps) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -242,7 +235,7 @@ export function ContentRow({
                   {index + 1}
                 </span>
               )}
-              <LazyCard rootRef={scrollRef} isIptv={isIptv} enabled={!!lazyMount}>
+              <LazyCard rootRef={scrollRef} isIptv={isIptv}>
                 <ContentCard
                   posterPath={item.poster_path}
                   title={getTitle(item)}
