@@ -42,9 +42,11 @@ export async function tmdbFetch(pathWithQuery: string): Promise<Response> {
 
 // a trailing "(2026)", "(Alt Title)", "- Season 2" or "Part 2 French" (also fr/it/es/de)
 // throws off the match more than it helps - some providers tack these onto every title
-// since each season/cour is its own entry, or append a dub-language tag after the number
+// since each season/cour is its own entry, or append a dub-language tag after the number.
+// anime titles also use "2nd Season"/"3rd Cour" (number before the keyword, ordinal suffix)
+// and "Final Season" (no number at all) - tmdb only ever indexes the base show title
 const TITLE_NOISE =
-  /\s*\([^)]*\)\s*$|\s*[-–:]?\s*(season|saison|stagione|temporada|staffel|part|parte|partie|teil|cour)\s*\d+(?:\s+\S+)?\s*$/i;
+  /\s*\([^)]*\)\s*$|\s*[-–:]?\s*(season|saison|stagione|temporada|staffel|part|parte|partie|teil|cour)\s*\d+(?:\s+\S+)?\s*$|\s*[-–:]?\s*\d+(?:st|nd|rd|th)\s+(season|cour|part|series)\s*$|\s*[-–:]?\s*(final|last)\s+(season|cour|part|series)\s*$/i;
 
 // strips one layer of noise at a time since some providers double it up, e.g.
 // "Reacher - Saison 4 - Saison 4 French"
