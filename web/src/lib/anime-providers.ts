@@ -20,11 +20,8 @@ export const ANIME_PROVIDERS = new Set([
   "Otakufr",
 ]);
 
-// of those, the ones whose titles anilist actually catalogs well enough to bother
-// hitting it before tmdb - HiAnime's own titles match tmdb fine, anilist just adds a
-// slower, less reliable extra hop for it
+// every anime provider tries anilist first, tmdb as the second try when anilist misses
 const ANIME_PROVIDERS_USE_ANILIST = new Set(ANIME_PROVIDERS);
-ANIME_PROVIDERS_USE_ANILIST.delete("HiAnime");
 
 export function isAnimeProvider(provider: string | undefined): boolean {
   return !!provider && ANIME_PROVIDERS.has(provider);
@@ -34,8 +31,9 @@ export function usesAniListArtwork(provider: string | undefined): boolean {
   return !!provider && ANIME_PROVIDERS_USE_ANILIST.has(provider);
 }
 
-// hianime.cv hotlink-protects its own images (they 404 loaded from anywhere but their own
-// pages), so there's no point even trying them - go straight to the tmdb fallback instead
+// hianime's own uploads are full of genuinely missing files - wordpress itself 301s them to
+// the homepage (x-redirect-by: WordPress, confirmed even bypassing cloudflare's cache), not
+// a bot block, so retrying them is pointless - skip straight to anilist/tmdb every time
 const SKIP_OWN_ARTWORK = new Set(["HiAnime"]);
 
 export function skipsOwnArtwork(provider: string | undefined): boolean {

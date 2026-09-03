@@ -159,8 +159,8 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;
-  // no native backdrop at all (common for hianime), and hianime's own poster is hotlink-protected
-  // dead weight too - dont wait for an onError that'll never fire
+  // no native backdrop at all (common for hianime), and hianime's own poster is known dead too -
+  // dont wait for an onError that'll never fire
   useEffect(() => {
     if (!backdropUrl || skipOwnArtwork) triggerFallback();
   }, [backdropUrl, skipOwnArtwork, triggerFallback]);
