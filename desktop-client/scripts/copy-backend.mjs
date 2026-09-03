@@ -15,7 +15,7 @@ const skipBuild = process.argv.includes("--no-build");
 
 if (!skipBuild) {
   console.log("> gradle :desktop:jpackageImage...");
-  const gradlew = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
+  const gradlew = process.platform === "win32" ? ".\\gradlew.bat" : "./gradlew";
   execSync(`${gradlew} :desktop:jpackageImage --no-configuration-cache`, {
     cwd: repoRoot,
     stdio: "inherit",

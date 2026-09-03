@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 
@@ -29,6 +29,9 @@ function killChildren() {
 async function boot() {
   const logDir = app.getPath("logs");
   fs.mkdirSync(logDir, { recursive: true });
+
+  // no File/Edit/View bar - this is a media app, not a document editor
+  Menu.setApplicationMenu(null);
 
   const win = createMainWindow();
 
