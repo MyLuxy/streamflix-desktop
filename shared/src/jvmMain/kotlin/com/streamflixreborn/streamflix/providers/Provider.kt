@@ -69,6 +69,8 @@ interface Provider {
             // site itself is down, also exposed here as its own selectable provider
             TmdbProvider("it") to ProviderSupport(movies = true, tvShows = true),
             TmdbProvider("en") to ProviderSupport(movies = true, tvShows = true),
+            TmdbProvider("de") to ProviderSupport(movies = true, tvShows = true),
+            TmdbProvider("es") to ProviderSupport(movies = true, tvShows = true),
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
             MkissaProvider to ProviderSupport(movies = true, tvShows = true),
             AniWorldProvider to ProviderSupport(movies = false, tvShows = true),
