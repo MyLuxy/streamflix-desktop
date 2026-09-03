@@ -53,8 +53,15 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     private val TAG: String
         get() = "SCProviderDebug[$LANG]"
 
-    private val DEFAULT_DOMAIN: String = "streamingunity.cc"
-    private val BLOCKED_DOMAINS = setOf("streamingcommunityz.green", "streamingunity.club", "streamingunity.bike", "streamingcommunityz.buzz")
+    // when the site itself is unreachable (dead domain, ISP block, etc.) every catalog
+    // call below falls through to tmdb+vixsrc instead of leaving the home screen blank.
+    // once flipped it stays flipped for this instance's lifetime, since flip-flopping
+    // mid-session would mix two incompatible id schemes together
+    private val tmdbFallback by lazy { TmdbProvider(LANG) }
+    private var usingFallback = false
+
+    private val DEFAULT_DOMAIN: String = "streamingcommunityz.tax"
+    private val BLOCKED_DOMAINS = setOf("streamingcommunityz.green", "streamingunity.club", "streamingunity.bike", "streamingcommunityz.buzz", "streamingunity.cc")
     override val baseUrl = DEFAULT_DOMAIN
     private var _domain: String? = null
     private var domain: String
@@ -204,6 +211,17 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getHome(): List<Category> {
+        if (usingFallback) return tmdbFallback.getHome()
+        return try {
+            getHomeReal()
+        } catch (e: Exception) {
+            Log.w(TAG, "getHome failed ($e), switching to TMDB fallback")
+            usingFallback = true
+            tmdbFallback.getHome()
+        }
+    }
+
+    private suspend fun getHomeReal(): List<Category> {
         val res: StreamingCommunityService.HomeRes = try {
             if (version.isNullOrEmpty()) {
                 val json = InertiaUtils.parseInertiaData(withSslFallback { it.getHome() })
@@ -297,6 +315,17 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
+        if (usingFallback) return tmdbFallback.search(query, page)
+        return try {
+            searchReal(query, page)
+        } catch (e: Exception) {
+            Log.w(TAG, "search failed ($e), switching to TMDB fallback")
+            usingFallback = true
+            tmdbFallback.search(query, page)
+        }
+    }
+
+    private suspend fun searchReal(query: String, page: Int): List<ListItem> {
         if (query.isEmpty()) {
             val currentVersion = ensureVersion()
             val res = try {
@@ -336,6 +365,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getMovies(page: Int): List<Movie> {
+        if (usingFallback) return tmdbFallback.getMovies(page)
         val offset = (page - 1) * 60
         val shows = try {
             if (page == 1) {
@@ -345,8 +375,9 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
                 withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "movie") }.titles
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching movies page $page: ${e.message}")
-            listOf()
+            Log.w(TAG, "Error fetching movies page $page ($e), switching to TMDB fallback")
+            usingFallback = true
+            return tmdbFallback.getMovies(page)
         }
 
         return shows.map { title ->
@@ -355,6 +386,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getTvShows(page: Int): List<TvShow> {
+        if (usingFallback) return tmdbFallback.getTvShows(page)
         val offset = (page - 1) * 60
         val shows = try {
             if (page == 1) {
@@ -364,8 +396,9 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
                 withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "tv") }.titles
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error fetching tv shows page $page: ${e.message}")
-            listOf()
+            Log.w(TAG, "Error fetching tv shows page $page ($e), switching to TMDB fallback")
+            usingFallback = true
+            return tmdbFallback.getTvShows(page)
         }
 
         return shows.map { title ->
@@ -373,7 +406,12 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         }.distinctBy { it.id }
     }
 
-    override suspend fun getMovie(id: String): Movie = coroutineScope {
+    override suspend fun getMovie(id: String): Movie {
+        if (usingFallback) return tmdbFallback.getMovie(id)
+        return getMovieReal(id)
+    }
+
+    private suspend fun getMovieReal(id: String): Movie = coroutineScope {
         val resDeferred = async {
             val currentVersion = ensureVersion()
             try {
@@ -419,7 +457,12 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         )
     }
 
-    override suspend fun getTvShow(id: String): TvShow = coroutineScope {
+    override suspend fun getTvShow(id: String): TvShow {
+        if (usingFallback) return tmdbFallback.getTvShow(id)
+        return getTvShowReal(id)
+    }
+
+    private suspend fun getTvShowReal(id: String): TvShow = coroutineScope {
         val resDeferred = async {
              val currentVersion = ensureVersion()
              try {
@@ -468,6 +511,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
+        if (usingFallback) return tmdbFallback.getEpisodesBySeason(seasonId)
         val currentVersion = ensureVersion()
         val res: StreamingCommunityService.SeasonRes = try {
             withSslFallback { it.getSeasonDetails(seasonId, version = currentVersion, language = LANG) }.also {
@@ -487,6 +531,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getGenre(id: String, page: Int): Genre {
+        if (usingFallback) return tmdbFallback.getGenre(id, page)
         val name = ""
         val offset = (page - 1) * 60
         
@@ -520,6 +565,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getPeople(id: String, page: Int): People {
+        if (usingFallback) return tmdbFallback.getPeople(id, page)
         val res = withSslFallback { it.search(id, page, LANG) }
         if (res.currentPage == null || (res.lastPage != null && res.currentPage > res.lastPage)) return People(id = id, name = id)
         return People(id = id, name = id, filmography = res.data.map {
@@ -530,6 +576,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
+        if (usingFallback) return tmdbFallback.getServers(id, videoType)
         Log.i("StreamFlixES", "[PROV] -> StreamingCommunity: getServers for $id")
         val base = "https://$domain/"
         
@@ -554,6 +601,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getVideo(server: Video.Server): Video {
+        if (usingFallback) return tmdbFallback.getVideo(server)
         Log.i("StreamFlixES", "[SERVER] -> StreamingCommunity: Using ${server.name} (Src: ${server.src})")
         
         val base = "https://$domain/"
