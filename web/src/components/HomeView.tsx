@@ -59,7 +59,11 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
   };
 
   // the provider's first row (usually the "featured"/"trending" one) is used as the hero
-  const [heroRow, ...restRows] = rows;
+  const [heroRow, ...allRestRows] = rows;
+  // HiAnime's own home rows are mostly redundant with the custom genre sections below,
+  // keep just the one row that isn't (new releases) and let the genre sections do the rest
+  const restRows =
+    provider === "HiAnime" ? allRestRows.filter((row) => row.name === "New On HiAnime") : allRestRows;
 
   return (
     <div className="min-h-screen bg-background">
