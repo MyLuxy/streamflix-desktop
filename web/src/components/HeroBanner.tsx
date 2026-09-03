@@ -14,9 +14,6 @@ interface HeroBannerProps {
   items: MediaItem[];
   onPlayClick: (item: MediaItem) => void;
   onInfoClick: (item: MediaItem) => void;
-  // live-tv channel logos are small/low-res, same "shrink so the upscale is less obvious"
-  // treatment as HiAnime's native art
-  isIptv?: boolean;
 }
 
 // scales down as title length grows so it doesnt overflow
@@ -28,13 +25,17 @@ function titleSizeClass(title: string): string {
 
 // below this ratio the img is a poster used as fallback, not a real banner
 const WIDE_BANNER_MIN_RATIO = 1.4;
+// below this width a wide-enough image still looks soft blown up full-bleed (hianime's own
+// art when tmdb has no match, live-tv channel logos) - real tmdb backdrops are always wider
+const LOW_RES_MIN_WIDTH = 1280;
 
-export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBannerProps) {
+export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   // once a logo 404s just keep showing text instead
   const [failedLogoIds, setFailedLogoIds] = useState<Set<number>>(new Set());
-  // defaults to wide so real banners dont flash a blur frame first
+  // defaults to wide/high-res so real banners dont flash a blur frame first
   const [isNarrowImage, setIsNarrowImage] = useState(false);
+  const [isLowRes, setIsLowRes] = useState(false);
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
   const { t } = useTranslation();
   const { revealed, instant } = useHeroEntrance();
@@ -42,9 +43,10 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
   const featuredItems = items.slice(0, 5);
   const currentItem = featuredItems[currentIndex];
 
-  // resets to wide on slide change until the new img reports its real ratio
+  // resets to wide/high-res on slide change until the new img reports its real size
   useEffect(() => {
     setIsNarrowImage(false);
+    setIsLowRes(false);
   }, [currentItem?.id]);
 
   // resets timer on manual dot click too
@@ -66,6 +68,7 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
     const img = e.currentTarget;
     if (img.naturalWidth && img.naturalHeight) {
       setIsNarrowImage(img.naturalWidth / img.naturalHeight < WIDE_BANNER_MIN_RATIO);
+      setIsLowRes(img.naturalWidth < LOW_RES_MIN_WIDTH);
     }
   };
   // only some providers (StreamingCommunity) expose a title logo
@@ -80,10 +83,6 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
 
   const mediaType = currentItem.media_type || ("title" in currentItem ? "movie" : "tv");
   const inWatchlist = isInWatchlist(currentItem.id, mediaType);
-  // hianime's own hero art is only ~1000x400, and live-tv channel logos are small too,
-  // stretched full width they look noticeably soft, showing them a bit smaller (backed by
-  // the same blur fill as a narrow poster) keeps it from being blown up as much
-  const shrinkArt = providerTagOf(currentItem)?.provider === "HiAnime" || isIptv;
 
   return (
     <div className={`hero-banner relative w-full h-[54vh] md:h-[68vh] overflow-hidden ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}>
@@ -113,7 +112,7 @@ export function HeroBanner({ items, onPlayClick, onInfoClick, isIptv }: HeroBann
                   className="absolute inset-0 w-full h-full object-contain object-top"
                 />
               </>
-            ) : shrinkArt ? (
+            ) : isLowRes ? (
               <>
                 {/* same blur-fill trick, just shown smaller so the upscale is less obvious */}
                 <img

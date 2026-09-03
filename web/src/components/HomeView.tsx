@@ -71,7 +71,7 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
       <main>
         {!error && heroRow && heroRow.items.length > 0 && (
-          <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} isIptv={isIptv} />
+          <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} />
         )}
 
         <div className="home-content relative z-10 -mt-16 md:-mt-32 pb-24 space-y-10 md:space-y-12">
