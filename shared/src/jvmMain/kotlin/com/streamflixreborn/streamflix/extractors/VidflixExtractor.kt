@@ -29,7 +29,12 @@ class VidflixExtractor : Extractor() {
         val service = Service.build(mainUrl)
         val referer = link.replace("/api/", "/")
 
-        val response = service.getVideoData(link, referer = referer)
+        val response = try {
+            service.getVideoData(link, referer = referer)
+        } catch (e: Exception) {
+            if ((e as? retrofit2.HttpException)?.code() == 404) throw ContentNotFoundException("Not found on Vidflix")
+            throw e
+        }
         val videoUrl = response.video_url
         
         // Delegate to RpmvidExtractor as requested

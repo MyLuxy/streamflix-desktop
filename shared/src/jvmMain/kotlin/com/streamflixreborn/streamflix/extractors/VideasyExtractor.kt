@@ -157,6 +157,6 @@ class VideasyExtractor : Extractor() {
             )
         }
 
-        throw Exception("No video source found")
+        throw ContentNotFoundException("No video source found on Videasy")
     }
 }

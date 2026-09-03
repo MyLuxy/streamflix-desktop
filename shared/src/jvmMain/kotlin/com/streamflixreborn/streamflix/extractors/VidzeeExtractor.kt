@@ -78,6 +78,7 @@ class VidzeeExtractor : Extractor() {
                 .build()
 
             val response = client.newCall(request).execute()
+            if (response.code == 404) throw ContentNotFoundException("Not found on Vidzee")
             if (!response.isSuccessful) throw Exception("Network error")
 
             val body = response.body?.string() ?: throw Exception("Empty body")
@@ -120,6 +121,8 @@ class VidzeeExtractor : Extractor() {
                 ),
                 type = mimeType
             )
+        } catch (e: ContentNotFoundException) {
+            throw e
         } catch (e: Exception) {
             throw Exception("Failed to extract video: ${e.message}")
         }

@@ -429,8 +429,15 @@ private fun handleStream(exchange: HttpExchange) {
                 }
             }
 
-            while (remaining > 0 && requestedMatch == null && !(request.serverId == null && firstSuccess != null)) {
-                drainOne()
+            // some extractors (headless-browser waits, slow mirrors) can each take a minute-plus
+            // to give up on their own - with nothing succeeding, waiting on the single slowest
+            // of a dozen servers before showing any error at all made a doomed title take forever
+            // to report that. giving up on the stragglers after this and working with whatever
+            // came back in time keeps a real "not available" answer fast instead of exact
+            withTimeoutOrNull(15_000L) {
+                while (remaining > 0 && requestedMatch == null && !(request.serverId == null && firstSuccess != null)) {
+                    drainOne()
+                }
             }
             if (firstSuccess != null || requestedMatch != null) {
                 withTimeoutOrNull(3_000L) {
@@ -439,8 +446,12 @@ private fun handleStream(exchange: HttpExchange) {
             }
             jobs.forEach { it.cancel() }
             val picked = requestedMatch ?: firstSuccess ?: run {
-                val allNotFound = errors.isNotEmpty() && errors.all { it is ContentNotFoundException }
-                throw if (allNotFound) ContentNotFoundException("Not available on ${provider.name}")
+                // not every extractor can tell "not found" apart from a network hiccup, so
+                // require just one confirmed sighting rather than unanimity - with several
+                // servers in the race, most of them staying silent on it would otherwise
+                // near-permanently mask an accurate signal from the ones that can
+                val anyNotFound = errors.any { it is ContentNotFoundException }
+                throw if (anyNotFound) ContentNotFoundException("Not available on ${provider.name}")
                 else (errors.firstOrNull() ?: Exception("no server available"))
             }
             picked.second to working
