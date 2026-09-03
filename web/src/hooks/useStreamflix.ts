@@ -122,6 +122,9 @@ export interface StreamResult {
   subtitles: { label: string; url: string; default: boolean }[];
   servers?: StreamServer[];
   error?: string;
+  // true only when every server checked gave a clean "not there" answer, never on a
+  // network/parse error - safe to show a precise "not available" message for this one
+  notFound?: boolean;
 }
 
 // resolves a playable stream for a movie or a specific episode, returning a manifest URL that's

@@ -3,6 +3,11 @@ package com.streamflixreborn.streamflix.extractors
 import com.streamflixreborn.streamflix.utils.Log
 import com.streamflixreborn.streamflix.models.Video
 
+// thrown by an extractor when its own source confirms the title just isn't there (a clean
+// 404 from the api, not a network/parse error) - lets callers show a precise "not available"
+// message instead of a generic one, but only once every server for a title has failed this way
+class ContentNotFoundException(message: String) : Exception(message)
+
 abstract class Extractor {
 
     abstract val name: String

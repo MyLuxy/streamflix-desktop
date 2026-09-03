@@ -152,6 +152,7 @@
       "hint": "Se il film non carica, prova a cambiare server qui sotto",
       "streamError": "Errore nel caricare lo stream",
       "streamUnavailable": "Stream non disponibile",
+      "contentNotAvailable": "Questo contenuto non è disponibile su questo provider",
       "hlsUnsupported": "HLS non supportato in questo browser",
       "back": "Indietro",
       "nextEpisode": "Prossimo episodio",

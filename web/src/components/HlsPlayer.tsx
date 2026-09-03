@@ -252,10 +252,11 @@ export function HlsPlayer({
     resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId).then((result) => {
       if (cancelled) return;
       if (!result.success || !result.manifestUrl) {
-        // raw backend errors arent user friendly, log em and show a generic message
+        // raw backend errors arent user friendly, log em and show a generic message -
+        // unless every server confirmed the title just isn't there, then say that instead
         console.error("[StreamFlix] stream error:", result.error);
         setStatus("error");
-        setErrorMessage(t("player.streamUnavailable"));
+        setErrorMessage(result.notFound ? t("player.contentNotAvailable") : t("player.streamUnavailable"));
         return;
       }
 

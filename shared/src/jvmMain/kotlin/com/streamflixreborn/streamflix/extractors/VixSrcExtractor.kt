@@ -62,6 +62,9 @@ class VixSrcExtractor(private val language: String? = null) : Extractor() {
             service.getSourceApi(apiPath)
         } catch (e: Exception) {
             Log.e("VixSrcDebug", "API call failed: ${e.message}")
+            if ((e as? retrofit2.HttpException)?.code() == 404) {
+                throw ContentNotFoundException("Not found on VixSrc")
+            }
             throw e
         }
         

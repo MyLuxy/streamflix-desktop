@@ -7,6 +7,7 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.Show
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
+import com.streamflixreborn.streamflix.extractors.ContentNotFoundException
 import com.streamflixreborn.streamflix.providers.IptvProvider
 import com.streamflixreborn.streamflix.providers.Provider
 import com.streamflixreborn.streamflix.utils.TMDb3
@@ -135,6 +136,10 @@ data class StreamResponse(
     val subtitles: List<SubtitleDto> = emptyList(),
     val servers: List<ServerDto> = emptyList(),
     val error: String? = null,
+    // true only when every server tried gave a clean "this title isn't there" answer,
+    // never on a network/parse error - lets the frontend show a precise message instead
+    // of a generic one, without risking a false "not available" on a transient failure
+    val notFound: Boolean = false,
 )
 
 private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (this) {
@@ -405,7 +410,10 @@ private fun handleStream(exchange: HttpExchange) {
             val working = mutableListOf<Video.Server>()
             var firstSuccess: Pair<Video.Server, Video>? = null
             var requestedMatch: Pair<Video.Server, Video>? = null
-            var firstError: Throwable? = null
+            // every failure gets collected (not just the first) so a total wipeout can be
+            // told apart from a real error: only if EVERY server independently confirmed
+            // the title just isn't there do we tell the user that specifically
+            val errors = mutableListOf<Throwable>()
             var remaining = servers.size
 
             suspend fun drainOne() {
@@ -416,8 +424,8 @@ private fun handleStream(exchange: HttpExchange) {
                     working.add(server)
                     if (firstSuccess == null) firstSuccess = server to video
                     if (request.serverId == server.id) requestedMatch = server to video
-                } else if (firstError == null) {
-                    firstError = videoResult.exceptionOrNull()
+                } else {
+                    videoResult.exceptionOrNull()?.let { errors.add(it) }
                 }
             }
 
@@ -430,12 +438,17 @@ private fun handleStream(exchange: HttpExchange) {
                 }
             }
             jobs.forEach { it.cancel() }
-            val picked = requestedMatch ?: firstSuccess
-                ?: throw (firstError ?: Exception("no server available"))
+            val picked = requestedMatch ?: firstSuccess ?: run {
+                val allNotFound = errors.isNotEmpty() && errors.all { it is ContentNotFoundException }
+                throw if (allNotFound) ContentNotFoundException("Not available on ${provider.name}")
+                else (errors.firstOrNull() ?: Exception("no server available"))
+            }
             picked.second to working
         }
     }.getOrElse {
-        return sendJson(exchange, 200, json.encodeToString(StreamResponse(false, error = it.message ?: "extraction failed")))
+        return sendJson(exchange, 200, json.encodeToString(
+            StreamResponse(false, error = it.message ?: "extraction failed", notFound = it is ContentNotFoundException)
+        ))
     }
     val (video, servers) = result
 

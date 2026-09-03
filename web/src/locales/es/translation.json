@@ -152,6 +152,7 @@
       "hint": "Si la película no carga, prueba cambiando de servidor abajo",
       "streamError": "Error al cargar la transmisión",
       "streamUnavailable": "Transmisión no disponible",
+      "contentNotAvailable": "Este contenido no está disponible en este proveedor",
       "hlsUnsupported": "HLS no compatible con este navegador",
       "back": "Atrás",
       "nextEpisode": "Siguiente episodio",
