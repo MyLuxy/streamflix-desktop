@@ -13,7 +13,7 @@ import {
   getSavedProviderLangFilter,
   setSavedProviderLangFilter,
 } from "@/lib/provider";
-import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
+import { proxyImage, PROVIDER_LOGO_FALLBACK, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { POPULAR_PROVIDERS_BY_LANGUAGE } from "@/lib/popular-providers";
 import { isAnimeProvider } from "@/lib/anime-providers";
@@ -407,8 +407,8 @@ function ProviderTile({
           className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover bg-muted"
           onError={(e) => {
             const img = e.target as HTMLImageElement;
-            if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-            img.src = PROVIDER_LOGO_FALLBACK;
+            if (img.src.endsWith(GENERIC_PROVIDER_LOGO)) return;
+            img.src = GENERIC_PROVIDER_LOGO;
           }}
         />
         {isSelected && (

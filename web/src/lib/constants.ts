@@ -15,8 +15,13 @@ export function imageUrl(path: string | null | undefined, size: string): string 
   return `${TMDB_IMAGE_BASE}/${size}${path}`;
 }
 
-// local file so it cant itself fail to load like an external favicon can
+// local file so it cant itself fail to load like an external favicon can. this is the
+// actual tmdb logo, only for the tmdb api key setup sections, not a generic placeholder
 export const PROVIDER_LOGO_FALLBACK = "/provider-fallback.png";
+
+// shown when a provider's own favicon 404s, deliberately not tmdb-branded so it doesnt
+// look like that provider is somehow tmdb
+export const GENERIC_PROVIDER_LOGO = "/provider-generic.svg";
 
 export const IMAGE_SIZES = {
   poster: {

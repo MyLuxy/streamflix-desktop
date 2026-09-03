@@ -10,7 +10,7 @@ import { localePath } from "@/lib/links";
 import { useTranslation } from "react-i18next";
 import { useProviders } from "@/hooks/useStreamflix";
 import { getSelectedProviderClient, PROVIDER_CHANGED_EVENT } from "@/lib/provider";
-import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
+import { proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 
 const tabs: { path: string; labelKey: string; icon: typeof Home }[] = [
   { path: "/", labelKey: "nav.home", icon: Home },
@@ -92,8 +92,8 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                       className="w-6 h-6 rounded object-cover flex-shrink-0 bg-muted"
                       onError={(e) => {
                         const img = e.target as HTMLImageElement;
-                        if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                        img.src = PROVIDER_LOGO_FALLBACK;
+                        if (img.src.endsWith(GENERIC_PROVIDER_LOGO)) return;
+                        img.src = GENERIC_PROVIDER_LOGO;
                       }}
                     />
                   ) : (

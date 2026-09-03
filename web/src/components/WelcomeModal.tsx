@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import { languages } from "@/i18n";
 import { useProviders } from "@/hooks/useStreamflix";
 import { setSelectedProviderClient } from "@/lib/provider";
-import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
+import { proxyImage, PROVIDER_LOGO_FALLBACK, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { BACKEND_URL } from "@/lib/backend";
 import { setCustomTmdbKeyClient } from "@/lib/tmdb-key";
@@ -408,8 +408,8 @@ export function WelcomeModal() {
                                 className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover bg-muted"
                                 onError={(e) => {
                                   const img = e.target as HTMLImageElement;
-                                  if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                                  img.src = PROVIDER_LOGO_FALLBACK;
+                                  if (img.src.endsWith(GENERIC_PROVIDER_LOGO)) return;
+                                  img.src = GENERIC_PROVIDER_LOGO;
                                 }}
                               />
                               {selected && (
