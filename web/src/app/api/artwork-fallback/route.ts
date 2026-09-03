@@ -26,20 +26,25 @@ async function searchAniList(title: string) {
       }
     }
   `;
-  const res = await fetch(ANILIST_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", accept: "application/json" },
-    body: JSON.stringify({ query, variables: { search: title } }),
-    next: { revalidate: 86400 },
-  });
-  if (!res.ok) return { poster: null, backdrop: null };
-  const data = await res.json();
-  const media = data.data?.Media;
-  // already full urls, unlike tmdb's relative paths
-  return {
-    poster: media?.coverImage?.extraLarge ?? media?.coverImage?.large ?? null,
-    backdrop: media?.bannerImage ?? null,
-  };
+  try {
+    const res = await fetch(ANILIST_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ query, variables: { search: title } }),
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return { poster: null, backdrop: null };
+    const data = await res.json();
+    const media = data.data?.Media;
+    // already full urls, unlike tmdb's relative paths
+    return {
+      poster: media?.coverImage?.extraLarge ?? media?.coverImage?.large ?? null,
+      backdrop: media?.bannerImage ?? null,
+    };
+  } catch {
+    // caller retries via tmdb when this comes back empty
+    return { poster: null, backdrop: null };
+  }
 }
 
 // last resort when a provider's own poster/backdrop 404s, tries to find the same
@@ -58,7 +63,11 @@ export async function GET(request: Request) {
   const title = rawTitle.replace(/\s*\(\d{4}\)\s*$/, "").trim();
 
   try {
-    const result = anime ? await searchAniList(title) : await searchTmdb(title, year, type);
+    let result = anime ? await searchAniList(title) : await searchTmdb(title, year, type);
+    // anilist has had outages where its api 403s outright, tmdb as a second try beats a blank card
+    if (anime && !result.poster && !result.backdrop) {
+      result = await searchTmdb(title, year, type);
+    }
     return NextResponse.json(result);
   } catch {
     return NextResponse.json({ poster: null, backdrop: null });
