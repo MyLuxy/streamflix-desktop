@@ -365,7 +365,11 @@ export function HlsPlayer({
     };
     const onUp = (e: PointerEvent) => {
       const t = seekToClientX(e.clientX);
-      if (t !== null && videoRef.current) videoRef.current.currentTime = t;
+      if (t !== null && videoRef.current) {
+        videoRef.current.currentTime = t;
+        // same as skip() - dont wait on buffering before the bar reflects the drop point
+        setCurrentTime(t);
+      }
       setDragging(false);
       setDragTime(null);
     };
@@ -387,7 +391,10 @@ export function HlsPlayer({
   const skip = (deltaSeconds: number) => {
     const video = videoRef.current;
     if (!video || !isFinite(video.duration)) return;
-    video.currentTime = Math.min(Math.max(0, video.currentTime + deltaSeconds), video.duration);
+    const target = Math.min(Math.max(0, video.currentTime + deltaSeconds), video.duration);
+    video.currentTime = target;
+    // dont wait on the stream to buffer the new spot before the bar/time reflect it
+    setCurrentTime(target);
   };
 
   const toggleMute = () => {
@@ -599,6 +606,10 @@ export function HlsPlayer({
                     className="w-0 group-hover/volume:w-16 md:group-hover/volume:w-24 opacity-0 group-hover/volume:opacity-100 transition-all duration-200 accent-white h-1 cursor-pointer"
                   />
                 </div>
+
+                <span className="text-white/90 text-xs md:text-sm font-medium tabular-nums flex-shrink-0">
+                  {formatTime(displayedTime)} / {formatTime(duration)}
+                </span>
 
                 <div className="min-w-0 hidden sm:block">
                   <p className="text-white text-base md:text-lg font-medium truncate">
