@@ -9,6 +9,7 @@ import type {
   CastMember,
 } from "@/lib/types";
 import { tagProvider, providerTagOf } from "@/lib/provider-tag";
+import { searchTmdbArtwork } from "@/lib/tmdb";
 import {
   stableNumericId,
   toMediaItem,
@@ -128,7 +129,7 @@ export interface HomeRow {
   items: MediaItem[];
 }
 
-export async function getHomeRows(provider: string): Promise<HomeRow[]> {
+export async function getHomeRows(provider: string, isIptv = false): Promise<HomeRow[]> {
   const categories = await api<BackendCategory[]>(`/api/home?provider=${encodeURIComponent(provider)}`, 900);
   const nonEmpty = categories.filter((c) => c.items.length > 0);
 
@@ -151,14 +152,30 @@ export async function getHomeRows(provider: string): Promise<HomeRow[]> {
     const heroItems = heroRow.items.slice(0, 5);
     const enriched = await Promise.all(
       heroItems.map(async (item) => {
-        if (item.overview) return item;
-        const tag = providerTagOf(item);
-        if (!tag) return item;
-        const isMovie = "title" in item;
-        const overview = await (isMovie ? getMovieDetails(tag.provider, tag.realId) : getTVDetails(tag.provider, tag.realId))
-          .then((d) => d.overview)
-          .catch(() => "");
-        return overview ? { ...item, overview } : item;
+        let enrichedItem = item;
+        if (!enrichedItem.overview) {
+          const tag = providerTagOf(item);
+          if (tag) {
+            const isMovie = "title" in item;
+            const overview = await (isMovie ? getMovieDetails(tag.provider, tag.realId) : getTVDetails(tag.provider, tag.realId))
+              .then((d) => d.overview)
+              .catch(() => "");
+            if (overview) enrichedItem = { ...enrichedItem, overview };
+          }
+        }
+        // iptv channel logos have no tmdb equivalent, keep those as-is
+        if (isIptv) return enrichedItem;
+        const title = "title" in enrichedItem ? enrichedItem.title : enrichedItem.name;
+        const year = ("release_date" in enrichedItem ? enrichedItem.release_date : enrichedItem.first_air_date)?.slice(0, 4) || null;
+        const art = await searchTmdbArtwork(title, year, "title" in enrichedItem ? "movie" : "tv").catch(() => null);
+        if (art?.poster || art?.backdrop) {
+          enrichedItem = {
+            ...enrichedItem,
+            poster_path: art.poster ?? enrichedItem.poster_path,
+            backdrop_path: art.backdrop ?? enrichedItem.backdrop_path,
+          };
+        }
+        return enrichedItem;
       })
     );
     heroRow.items = [...enriched, ...heroRow.items.slice(5)];

@@ -39,3 +39,18 @@ export async function tmdbFetch(pathWithQuery: string): Promise<Response> {
   }
   return res;
 }
+
+// best-match poster/backdrop for a title, used both as a broken-image fallback and to
+// swap a provider's own art for tmdb's on the homepage hero
+export async function searchTmdbArtwork(title: string, year: string | null, type: "movie" | "tv") {
+  let query = `/search/${type}?query=${encodeURIComponent(title)}&language=en-US`;
+  if (year) {
+    query += `&${type === "movie" ? "year" : "first_air_date_year"}=${encodeURIComponent(year)}`;
+  }
+
+  const res = await tmdbFetch(query);
+  if (!res.ok) return { poster: null as string | null, backdrop: null as string | null };
+  const data = await res.json();
+  const match = data.results?.[0];
+  return { poster: match?.poster_path ?? null, backdrop: match?.backdrop_path ?? null };
+}

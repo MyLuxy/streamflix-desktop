@@ -64,23 +64,25 @@ export default async function HomePage({ params }: Params) {
   if (!isLocale(locale)) notFound();
 
   const provider = await getSelectedProvider();
-  let rows: Awaited<ReturnType<typeof getHomeRows>> = [];
-  let error: string | null = null;
-  try {
-    rows = await getHomeRows(provider);
-  } catch (e) {
-    console.error(`getHomeRows failed for provider "${provider}":`, e);
-    error = e instanceof Error ? e.message : String(e);
-  }
 
   // resolved server-side (not via the client useProviders hook) so live-tv providers
-  // render their landscape channel cards on the first paint, no post-hydration flash
+  // render their landscape channel cards on the first paint, no post-hydration flash.
+  // also decides whether the hero swaps a provider's own art for tmdb's below
   let isIptv = false;
   try {
     const providers = await getProviders();
     isIptv = providers.find((p) => p.name === provider)?.iptv ?? false;
   } catch {
     // providers fetch failing is orthogonal to home rendering, just fall back to portrait cards
+  }
+
+  let rows: Awaited<ReturnType<typeof getHomeRows>> = [];
+  let error: string | null = null;
+  try {
+    rows = await getHomeRows(provider, isIptv);
+  } catch (e) {
+    console.error(`getHomeRows failed for provider "${provider}":`, e);
+    error = e instanceof Error ? e.message : String(e);
   }
 
   return <HomeView rows={rows} error={error} provider={provider} isIptv={isIptv} />;
