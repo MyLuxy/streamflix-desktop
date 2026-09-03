@@ -216,10 +216,16 @@ export function ContentRow({
           <ChevronRight className="w-12 h-12 md:w-16 md:h-16 translate-x-px" />
         </button>
 
+        {/* the horizontal scroll needs overflow-x-auto, which forces overflow-y to clip too
+            (can't mix visible/auto across axes) - that would cut off the hover glow above and
+            below every card, since this container is exactly as tall as the cards themselves.
+            py-12 opens up clipping-safe room on both edges for the glow to render into, and
+            -my-12 cancels the resulting height increase so the row's footprint in the page
+            doesn't change */}
         <div
           ref={scrollRef}
           onScroll={checkScroll}
-          className="flex gap-3 px-6 md:px-10 overflow-x-auto scrollbar-hide scroll-smooth"
+          className="flex gap-3 px-6 md:px-10 py-12 -my-12 overflow-x-auto scrollbar-hide scroll-smooth"
         >
           {displayItems.map((item, index) => (
             <div
