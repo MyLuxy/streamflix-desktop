@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ArrowRight, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { usePathname } from "next/navigation";
@@ -298,14 +298,12 @@ export function WelcomeModal() {
                 <div className="w-full max-w-md">
                   <div className="relative">
                     <input
-                      type="text"
+                      type="password"
                       value={tmdbKeyInput}
                       onChange={(e) => setTmdbKeyInput(e.target.value)}
                       placeholder={t("setup.tmdb.placeholder")}
                       className={`w-full h-14 pl-5 pr-12 rounded-xl border-2 bg-background/40 backdrop-blur-sm text-foreground placeholder:text-muted-foreground text-base outline-none transition-colors ${
-                        tmdbKeyStatus === "valid"
-                          ? "border-emerald-400"
-                          : tmdbKeyStatus === "invalid"
+                        tmdbKeyStatus === "invalid"
                           ? "border-red-400"
                           : "border-border focus-visible:border-white"
                       }`}
@@ -319,9 +317,10 @@ export function WelcomeModal() {
                     href="https://www.themoviedb.org/settings/api"
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
+                    className="inline-flex items-center gap-1.5 mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
                   >
                     {t("setup.tmdb.getKeyLink")}
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                   {tmdbKeyError && (
                     <p className="mt-3 text-sm text-red-400 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">{tmdbKeyError}</p>
@@ -400,18 +399,25 @@ export function WelcomeModal() {
                                 : "border-border bg-background/40 hover:border-foreground/40 hover:bg-secondary/50"
                             }`}
                           >
-                            <img
-                              // fresh img per provider name, otherwise a stale onError fallback src sticks around
-                              key={p.name}
-                              src={proxyImage(p.logo)}
-                              alt=""
-                              className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover bg-muted"
-                              onError={(e) => {
-                                const img = e.target as HTMLImageElement;
-                                if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                                img.src = PROVIDER_LOGO_FALLBACK;
-                              }}
-                            />
+                            <div className="relative">
+                              <img
+                                // fresh img per provider name, otherwise a stale onError fallback src sticks around
+                                key={p.name}
+                                src={proxyImage(p.logo)}
+                                alt=""
+                                className="w-20 h-20 md:w-24 md:h-24 rounded-lg object-cover bg-muted"
+                                onError={(e) => {
+                                  const img = e.target as HTMLImageElement;
+                                  if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
+                                  img.src = PROVIDER_LOGO_FALLBACK;
+                                }}
+                              />
+                              {selected && (
+                                <span className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white flex items-center justify-center">
+                                  <Check className="w-4 h-4 text-black" />
+                                </span>
+                              )}
+                            </div>
                             <p className="font-semibold text-base md:text-lg text-foreground text-center line-clamp-1 drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]">
                               {p.name}
                             </p>

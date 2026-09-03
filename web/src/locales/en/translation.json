@@ -16,7 +16,6 @@
       "darkModeDesc": "Switch between light and dark themes",
       "contentSource": "Content Source",
       "contentSourceDesc": "Choose the site your catalog and streaming come from.",
-      "contentSourceCurrent": "Current:",
       "loadingProviders": "Loading...",
       "switchingProvider": "Switching provider...",
       "popularProviders": "Popular",
@@ -215,7 +214,11 @@
         "getKeyLink": "Get a free key at themoviedb.org",
         "invalidKey": "That key doesn't seem to work",
         "networkError": "Couldn't reach the backend, try again",
-        "skip": "Skip"
+        "skip": "Skip",
+        "customActive": "Personal key active",
+        "remove": "Remove",
+        "removeConfirmTitle": "Remove personal key?",
+        "removeConfirmDesc": "You'll go back to using the app's built-in TMDB key."
       },
       "provider": {
         "title": "Choose a source",

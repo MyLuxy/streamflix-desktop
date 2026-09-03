@@ -16,7 +16,6 @@
       "darkModeDesc": "Zwischen hellem und dunklem Design wechseln",
       "contentSource": "Inhaltsquelle",
       "contentSourceDesc": "Wählen Sie die Seite, von der Ihr Katalog und Ihre Streams stammen.",
-      "contentSourceCurrent": "Aktuell:",
       "loadingProviders": "Wird geladen...",
       "switchingProvider": "Anbieter wird gewechselt...",
       "popularProviders": "Beliebt",
@@ -215,7 +214,11 @@
         "getKeyLink": "Kostenlosen Schlüssel auf themoviedb.org holen",
         "invalidKey": "Dieser Schlüssel scheint nicht zu funktionieren",
         "networkError": "Server konnte nicht erreicht werden, bitte erneut versuchen",
-        "skip": "Überspringen"
+        "skip": "Überspringen",
+        "customActive": "Persönlicher Schlüssel aktiv",
+        "remove": "Entfernen",
+        "removeConfirmTitle": "Persönlichen Schlüssel entfernen?",
+        "removeConfirmDesc": "Sie verwenden danach wieder den in der App integrierten TMDB-Schlüssel."
       },
       "provider": {
         "title": "Quelle auswählen",

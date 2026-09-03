@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2 } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,19 @@ import { proxyImage, PROVIDER_LOGO_FALLBACK } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { POPULAR_PROVIDERS_BY_LANGUAGE } from "@/lib/popular-providers";
 import { isAnimeProvider } from "@/lib/anime-providers";
+import { BACKEND_URL } from "@/lib/backend";
+import { setCustomTmdbKeyClient } from "@/lib/tmdb-key";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -30,11 +43,73 @@ export function SettingsPage() {
   const [providerLangFilter, setProviderLangFilterState] = useState<string | null>(null);
   // buttons stay disabled while pending so switching fast doesnt queue up scrape requests
   const [isPending, startTransition] = useTransition();
+  const [tmdbKeyInput, setTmdbKeyInput] = useState("");
+  const [tmdbKeyError, setTmdbKeyError] = useState<string | null>(null);
+  const [tmdbKeyStatus, setTmdbKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  // whether a personal key is saved server-side right now, the input itself never gets
+  // pre-filled with it - a stored secret shouldnt reappear in plaintext just from loading the page
+  const [hasStoredTmdbKey, setHasStoredTmdbKey] = useState(false);
 
   useEffect(() => {
     setSelectedProvider(getSelectedProviderClient());
     setProviderLangFilterState(getSavedProviderLangFilter());
+
+    fetch(`${BACKEND_URL}/api/settings/tmdb-key`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.hasCustomKey) setHasStoredTmdbKey(true);
+      })
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const key = tmdbKeyInput.trim();
+    if (!key) {
+      // nothing typed, just reflect whatever's already stored - typing then erasing shouldnt
+      // silently delete a saved key, removing it is its own explicit action below
+      setTmdbKeyStatus(hasStoredTmdbKey ? "valid" : "idle");
+      setTmdbKeyError(null);
+      return;
+    }
+    setTmdbKeyStatus("checking");
+    setTmdbKeyError(null);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/settings/tmdb-key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: key }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          setTmdbKeyStatus("invalid");
+          setTmdbKeyError(t("setup.tmdb.invalidKey"));
+          return;
+        }
+        setCustomTmdbKeyClient(key);
+        setHasStoredTmdbKey(true);
+        setTmdbKeyStatus("valid");
+      } catch {
+        setTmdbKeyStatus("invalid");
+        setTmdbKeyError(t("setup.tmdb.networkError"));
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+    // only the typed key should retrigger this, not every t() reference change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tmdbKeyInput, hasStoredTmdbKey]);
+
+  const removeStoredTmdbKey = () => {
+    setCustomTmdbKeyClient(null);
+    setHasStoredTmdbKey(false);
+    setTmdbKeyInput("");
+    setTmdbKeyStatus("idle");
+    fetch(`${BACKEND_URL}/api/settings/tmdb-key`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey: null }),
+    }).catch(() => {});
+  };
 
   const setProviderLangFilter = (code: string | null) => {
     setProviderLangFilterState(code);
@@ -57,8 +132,6 @@ export function SettingsPage() {
     parts[1] = lng;
     window.location.assign(parts.join("/") || "/");
   };
-
-  const currentProviderLogo = providers?.find((p) => p.name === selectedProvider)?.logo;
 
   const availableProviderLanguages = useMemo(
     () => Array.from(new Set((providers ?? []).map((p) => p.language))).sort(),
@@ -129,33 +202,89 @@ export function SettingsPage() {
           </div>
         </section>
 
+        <section className="bg-card rounded-2xl p-5 md:p-8 mb-6 md:mb-8">
+          <div className="flex items-center gap-3 mb-5 md:mb-6">
+            <img src={PROVIDER_LOGO_FALLBACK} alt="" className="w-12 h-12 md:w-16 md:h-16 rounded flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-lg md:text-xl text-foreground">{t('setup.tmdb.title')}</p>
+              <p className="text-sm md:text-base text-muted-foreground">
+                {t('setup.tmdb.description')}
+              </p>
+            </div>
+          </div>
+
+          <div className="max-w-lg">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="password"
+                  value={tmdbKeyInput}
+                  onChange={(e) => setTmdbKeyInput(e.target.value)}
+                  placeholder={hasStoredTmdbKey ? t('setup.tmdb.customActive') : t('setup.tmdb.placeholder')}
+                  className={`w-full h-12 pl-4 pr-11 rounded-md border-2 bg-card text-foreground placeholder:text-muted-foreground text-sm outline-none transition-colors ${
+                    tmdbKeyStatus === "invalid"
+                      ? "border-red-400"
+                      : "border-border focus:border-primary"
+                  }`}
+                />
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                  {tmdbKeyStatus === "checking" && <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />}
+                  {tmdbKeyStatus === "valid" && <Check className="w-4 h-4 text-emerald-400" />}
+                </div>
+              </div>
+              {hasStoredTmdbKey && !tmdbKeyInput && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      className="h-12 px-4 flex-shrink-0 rounded-md border-2 border-border text-sm text-muted-foreground hover:border-red-400 hover:text-red-400 transition-colors"
+                    >
+                      {t('setup.tmdb.remove')}
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="max-w-sm rounded-2xl bg-card border-border p-6">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="text-foreground">
+                        {t('setup.tmdb.removeConfirmTitle')}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('setup.tmdb.removeConfirmDesc')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('content.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={removeStoredTmdbKey}
+                        className="bg-red-500 text-white hover:bg-red-500/90"
+                      >
+                        {t('setup.tmdb.remove')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
+            <a
+              href="https://www.themoviedb.org/settings/api"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 mt-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {t('setup.tmdb.getKeyLink')}
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            {tmdbKeyError && <p className="mt-2 text-sm text-red-400">{tmdbKeyError}</p>}
+          </div>
+        </section>
+
         <section className="bg-card rounded-2xl p-5 md:p-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 md:mb-6">
             <div className="flex items-center gap-3">
-              <Server className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
+              <Server className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
               <div>
                 <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.contentSource')}</p>
                 <p className="text-sm md:text-base text-muted-foreground">
                   {t('settings.contentSourceDesc')}
                 </p>
-                {selectedProvider && (
-                  <p className="flex items-center gap-2 mt-1 text-sm md:text-base font-medium text-muted-foreground">
-                    {t('settings.contentSourceCurrent')}
-                    {currentProviderLogo && (
-                      <img
-                        src={proxyImage(currentProviderLogo)}
-                        alt=""
-                        className="w-5 h-5 rounded object-cover flex-shrink-0"
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          if (img.src.endsWith(PROVIDER_LOGO_FALLBACK)) return;
-                          img.src = PROVIDER_LOGO_FALLBACK;
-                        }}
-                      />
-                    )}
-                    {selectedProvider}
-                  </p>
-                )}
               </div>
             </div>
 

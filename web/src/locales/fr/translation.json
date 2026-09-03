@@ -16,7 +16,6 @@
       "darkModeDesc": "Basculer entre les thèmes clair et sombre",
       "contentSource": "Source de contenu",
       "contentSourceDesc": "Choisis le site à partir duquel proviennent le catalogue et le streaming.",
-      "contentSourceCurrent": "Actuel :",
       "loadingProviders": "Chargement...",
       "switchingProvider": "Changement de fournisseur...",
       "popularProviders": "Populaires",
@@ -215,7 +214,11 @@
         "getKeyLink": "Obtenez une clé gratuite sur themoviedb.org",
         "invalidKey": "Cette clé ne semble pas fonctionner",
         "networkError": "Impossible de joindre le serveur, réessayez",
-        "skip": "Passer"
+        "skip": "Passer",
+        "customActive": "Clé personnelle active",
+        "remove": "Supprimer",
+        "removeConfirmTitle": "Supprimer la clé personnelle ?",
+        "removeConfirmDesc": "Vous reviendrez à la clé TMDB intégrée à l'application."
       },
       "provider": {
         "title": "Choisissez une source",

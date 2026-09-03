@@ -16,7 +16,6 @@
       "darkModeDesc": "Cambiar entre temas claro y oscuro",
       "contentSource": "Fuente de contenido",
       "contentSourceDesc": "Elige el sitio del que provienen el catálogo y el streaming.",
-      "contentSourceCurrent": "Actual:",
       "loadingProviders": "Cargando...",
       "switchingProvider": "Cambiando proveedor...",
       "popularProviders": "Populares",
@@ -215,7 +214,11 @@
         "getKeyLink": "Obtén una clave gratuita en themoviedb.org",
         "invalidKey": "Esa clave no parece funcionar",
         "networkError": "No se pudo conectar con el servidor, inténtalo de nuevo",
-        "skip": "Omitir"
+        "skip": "Omitir",
+        "customActive": "Clave personal activa",
+        "remove": "Eliminar",
+        "removeConfirmTitle": "¿Eliminar la clave personal?",
+        "removeConfirmDesc": "Volverás a usar la clave TMDB integrada en la app."
       },
       "provider": {
         "title": "Elige una fuente",
