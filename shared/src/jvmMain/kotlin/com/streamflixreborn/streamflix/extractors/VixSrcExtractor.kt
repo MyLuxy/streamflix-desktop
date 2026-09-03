@@ -23,7 +23,10 @@ import okhttp3.Request
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import java.util.concurrent.TimeUnit
 
-class VixSrcExtractor : Extractor() {
+// language is explicit when the caller already knows it (e.g. TmdbProvider, which is
+// itself instantiated per-language) - falls back to the globally selected provider's
+// language only for callers that go through the generic Extractor.extract(url) dispatch
+class VixSrcExtractor(private val language: String? = null) : Extractor() {
 
     override val name = "VixSrc"
     override val mainUrl = "https://vixsrc.to"
@@ -41,7 +44,7 @@ class VixSrcExtractor : Extractor() {
 
     override suspend fun extract(link: String): Video {
         val service = VixSrcExtractorService.build(mainUrl)
-        val providerLang = UserPreferences.currentProvider?.language ?: "en"
+        val providerLang = language ?: UserPreferences.currentProvider?.language ?: "en"
         
         var apiPath = link.substringAfter(mainUrl).trimStart('/')
         if (!apiPath.startsWith("api/")) {

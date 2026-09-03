@@ -203,7 +203,13 @@ private fun faviconUrl(baseUrl: String): String {
 // pulls its m3u8 playlist from raw.githubusercontent.com, so the google favicon lookup
 // on baseUrl shows github's icon instead of pluto's - serve our own bundled logo instead
 private fun faviconOverride(providerName: String): String? {
-    return if (providerName.startsWith("Pluto TV")) "http://localhost:$backendPort/assets/pluto-tv.webp" else null
+    return when {
+        providerName.startsWith("Pluto TV") -> "http://localhost:$backendPort/assets/pluto-tv.webp"
+        // baseUrl is empty (it's a tmdb api client, not a scraped site), so the generic
+        // favicon-by-host lookup below has nothing to go on
+        providerName.startsWith("TMDB") -> faviconUrl("themoviedb.org")
+        else -> null
+    }
 }
 
 // these are busted rn, still work if queried directly, just dont show em in the picker

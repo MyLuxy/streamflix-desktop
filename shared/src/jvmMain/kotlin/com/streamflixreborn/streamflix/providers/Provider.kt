@@ -58,14 +58,17 @@ interface Provider {
         // fully implemented in the Android source but not yet wired into its own registry either
         // (AfterDark/AnimeBum/AnyMovie/HiAnime/Otakufr/StreamingIta/SuperStream/UnJourUnFilm) -
         // included here with the same movies=true/tvShows=true default the lookup functions below
-        // already fall back to for anything missing from this map. TmdbProvider is intentionally
-        // excluded: it's constructed dynamically per-language, not a fixed catalog entry.
+        // already fall back to for anything missing from this map.
         val providers: Map<Provider, ProviderSupport> = mapOf(
             SflixProvider to ProviderSupport(movies = true, tvShows = true),
             FanpelisProvider to ProviderSupport(movies = true, tvShows = true),
             SerienStreamProvider to ProviderSupport(movies = false, tvShows = true),
             StreamingCommunityProvider("it") to ProviderSupport(movies = true, tvShows = true),
             StreamingCommunityProvider("en") to ProviderSupport(movies = true, tvShows = true),
+            // same tmdb+vixsrc combo used internally as StreamingCommunity's fallback when the
+            // site itself is down, also exposed here as its own selectable provider
+            TmdbProvider("it") to ProviderSupport(movies = true, tvShows = true),
+            TmdbProvider("en") to ProviderSupport(movies = true, tvShows = true),
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
             MkissaProvider to ProviderSupport(movies = true, tvShows = true),
             AniWorldProvider to ProviderSupport(movies = false, tvShows = true),

@@ -46,7 +46,7 @@ class TmdbProvider(override val language: String) : Provider {
     override val baseUrl: String
         get() = ""
 
-    override val name = "TMDb ($language)"
+    override val name = if (language == "it") "TMDB (ITA)" else "TMDB (${language.uppercase()})"
     override val logo =
         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tmdb.new.logo.svg/1280px-Tmdb.new.logo.svg.png"
 
@@ -725,7 +725,7 @@ class TmdbProvider(override val language: String) : Provider {
 
         when (lang) {
             "it" -> {
-                servers.add(VixSrcExtractor().server(videoType))
+                servers.add(VixSrcExtractor(language).server(videoType))
             }
             "de" -> {
                 servers.addAll(0, MoflixExtractor().servers(videoType))
@@ -866,6 +866,10 @@ class TmdbProvider(override val language: String) : Provider {
         
         val video = when {
             server.video != null -> server.video!!
+            // generic Extractor.extract(url) dispatch has no idea which language this
+            // TmdbProvider instance is - vixsrc needs it passed explicitly or it falls
+            // back to a stale globally-persisted preference instead of this instance's own
+            server.name == "VixSrc" -> VixSrcExtractor(language).extract(url)
             else -> Extractor.extract(url, server)
         }
 
