@@ -18,6 +18,8 @@ interface ContentRowProps {
   resetScroll?: boolean;
   // live-tv channel logos read better as landscape thumbnails than movie/show posters
   isIptv?: boolean;
+  // streamingcommunity-style "Top 10" treatment: big rank numbers, capped to 10 items
+  rank?: boolean;
 }
 
 export function ContentRow({
@@ -28,6 +30,7 @@ export function ContentRow({
   seeMoreHref,
   resetScroll,
   isIptv,
+  rank,
 }: ContentRowProps) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -115,7 +118,9 @@ export function ContentRow({
     );
   }
 
-  if (!items.length) return null;
+  const displayItems = rank ? items.slice(0, 10) : items;
+
+  if (!displayItems.length) return null;
 
   return (
     <motion.div
@@ -159,18 +164,31 @@ export function ContentRow({
           onScroll={checkScroll}
           className="flex gap-3 px-6 md:px-10 overflow-x-auto scrollbar-hide scroll-smooth"
         >
-          {items.map((item) => (
-            <ContentCard
+          {displayItems.map((item, index) => (
+            <div
               key={`${getMediaType(item)}-${item.id}`}
-              posterPath={item.poster_path}
-              title={getTitle(item)}
-              rating={item.vote_average}
-              year={getYear(item)}
-              href={hrefForItem(locale, item)}
-              mediaType={getMediaType(item)}
-              provider={providerTagOf(item)?.provider}
-              orientation={isIptv ? "landscape" : "portrait"}
-            />
+              className={rank ? "flex items-center flex-shrink-0" : "contents"}
+            >
+              {rank && (
+                <span
+                  aria-hidden="true"
+                  className="select-none font-black leading-none flex-shrink-0 -mr-6 sm:-mr-8 md:-mr-11 text-[240px] sm:text-[270px] md:text-[330px] [text-stroke:3px_rgba(0,0,0,0.9)] [-webkit-text-stroke:3px_rgba(0,0,0,0.9)]"
+                  style={{ color: "#242424" }}
+                >
+                  {index + 1}
+                </span>
+              )}
+              <ContentCard
+                posterPath={item.poster_path}
+                title={getTitle(item)}
+                rating={item.vote_average}
+                year={getYear(item)}
+                href={hrefForItem(locale, item)}
+                mediaType={getMediaType(item)}
+                provider={providerTagOf(item)?.provider}
+                orientation={isIptv ? "landscape" : "portrait"}
+              />
+            </div>
           ))}
 
           {seeMoreHref && (

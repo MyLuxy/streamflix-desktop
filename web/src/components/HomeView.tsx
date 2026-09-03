@@ -94,7 +94,17 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
                 </p>
               ) : (
                 restRows.map((row) => (
-                  <ContentRow key={row.name} title={row.name} items={row.items} onItemClick={goToItem} isIptv={isIptv} />
+                  <ContentRow
+                    key={row.name}
+                    title={row.name}
+                    items={row.items}
+                    onItemClick={goToItem}
+                    isIptv={isIptv}
+                    rank={
+                      provider?.startsWith("StreamingCommunity") &&
+                      (row.name === "Top 10 titoli oggi" || row.name === "Top 10 titles today")
+                    }
+                  />
                 ))
               )}
 
