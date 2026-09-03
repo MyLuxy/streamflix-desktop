@@ -84,26 +84,26 @@ export function ContinueWatchingRow({
       <div className="relative">
         <button
           onClick={() => scroll("left")}
-          className={`absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-lg transition-all duration-300 hover:bg-background/90 hover:scale-110 ${
+          className={`absolute inset-y-0 left-0 z-10 w-16 md:w-28 flex items-center justify-start pl-3 md:pl-6 bg-gradient-to-r from-background/95 via-background/60 to-transparent transition-opacity duration-300 ${
             canScrollLeft
               ? "opacity-0 group-hover/row:opacity-100"
               : "opacity-0 pointer-events-none"
           }`}
           aria-label="Scroll left"
         >
-          <ChevronLeft className="w-7 h-7" />
+          <ChevronLeft className="w-12 h-12 md:w-16 md:h-16 -translate-x-px" />
         </button>
 
         <button
           onClick={() => scroll("right")}
-          className={`absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-10 bg-background/80 backdrop-blur-sm p-3 rounded-full shadow-lg transition-all duration-300 hover:bg-background/90 hover:scale-110 ${
+          className={`absolute inset-y-0 right-0 z-10 w-16 md:w-28 flex items-center justify-end pr-3 md:pr-6 bg-gradient-to-l from-background/95 via-background/60 to-transparent transition-opacity duration-300 ${
             canScrollRight
               ? "opacity-0 group-hover/row:opacity-100"
               : "opacity-0 pointer-events-none"
           }`}
           aria-label="Scroll right"
         >
-          <ChevronRight className="w-7 h-7" />
+          <ChevronRight className="w-12 h-12 md:w-16 md:h-16 translate-x-px" />
         </button>
 
         {/* wheel events pass through this so page scroll still works, cards below opt back in */}
