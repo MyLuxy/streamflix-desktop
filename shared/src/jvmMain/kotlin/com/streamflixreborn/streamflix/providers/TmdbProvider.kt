@@ -50,6 +50,18 @@ class TmdbProvider(override val language: String) : Provider {
     override val logo =
         "https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tmdb.new.logo.svg/1280px-Tmdb.new.logo.svg.png"
 
+    // concurrent paginated "popular"/"trending" tmdb calls can return the same title on more
+    // than one page when the ranking shifts between requests - a duplicate react key from that
+    // isn't just cosmetic, it confuses reconciliation for any per-item state (e.g. lazy-mounted
+    // cards) and can leave refs/DOM nodes pointing at the wrong item
+    private fun List<ListItem>.distinctByItemId(): List<ListItem> = distinctBy {
+        when (it) {
+            is Movie -> "movie-${it.id}"
+            is TvShow -> "tv-${it.id}"
+            else -> it
+        }
+    }
+
     override suspend fun getHome(): List<Category> = coroutineScope {
         val categories = mutableListOf<Category>()
         val watchRegion = if (language == "en") "US" else language.uppercase()
@@ -236,28 +248,28 @@ class TmdbProvider(override val language: String) : Provider {
         categories.add(
             Category(
                 name = Category.FEATURED,
-                list = trending.safeSubList(0, 5).mapNotNull(mapMulti)
+                list = trending.safeSubList(0, 5).mapNotNull(mapMulti).distinctByItemId()
             )
         )
 
         categories.add(
             Category(
                 name = getTranslation("Trending"),
-                list = trending.safeSubList(5, trending.size).mapNotNull(mapMulti)
+                list = trending.safeSubList(5, trending.size).mapNotNull(mapMulti).distinctByItemId()
             )
         )
 
         categories.add(
             Category(
                 name = getTranslation("Popular Movies"),
-                list = popularMoviesDeferred.await().mapNotNull(mapMulti)
+                list = popularMoviesDeferred.await().mapNotNull(mapMulti).distinctByItemId()
             )
         )
 
         categories.add(
             Category(
                 name = getTranslation("Popular TV Shows"),
-                list = popularTvShowsDeferred.await().mapNotNull(mapMulti)
+                list = popularTvShowsDeferred.await().mapNotNull(mapMulti).distinctByItemId()
             )
         )
 
@@ -272,7 +284,7 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
@@ -287,7 +299,7 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
@@ -302,7 +314,7 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
@@ -317,7 +329,7 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
@@ -332,7 +344,7 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
@@ -347,14 +359,14 @@ class TmdbProvider(override val language: String) : Provider {
                             is TMDb3.Tv -> it.popularity
                         }
                     }
-                    .mapNotNull(mapMulti),
+                    .mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 
         categories.add(
             Category(
                 name = getTranslation("Popular on HBO"),
-                list = hboDeferred.await().mapNotNull(mapMulti),
+                list = hboDeferred.await().mapNotNull(mapMulti).distinctByItemId(),
             )
         )
 

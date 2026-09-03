@@ -20,6 +20,58 @@ interface ContentRowProps {
   isIptv?: boolean;
   // streamingcommunity-style "Top 10" treatment: big rank numbers, capped to 10 items
   rank?: boolean;
+  // experimental: skip mounting a card's image/animation until it's about to scroll into
+  // view, instead of all of them at once - trialing on one provider before it goes everywhere
+  lazyMount?: boolean;
+}
+
+// reserves the card's exact footprint immediately (so scrollWidth/layout never shifts) but
+// only mounts the real, animated card once it's within rootMargin of the scroll container -
+// a home row with dozens of items otherwise pays the react+framer-motion cost for every
+// single one up front, most of which the user may never scroll to
+function LazyCard({
+  rootRef,
+  isIptv,
+  enabled,
+  children,
+}: {
+  rootRef: React.RefObject<HTMLDivElement | null>;
+  isIptv?: boolean;
+  enabled: boolean;
+  children: React.ReactNode;
+}) {
+  const [visible, setVisible] = useState(!enabled);
+  const slotRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!enabled || visible) return;
+    const el = slotRef.current;
+    const root = rootRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) setVisible(true);
+      },
+      { root, rootMargin: "0px 600px 0px 600px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled, visible, rootRef]);
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <div
+      ref={slotRef}
+      className={
+        isIptv
+          ? "flex-shrink-0 w-[220px] sm:w-[260px] md:w-[300px]"
+          : "flex-shrink-0 w-[160px] sm:w-[180px] md:w-[220px]"
+      }
+    >
+      {visible ? children : null}
+    </div>
+  );
 }
 
 export function ContentRow({
@@ -31,6 +83,7 @@ export function ContentRow({
   resetScroll,
   isIptv,
   rank,
+  lazyMount,
 }: ContentRowProps) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -62,6 +115,17 @@ export function ContentRow({
     checkScroll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, resetScroll]);
+
+  // a lazy-mounted card popping in changes scrollWidth well after the mount check above
+  // ran - without this the arrow can get stuck on whatever it measured that first time
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new MutationObserver(() => checkScroll());
+    observer.observe(el, { childList: true, subtree: true });
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const checkScroll = () => {
     if (scrollRef.current) {
@@ -178,16 +242,18 @@ export function ContentRow({
                   {index + 1}
                 </span>
               )}
-              <ContentCard
-                posterPath={item.poster_path}
-                title={getTitle(item)}
-                rating={item.vote_average}
-                year={getYear(item)}
-                href={hrefForItem(locale, item)}
-                mediaType={getMediaType(item)}
-                provider={providerTagOf(item)?.provider}
-                orientation={isIptv ? "landscape" : "portrait"}
-              />
+              <LazyCard rootRef={scrollRef} isIptv={isIptv} enabled={!!lazyMount}>
+                <ContentCard
+                  posterPath={item.poster_path}
+                  title={getTitle(item)}
+                  rating={item.vote_average}
+                  year={getYear(item)}
+                  href={hrefForItem(locale, item)}
+                  mediaType={getMediaType(item)}
+                  provider={providerTagOf(item)?.provider}
+                  orientation={isIptv ? "landscape" : "portrait"}
+                />
+              </LazyCard>
             </div>
           ))}
 

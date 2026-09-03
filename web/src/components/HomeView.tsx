@@ -104,6 +104,8 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
                       provider?.startsWith("StreamingCommunity") &&
                       (row.name === "Top 10 titoli oggi" || row.name === "Top 10 titles today")
                     }
+                    // trial run on one provider before rolling it out everywhere
+                    lazyMount={provider === "TMDB (ITA)"}
                   />
                 ))
               )}
