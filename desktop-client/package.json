@@ -11,6 +11,9 @@
     "build:desktop": "node scripts/build-desktop.mjs",
     "dist": "electron-builder"
   },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.1.8"
@@ -30,10 +33,14 @@
       { "from": "resources/web", "to": "web" }
     ],
     "asarUnpack": [],
+    "publish": {
+      "provider": "github",
+      "owner": "MyLuxy",
+      "repo": "streamflix-desktop"
+    },
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "mac": {

@@ -1,12 +1,13 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, dialog } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 
 const { startBackend } = require("./backend-manager");
 const { startFrontend } = require("./frontend-manager");
 const { createMainWindow } = require("./window");
+const { initAutoUpdate } = require("./auto-update");
 
 let children = [];
 
@@ -45,6 +46,8 @@ async function boot() {
 
     if (win.isDestroyed()) return;
     await win.loadURL(`http://127.0.0.1:${frontend.port}/`);
+
+    initAutoUpdate(win);
   } catch (err) {
     dialog.showErrorBox(
       "StreamFlix failed to start",
