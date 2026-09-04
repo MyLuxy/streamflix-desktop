@@ -264,4 +264,14 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Psicológico", genreId: "psicologico" },
     { label: "Recuerdos de la Vida", genreId: "recuerdos-de-la-vida" },
   ],
+  AnimeSaturn: [
+    { label: "Isekai", genreId: "isekai" },
+    { label: "Shounen", genreId: "shounen" },
+    { label: "Seinen", genreId: "seinen" },
+    { label: "Mecha", genreId: "mecha" },
+    { label: "Harem", genreId: "harem" },
+    { label: "Psicologico", genreId: "psicologico" },
+    { label: "Soprannaturale", genreId: "soprannaturale" },
+    { label: "Slice of Life", genreId: "slice-of-life" },
+  ],
 };
