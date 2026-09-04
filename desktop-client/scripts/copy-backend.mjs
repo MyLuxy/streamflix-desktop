@@ -8,7 +8,11 @@ import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..", "..");
-const jpackageDir = join(repoRoot, "desktop", "build", "jpackage", "streamflix-backend");
+// jpackage's app-image output is a plain folder on windows/linux, but always a real
+// macOS .app bundle on darwin (Contents/MacOS/<name> inside) - there's no way to opt out
+const jpackageDir = process.platform === "darwin"
+  ? join(repoRoot, "desktop", "build", "jpackage", "streamflix-backend.app")
+  : join(repoRoot, "desktop", "build", "jpackage", "streamflix-backend");
 const outDir = join(__dirname, "..", "resources", "backend");
 
 const skipBuild = process.argv.includes("--no-build");
@@ -37,7 +41,15 @@ rmSync(outDir, { recursive: true, force: true });
 cpSync(jpackageDir, outDir, { recursive: true });
 
 // some copy operations on some OSes/CI images can drop the executable bit
-if (process.platform !== "win32") {
+if (process.platform === "darwin") {
+  const macosDir = join(outDir, "Contents", "MacOS");
+  if (existsSync(macosDir)) {
+    for (const f of readdirSync(macosDir)) {
+      const p = join(macosDir, f);
+      if (statSync(p).isFile()) chmodSync(p, 0o755);
+    }
+  }
+} else if (process.platform !== "win32") {
   const binDir = join(outDir, "bin");
   if (existsSync(binDir)) {
     for (const f of readdirSync(binDir)) {

@@ -11,6 +11,9 @@ const BACKEND_PORT = 3001; // fixed - baked into the frontend's client bundle at
 function backendLauncherPath(resourcesDir) {
   const dir = path.join(resourcesDir, "backend");
   if (process.platform === "win32") return path.join(dir, "streamflix-backend.exe");
+  // jpackage always wraps a macOS app-image in a real .app bundle - the actual binary
+  // lives inside it, not at the top level like on windows/linux
+  if (process.platform === "darwin") return path.join(dir, "Contents", "MacOS", "streamflix-backend");
   return path.join(dir, "bin", "streamflix-backend");
 }
 

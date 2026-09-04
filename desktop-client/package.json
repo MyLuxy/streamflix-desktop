@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "StreamFlix desktop app (Electron shell around the Kotlin backend + Next.js frontend)",
+  "homepage": "https://github.com/MyLuxy/streamflix-desktop",
+  "author": {
+    "name": "MyLuxy",
+    "email": "noreply@streamflix.app"
+  },
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
