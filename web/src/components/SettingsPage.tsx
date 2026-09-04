@@ -429,7 +429,7 @@ function ProviderTile({
           <img
             src={flagUrl}
             alt=""
-            className="absolute -bottom-1.5 -right-2 w-5 h-3.5 rounded-[2px] object-cover rotate-[20deg] shadow-md ring-1 ring-background"
+            className="absolute -bottom-1.5 -right-2 w-5 h-3.5 rounded-[2px] object-cover -rotate-[20deg] shadow-md ring-1 ring-background"
           />
         )}
       </div>
