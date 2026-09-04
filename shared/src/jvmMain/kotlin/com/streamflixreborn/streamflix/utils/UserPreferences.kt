@@ -61,13 +61,21 @@ object UserPreferences {
     // here tmdb lookups always fail
     private const val DEFAULT_TMDB_API_KEY = "2dca580c2a14b55200e784d157207b4d"
 
-    // the key baked into this particular build: a real key injected via env var at build/run
-    // time if the person building it set one, otherwise the shared demo key above so lookups
-    // still work with zero setup
-    private val builtInTmdbApiKey: String
-        get() = System.getenv("TMDB_API_KEY")?.ifEmpty { null } ?: DEFAULT_TMDB_API_KEY
+    // swapped in at CI release-build time from a repo secret by
+    // desktop-client/scripts/inject-tmdb-key.mjs - stays blank in the repo and in any
+    // local/dev build, never put a real key here
+    private const val PERSONAL_TMDB_API_KEY = ""
 
-    // TMDb3 retries with this if the primary key comes back rate limited or revoked
+    // the key baked into this particular build: an env var override if set, else the personal
+    // key above on a real CI release build, else the shared demo key so lookups still work
+    // with zero setup either way
+    private val builtInTmdbApiKey: String
+        get() = System.getenv("TMDB_API_KEY")?.ifEmpty { null }
+            ?: PERSONAL_TMDB_API_KEY.ifEmpty { null }
+            ?: DEFAULT_TMDB_API_KEY
+
+    // TMDb3 retries with this if the primary key comes back rate limited or revoked - always
+    // the public demo key, so a suspended/revoked personal key fails over automatically
     val tmdbApiKeyFallback: String
         get() = System.getenv("TMDB_API_KEY_FALLBACK")?.ifEmpty { null } ?: DEFAULT_TMDB_API_KEY
 

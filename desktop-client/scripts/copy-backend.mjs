@@ -14,6 +14,9 @@ const outDir = join(__dirname, "..", "resources", "backend");
 const skipBuild = process.argv.includes("--no-build");
 
 if (!skipBuild) {
+  console.log("> injecting TMDB key...");
+  execSync("node scripts/inject-tmdb-key.mjs", { cwd: join(__dirname, ".."), stdio: "inherit" });
+
   console.log("> gradle :desktop:jpackageImage...");
   const gradlew = process.platform === "win32" ? ".\\gradlew.bat" : "./gradlew";
   // git doesn't track the executable bit on this file, so a fresh checkout on

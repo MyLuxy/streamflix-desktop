@@ -39,6 +39,8 @@ jobs:
       - name: Build backend (jlink/jpackage)
         working-directory: desktop-client
         run: node scripts/copy-backend.mjs
+        env:
+          TMDB_PERSONAL_API_KEY: ${{ secrets.TMDB_PERSONAL_API_KEY }}
 
       - name: Build frontend (Next.js standalone)
         working-directory: desktop-client
