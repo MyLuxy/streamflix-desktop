@@ -16,6 +16,9 @@ const skipBuild = process.argv.includes("--no-build");
 if (!skipBuild) {
   console.log("> gradle :desktop:jpackageImage...");
   const gradlew = process.platform === "win32" ? ".\\gradlew.bat" : "./gradlew";
+  // git doesn't track the executable bit on this file, so a fresh checkout on
+  // linux/macOS (e.g. CI) needs it restored before it can be run directly
+  if (process.platform !== "win32") chmodSync(join(repoRoot, "gradlew"), 0o755);
   execSync(`${gradlew} :desktop:jpackageImage --no-configuration-cache`, {
     cwd: repoRoot,
     stdio: "inherit",

@@ -1,0 +1,65 @@
+name: Build desktop app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install desktop-client dependencies
+        working-directory: desktop-client
+        run: npm ci
+
+      - name: Build backend (jlink/jpackage)
+        working-directory: desktop-client
+        run: node scripts/copy-backend.mjs
+
+      - name: Build frontend (Next.js standalone)
+        working-directory: desktop-client
+        run: node scripts/copy-frontend.mjs
+
+      # publishes straight to the GitHub Release for a tag push (electron-builder writes
+      # the installer + the latest*.yml files electron-updater needs), otherwise just
+      # builds locally so a manual run can be inspected as an artifact
+      - name: Build installer
+        working-directory: desktop-client
+        run: npx electron-builder --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamflix-${{ matrix.os }}
+          path: |
+            desktop-client/build/*.exe
+            desktop-client/build/*.dmg
+            desktop-client/build/*.AppImage
+            desktop-client/build/*.deb
+          if-no-files-found: ignore
