@@ -11,13 +11,15 @@ export function DesktopTitleLock() {
     if (typeof window === "undefined" || !window.streamflixDesktop) return;
 
     document.title = APP_TITLE;
-    const titleEl = document.querySelector("title");
-    if (!titleEl) return;
 
+    // watch <head> itself, not the <title> node directly - next.js replaces the whole
+    // title element on route changes rather than editing its text in place, so an
+    // observer attached to that specific (now-detached) node goes silently dead after
+    // the first navigation and every later page's seo title leaks into the title bar
     const observer = new MutationObserver(() => {
       if (document.title !== APP_TITLE) document.title = APP_TITLE;
     });
-    observer.observe(titleEl, { childList: true, characterData: true, subtree: true });
+    observer.observe(document.head, { childList: true, characterData: true, subtree: true });
     return () => observer.disconnect();
   }, []);
 
