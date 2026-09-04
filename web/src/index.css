@@ -11,6 +11,30 @@
   display: none;
 }
 
+/* app-like feel, not a webpage: nothing is selectable or draggable by default (native
+   desktop/mobile apps don't let you drag-select their labels or drag a poster out), except
+   real inputs where the user actually needs to type/select/copy text */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+img,
+video,
+a {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
 @layer base {
   :root {
     --background: 0 0% 4%;
