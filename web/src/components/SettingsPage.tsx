@@ -17,7 +17,6 @@ import { proxyImage, PROVIDER_LOGO_FALLBACK, GENERIC_PROVIDER_LOGO } from "@/lib
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { useDesktopUpdate } from "@/hooks/useDesktopUpdate";
 import { useAppVersion } from "@/hooks/useAppVersion";
-import { languageFlagUrl } from "@/lib/content-languages";
 import { POPULAR_PROVIDERS_BY_LANGUAGE } from "@/lib/popular-providers";
 import { isAnimeProvider } from "@/lib/anime-providers";
 import { BACKEND_URL } from "@/lib/backend";
@@ -403,7 +402,6 @@ export function SettingsPage() {
                           provider={p}
                           isSelected={selectedProvider === p.name}
                           disabled={isPending}
-                          showLanguageFlag={!providerLangFilter}
                           onClick={() => changeProvider(p.name)}
                         />
                       ))}
@@ -421,7 +419,6 @@ export function SettingsPage() {
                           provider={p}
                           isSelected={selectedProvider === p.name}
                           disabled={isPending}
-                          showLanguageFlag={!providerLangFilter}
                           onClick={() => changeProvider(p.name)}
                         />
                       ))}
@@ -438,7 +435,6 @@ export function SettingsPage() {
                         provider={p}
                         isSelected={selectedProvider === p.name}
                         disabled={isPending}
-                        showLanguageFlag={!providerLangFilter}
                         onClick={() => changeProvider(p.name)}
                       />
                     ))}
@@ -484,17 +480,13 @@ function ProviderTile({
   provider,
   isSelected,
   disabled,
-  showLanguageFlag,
   onClick,
 }: {
   provider: StreamflixProvider;
   isSelected: boolean;
   disabled: boolean;
-  showLanguageFlag: boolean;
   onClick: () => void;
 }) {
-  const flagUrl = showLanguageFlag ? languageFlagUrl(provider.language) : undefined;
-
   return (
     <button
       onClick={onClick}
@@ -520,14 +512,6 @@ function ProviderTile({
           <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
             <Check className="w-3.5 h-3.5 text-primary-foreground" />
           </span>
-        )}
-        {/* planted-flag marker, not a flat sticker: tilted like it's poking out of the corner */}
-        {flagUrl && (
-          <img
-            src={flagUrl}
-            alt=""
-            className="absolute -bottom-1.5 -right-2 w-5 h-3.5 rounded-[2px] object-cover -rotate-[20deg] shadow-md ring-1 ring-background"
-          />
         )}
       </div>
       <span className="text-sm font-medium text-foreground truncate w-full">{provider.name}</span>
