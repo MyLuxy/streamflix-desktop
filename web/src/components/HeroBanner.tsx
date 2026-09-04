@@ -146,8 +146,11 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
       <div className="hero-fade-top absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
       <div className="hero-fade-side absolute inset-0 bg-gradient-to-r from-background/80 via-background/20 to-transparent" />
 
-      {/* pt not pb, leaves room before the next section */}
-      <div className="absolute inset-0 flex items-center px-4 md:px-8 pt-40 md:pt-56">
+      {/* pt not pb, leaves room before the next section. z-20 so this always
+          renders above the row below, which overlaps the hero's bottom edge
+          (negative margin) to blend with the fade - without this, short
+          viewports can end up with that row painted over the hero's buttons */}
+      <div className="absolute inset-0 z-20 flex items-center px-4 md:px-8 pt-40 md:pt-56">
         <AnimatePresence mode="wait" initial={!instant}>
           <motion.div
             key={currentItem.id}
