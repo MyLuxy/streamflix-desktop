@@ -18,8 +18,6 @@ interface ContentRowProps {
   resetScroll?: boolean;
   // live-tv channel logos read better as landscape thumbnails than movie/show posters
   isIptv?: boolean;
-  // streamingcommunity-style "Top 10" treatment: big rank numbers, capped to 10 items
-  rank?: boolean;
 }
 
 // reserves the card's exact footprint immediately (so scrollWidth/layout never shifts) but
@@ -76,7 +74,6 @@ export function ContentRow({
   seeMoreHref,
   resetScroll,
   isIptv,
-  rank,
 }: ContentRowProps) {
   const locale = useLocale();
   const { t } = useTranslation();
@@ -175,9 +172,7 @@ export function ContentRow({
     );
   }
 
-  const displayItems = rank ? items.slice(0, 10) : items;
-
-  if (!displayItems.length) return null;
+  if (!items.length) return null;
 
   return (
     <motion.div
@@ -222,33 +217,19 @@ export function ContentRow({
           onScroll={checkScroll}
           className="flex gap-3 px-6 md:px-10 py-12 -my-12 overflow-x-auto scrollbar-hide scroll-smooth"
         >
-          {displayItems.map((item, index) => (
-            <div
-              key={`${getMediaType(item)}-${item.id}`}
-              className={rank ? "flex items-center flex-shrink-0" : "contents"}
-            >
-              {rank && (
-                <span
-                  aria-hidden="true"
-                  className="select-none font-black leading-none flex-shrink-0 -mr-6 sm:-mr-8 md:-mr-11 text-[240px] sm:text-[270px] md:text-[330px] [text-stroke:3px_rgba(0,0,0,0.9)] [-webkit-text-stroke:3px_rgba(0,0,0,0.9)]"
-                  style={{ color: "#242424" }}
-                >
-                  {index + 1}
-                </span>
-              )}
-              <LazyCard rootRef={scrollRef} isIptv={isIptv}>
-                <ContentCard
-                  posterPath={item.poster_path}
-                  title={getTitle(item)}
-                  rating={item.vote_average}
-                  year={getYear(item)}
-                  href={hrefForItem(locale, item)}
-                  mediaType={getMediaType(item)}
-                  provider={providerTagOf(item)?.provider}
-                  orientation={isIptv ? "landscape" : "portrait"}
-                />
-              </LazyCard>
-            </div>
+          {items.map((item) => (
+            <LazyCard key={`${getMediaType(item)}-${item.id}`} rootRef={scrollRef} isIptv={isIptv}>
+              <ContentCard
+                posterPath={item.poster_path}
+                title={getTitle(item)}
+                rating={item.vote_average}
+                year={getYear(item)}
+                href={hrefForItem(locale, item)}
+                mediaType={getMediaType(item)}
+                provider={providerTagOf(item)?.provider}
+                orientation={isIptv ? "landscape" : "portrait"}
+              />
+            </LazyCard>
           ))}
 
           {seeMoreHref && (

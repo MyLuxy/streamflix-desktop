@@ -62,8 +62,10 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
   const [heroRow, ...allRestRows] = rows;
   // HiAnime's own home rows are mostly redundant with the custom genre sections below,
   // keep just the one row that isn't (new releases) and let the genre sections do the rest
-  const restRows =
-    provider === "HiAnime" ? allRestRows.filter((row) => row.name === "New On HiAnime") : allRestRows;
+  const restRows = provider === "HiAnime"
+    ? allRestRows.filter((row) => row.name === "New On HiAnime")
+    // StreamingCommunity's own "Top 10" row was redundant with the rest of the home rows
+    : allRestRows.filter((row) => row.name !== "Top 10 titoli oggi" && row.name !== "Top 10 titles today");
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,10 +106,6 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
                     items={row.items}
                     onItemClick={goToItem}
                     isIptv={isIptv}
-                    rank={
-                      provider?.startsWith("StreamingCommunity") &&
-                      (row.name === "Top 10 titoli oggi" || row.name === "Top 10 titles today")
-                    }
                   />
                 ))
               )}
