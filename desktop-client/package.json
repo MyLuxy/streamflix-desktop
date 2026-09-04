@@ -44,6 +44,10 @@
       ],
       "icon": "assets/icon.ico"
     },
+    "nsis": {
+      "oneClick": true,
+      "installerHeaderIcon": "assets/icon.ico"
+    },
     "mac": {
       "target": [
         "dmg"
