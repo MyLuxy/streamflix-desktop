@@ -274,4 +274,15 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Soprannaturale", genreId: "soprannaturale" },
     { label: "Slice of Life", genreId: "slice-of-life" },
   ],
+  // temporary - same id scheme as AnimeSaturn, see AnimeSaturnNetTestProvider.kt
+  "AnimeSaturn (.net test)": [
+    { label: "Isekai", genreId: "isekai" },
+    { label: "Shounen", genreId: "shounen" },
+    { label: "Seinen", genreId: "seinen" },
+    { label: "Mecha", genreId: "mecha" },
+    { label: "Harem", genreId: "harem" },
+    { label: "Psicologico", genreId: "psicologico" },
+    { label: "Soprannaturale", genreId: "soprannaturale" },
+    { label: "Slice of Life", genreId: "slice-of-life" },
+  ],
 };
