@@ -64,7 +64,8 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ],
       "icon": "assets/icon.png",
       "artifactName": "${productName}-${version}-Linux.${ext}"
