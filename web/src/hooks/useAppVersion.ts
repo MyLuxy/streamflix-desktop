@@ -11,7 +11,7 @@ export function useAppVersion() {
     // TEMPORARY - matches useDesktopUpdate's own debugUpdate override, so the version
     // section is visible in the same plain-browser test as the rest of the update ui
     if (new URLSearchParams(window.location.search).has("debugUpdate")) {
-      setVersion("1.0.1");
+      setVersion("1.0.2");
       return;
     }
     window.streamflixDesktop?.getVersion().then(setVersion).catch(() => {});
