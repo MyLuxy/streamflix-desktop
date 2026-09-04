@@ -349,6 +349,34 @@ export function HlsPlayer({
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
+  // space to play/pause, left/right to skip 10s - togglePlay/skip read straight off the
+  // video ref so a stale closure here is fine, no need to re-bind on every render
+  useEffect(() => {
+    if (status !== "playing") return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+        wake();
+      } else if (e.code === "ArrowLeft") {
+        e.preventDefault();
+        skip(-10);
+        wake();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        skip(10);
+        wake();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
   // listens on the whole window so dragging stays smooth off the bar
   useEffect(() => {
     if (!dragging) return;
