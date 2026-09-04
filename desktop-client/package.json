@@ -1,6 +1,6 @@
 {
   "name": "streamflix-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "StreamFlix desktop app (Electron shell around the Kotlin backend + Next.js frontend)",
   "homepage": "https://github.com/MyLuxy/streamflix-desktop",
