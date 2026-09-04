@@ -11,6 +11,7 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import com.streamflixreborn.streamflix.utils.UserPreferences
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -437,13 +438,40 @@ object AnimeSaturnProvider : Provider {
 
     // ===================== tier 3: re-discover the current domain from animesaturn.me =====================
 
-    private suspend fun discoverFallbackDomain(): String? {
-        return runCatching {
+    private const val CACHE_KEY_TIER3_DOMAIN = "tier3_domain"
+
+    // cached on disk (UserPreferences, same mechanism other providers use for their own
+    // domain-migration caches) so a working tier 3 domain survives restarts and doesn't need
+    // to re-fetch animesaturn.me on every single call - only re-fetched once that cached
+    // domain itself stops working (see withTier3Fallback)
+    private fun cachedTier3Domain(): String? =
+        UserPreferences.getProviderCache(this, CACHE_KEY_TIER3_DOMAIN).ifEmpty { null }
+
+    private fun cacheTier3Domain(domain: String) {
+        UserPreferences.setProviderCache(this, CACHE_KEY_TIER3_DOMAIN, domain)
+    }
+
+    private suspend fun rediscoverTier3Domain(): String? {
+        val discovered = runCatching {
             val document = netService.getDocument("https://www.animesaturn.me/")
             document.select(".intro a[href]")
                 .map { it.attr("href").trimEnd('/') }
                 .firstOrNull { it.contains("animesaturn") && !it.contains("animesaturn.ro") && !it.contains("animesaturn.net") }
         }.getOrNull()
+        if (discovered != null) cacheTier3Domain(discovered)
+        return discovered
+    }
+
+    // tries the cached tier 3 domain first (no animesaturn.me fetch at all if it still works);
+    // only goes back to animesaturn.me for a fresh domain once the cached one stops resolving
+    private suspend fun <T> withTier3Fallback(empty: T, isEmpty: (T) -> Boolean, attempt: suspend (String) -> T): T {
+        val cached = cachedTier3Domain()
+        if (cached != null) {
+            runCatching { attempt(cached) }.getOrNull()?.takeIf { !isEmpty(it) }?.let { return it }
+        }
+        val fresh = rediscoverTier3Domain() ?: return empty
+        if (fresh == cached) return empty // .me hasn't listed anything new either, nothing left to try
+        return runCatching { attempt(fresh) }.getOrNull() ?: empty
     }
 
     // ===================== dispatch: ro -> net -> rediscovered domain =====================
@@ -451,8 +479,7 @@ object AnimeSaturnProvider : Provider {
     override suspend fun getHome(): List<Category> {
         runCatching { roGetHome() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
         runCatching { netGetHome() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
-        val discovered = discoverFallbackDomain() ?: return emptyList()
-        return runCatching { netGetHome(discovered) }.getOrNull() ?: emptyList()
+        return withTier3Fallback(emptyList(), { it.isEmpty() }) { domain -> netGetHome(domain) }
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
@@ -468,8 +495,8 @@ object AnimeSaturnProvider : Provider {
     override suspend fun getGenre(id: String, page: Int): Genre {
         runCatching { roGetGenre(id, page) }.getOrNull()?.takeIf { it.shows.isNotEmpty() }?.let { return it }
         runCatching { netGetGenre(id, page) }.getOrNull()?.takeIf { it.shows.isNotEmpty() }?.let { return it }
-        val discovered = discoverFallbackDomain() ?: return Genre(id = id, name = id, shows = emptyList())
-        return runCatching { netGetGenre(id, page, discovered) }.getOrNull() ?: Genre(id = id, name = id, shows = emptyList())
+        val empty = Genre(id = id, name = id, shows = emptyList())
+        return withTier3Fallback(empty, { it.shows.isEmpty() }) { domain -> netGetGenre(id, page, domain) }
     }
 
     override suspend fun getMovies(page: Int): List<Movie> {
@@ -483,8 +510,8 @@ object AnimeSaturnProvider : Provider {
     override suspend fun getTvShow(id: String): TvShow {
         runCatching { roGetTvShow(id) }.getOrNull()?.let { return it }
         runCatching { netGetTvShow(id) }.getOrNull()?.let { return it }
-        val discovered = discoverFallbackDomain() ?: return TvShow(id = id, title = "", poster = "")
-        return runCatching { netGetTvShow(id, discovered) }.getOrNull() ?: TvShow(id = id, title = "", poster = "")
+        val empty = TvShow(id = id, title = "", poster = "")
+        return withTier3Fallback(empty, { it.title.isEmpty() }) { domain -> netGetTvShow(id, domain) }
     }
 
     override suspend fun getMovie(id: String): Movie {
@@ -494,8 +521,7 @@ object AnimeSaturnProvider : Provider {
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
         runCatching { roGetEpisodes(seasonId) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
         runCatching { netGetEpisodes(seasonId) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
-        val discovered = discoverFallbackDomain() ?: return emptyList()
-        return runCatching { netGetEpisodes(seasonId, discovered) }.getOrNull() ?: emptyList()
+        return withTier3Fallback(emptyList(), { it.isEmpty() }) { domain -> netGetEpisodes(seasonId, domain) }
     }
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
@@ -505,8 +531,7 @@ object AnimeSaturnProvider : Provider {
             runCatching { roGetServers(id) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: emptyList()
         } else {
             runCatching { netGetServers(id) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
-            val discovered = discoverFallbackDomain() ?: return emptyList()
-            runCatching { netGetServers(id, discovered) }.getOrNull() ?: emptyList()
+            withTier3Fallback(emptyList(), { it.isEmpty() }) { domain -> netGetServers(id, domain) }
         }
     }
 
