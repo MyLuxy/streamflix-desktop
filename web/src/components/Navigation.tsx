@@ -42,7 +42,8 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
   const currentProviderLogo = providers?.find((p) => p.name === selectedProviderName)?.logo;
 
   const { isDesktop, state: updateState } = useDesktopUpdate();
-  const hasUpdate = isDesktop && updateState.status !== "idle" && updateState.status !== "error";
+  // error included on purpose: a failed download still needs the user's attention in settings
+  const hasUpdate = isDesktop && updateState.status !== "idle";
 
   const isActive = (path: string) => {
     const full = localePath(locale, path);
@@ -70,11 +71,11 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                     asChild
                     variant={isActive(tab.path) ? "secondary" : "ghost"}
                     size="lg"
-                    className="relative gap-2 text-lg h-12 px-6 hover:bg-secondary hover:text-secondary-foreground"
+                    className="relative gap-2 text-lg h-12 px-6 hover:bg-secondary hover:text-secondary-foreground [&_svg]:size-6"
                   >
                     <Link href={localePath(locale, tab.path)}>
                       <span className="relative">
-                        <tab.icon className="w-6 h-6" />
+                        <tab.icon />
                         {tab.path === "/settings" && hasUpdate && (
                           <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-background" />
                         )}
@@ -91,7 +92,7 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                 asChild
                 variant="ghost"
                 size="lg"
-                className="gap-2 text-lg h-12 px-6 hover:bg-secondary hover:text-secondary-foreground"
+                className="gap-2 text-lg h-12 px-6 hover:bg-secondary hover:text-secondary-foreground [&_svg]:size-6"
               >
                 <Link href={localePath(locale, "/settings")}>
                   {currentProviderLogo ? (
@@ -106,7 +107,7 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                       }}
                     />
                   ) : (
-                    <Server className="w-6 h-6" />
+                    <Server />
                   )}
                   Provider
                 </Link>

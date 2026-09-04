@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WelcomeModal } from "@/components/WelcomeModal";
+import { UpdateNotifyModal } from "@/components/UpdateNotifyModal";
 import { ScrollRestorer } from "@/components/ScrollRestorer";
 import { createI18n } from "@/i18n";
 import { recordPath } from "@/lib/nav-history";
@@ -49,6 +50,7 @@ export function Providers({
             <ScrollRestorer />
           </Suspense>
           <WelcomeModal />
+          <UpdateNotifyModal />
           <Toaster />
           <Sonner />
           {children}

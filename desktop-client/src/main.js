@@ -11,6 +11,10 @@ const { initAutoUpdate } = require("./auto-update");
 
 let children = [];
 
+// registered once at module scope, not inside boot() - boot() can run again on macOS
+// "activate" and ipcMain.handle throws if the same channel is registered twice
+ipcMain.handle("streamflix:get-version", () => app.getVersion());
+
 function resourcesDir() {
   if (app.isPackaged) return process.resourcesPath;
   return path.join(__dirname, "..", "resources");

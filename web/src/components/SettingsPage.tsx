@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -16,6 +16,7 @@ import {
 import { proxyImage, PROVIDER_LOGO_FALLBACK, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { useDesktopUpdate } from "@/hooks/useDesktopUpdate";
+import { useAppVersion } from "@/hooks/useAppVersion";
 import { languageFlagUrl } from "@/lib/content-languages";
 import { POPULAR_PROVIDERS_BY_LANGUAGE } from "@/lib/popular-providers";
 import { isAnimeProvider } from "@/lib/anime-providers";
@@ -40,6 +41,7 @@ export function SettingsPage() {
   const currentLocale = useLocale();
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const { isDesktop, state: updateState, download: downloadUpdate, restart: restartToInstall } = useDesktopUpdate();
+  const appVersion = useAppVersion();
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [providerSearch, setProviderSearch] = useState("");
   // null on first render to avoid a hydration mismatch, real value applied in the effect below
@@ -180,15 +182,25 @@ export function SettingsPage() {
           {t('settings.title')}
         </h1>
 
-        {isDesktop && (updateState.status === "available" || updateState.status === "downloading" || updateState.status === "downloaded") && (
-          <section className="bg-card rounded-2xl p-5 md:p-8 mb-6 md:mb-8 border-2 border-primary/40">
+        {isDesktop && updateState.status !== "idle" && (
+          <section
+            className={`bg-card rounded-2xl p-5 md:p-8 mb-6 md:mb-8 border-2 ${
+              updateState.status === "error" ? "border-destructive/40" : "border-primary/40"
+            }`}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <Download className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
+                {updateState.status === "error" ? (
+                  <AlertTriangle className="w-6 h-6 md:w-7 md:h-7 text-destructive flex-shrink-0" />
+                ) : (
+                  <Download className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
+                )}
                 <div className="min-w-0">
                   <p className="font-semibold text-lg md:text-xl text-foreground">
                     {updateState.status === "downloaded"
                       ? t('settings.updateReadyTitle', { version: updateState.version })
+                      : updateState.status === "error"
+                      ? t('settings.updateErrorTitle')
                       : t('settings.updateAvailableTitle', { version: updateState.version })}
                   </p>
                   {updateState.status === "downloading" ? (
@@ -200,27 +212,42 @@ export function SettingsPage() {
                     </div>
                   ) : (
                     <p className="text-sm md:text-base text-muted-foreground">
-                      {updateState.status === "downloaded" ? t('settings.updateReadyDesc') : t('settings.updateAvailableDesc')}
+                      {updateState.status === "downloaded"
+                        ? t('settings.updateReadyDesc')
+                        : updateState.status === "error"
+                        ? t('settings.updateErrorDesc')
+                        : t('settings.updateAvailableDesc')}
                     </p>
                   )}
                 </div>
               </div>
               {updateState.status === "available" && (
-                <Button onClick={downloadUpdate} className="gap-2 flex-shrink-0">
-                  <Download className="w-4 h-4" />
+                <Button onClick={downloadUpdate} size="lg" className="gap-3 flex-shrink-0 h-14 px-8 text-xl [&_svg]:size-6">
+                  <Download />
                   {t('settings.updateDownload')}
                 </Button>
               )}
               {updateState.status === "downloading" && (
-                <Button disabled className="gap-2 flex-shrink-0">
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                <Button disabled size="lg" className="gap-3 flex-shrink-0 h-14 px-8 text-xl [&_svg]:size-6">
+                  <Loader2 className="animate-spin" />
                   {Math.round(updateState.percent ?? 0)}%
                 </Button>
               )}
               {updateState.status === "downloaded" && (
-                <Button onClick={restartToInstall} className="gap-2 flex-shrink-0">
-                  <RotateCw className="w-4 h-4" />
+                <Button onClick={restartToInstall} size="lg" className="gap-3 flex-shrink-0 h-14 px-8 text-xl [&_svg]:size-6">
+                  <RotateCw />
                   {t('settings.updateRestart')}
+                </Button>
+              )}
+              {updateState.status === "error" && (
+                <Button
+                  onClick={downloadUpdate}
+                  size="lg"
+                  variant="destructive"
+                  className="gap-3 flex-shrink-0 h-14 px-8 text-xl [&_svg]:size-6"
+                >
+                  <RotateCw />
+                  {t('settings.updateRetry')}
                 </Button>
               )}
             </div>
@@ -326,7 +353,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <section className="bg-card rounded-2xl p-5 md:p-8">
+        <section className="bg-card rounded-2xl p-5 md:p-8 mb-6 md:mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5 md:mb-6">
             <div className="flex items-center gap-3">
               <Server className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
@@ -427,6 +454,18 @@ export function SettingsPage() {
             </div>
           )}
         </section>
+
+        {isDesktop && appVersion && (
+          <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
+            <div className="flex items-center gap-3">
+              <Info className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.version')}</p>
+                <p className="text-sm md:text-base text-muted-foreground">v{appVersion}</p>
+              </div>
+            </div>
+          </section>
+        )}
       </motion.div>
     </div>
   );
