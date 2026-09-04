@@ -349,8 +349,9 @@ export function HlsPlayer({
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  // space to play/pause, left/right to skip 10s - togglePlay/skip read straight off the
-  // video ref so a stale closure here is fine, no need to re-bind on every render
+  // space to play/pause, left/right to skip 10s, up/down for volume, m to mute -
+  // togglePlay/skip/toggleMute read straight off the video ref so a stale closure here
+  // is fine, no need to re-bind on every render
   useEffect(() => {
     if (status !== "playing") return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -369,6 +370,23 @@ export function HlsPlayer({
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         skip(10);
+        wake();
+      } else if (e.code === "ArrowUp") {
+        e.preventDefault();
+        const video = videoRef.current;
+        if (video) {
+          video.volume = Math.min(1, video.volume + 0.05);
+          video.muted = false;
+        }
+        wake();
+      } else if (e.code === "ArrowDown") {
+        e.preventDefault();
+        const video = videoRef.current;
+        if (video) video.volume = Math.max(0, video.volume - 0.05);
+        wake();
+      } else if (e.code === "KeyM") {
+        e.preventDefault();
+        toggleMute();
         wake();
       }
     };
