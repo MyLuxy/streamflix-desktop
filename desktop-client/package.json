@@ -52,7 +52,11 @@
     },
     "nsis": {
       "oneClick": true,
-      "installerHeaderIcon": "assets/icon.ico"
+      "installerHeaderIcon": "assets/icon.ico",
+      "differentialPackage": false
+    },
+    "dmg": {
+      "writeUpdateInfo": false
     },
     "mac": {
       "target": [
