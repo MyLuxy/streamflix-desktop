@@ -46,12 +46,6 @@ jobs:
         working-directory: desktop-client
         run: node scripts/copy-frontend.mjs
 
-      # electron-builder's rpm target shells out to the real rpmbuild tool, which
-      # ubuntu-latest doesn't ship by default
-      - name: Install rpmbuild
-        if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y rpm
-
       # publishes straight to the GitHub Release for a tag push (electron-builder writes
       # the installer + the latest*.yml files electron-updater needs), otherwise just
       # builds locally so a manual run can be inspected as an artifact
@@ -70,5 +64,4 @@ jobs:
             desktop-client/build/*.dmg
             desktop-client/build/*.AppImage
             desktop-client/build/*.deb
-            desktop-client/build/*.rpm
           if-no-files-found: ignore
