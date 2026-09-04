@@ -56,9 +56,6 @@
       "installerHeaderIcon": "assets/icon.ico",
       "differentialPackage": false
     },
-    "dmg": {
-      "writeUpdateInfo": false
-    },
     "mac": {
       "target": [
         "dmg"
