@@ -85,7 +85,7 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
   const inWatchlist = isInWatchlist(currentItem.id, mediaType);
 
   return (
-    <div className={`hero-banner relative w-full h-[54vh] md:h-[68vh] overflow-hidden ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}>
+    <div className={`hero-banner relative w-full h-[54vh] md:h-[68vh] min-h-[560px] md:min-h-[720px] overflow-hidden ${revealed ? "opacity-100" : "opacity-0"} ${instant ? "" : "transition-opacity duration-700 ease-out"}`}>
       <AnimatePresence mode="wait" initial={!instant}>
         <motion.div
           key={currentItem.id}
@@ -149,8 +149,11 @@ export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps)
       {/* pt not pb, leaves room before the next section. z-20 so this always
           renders above the row below, which overlaps the hero's bottom edge
           (negative margin) to blend with the fade - without this, short
-          viewports can end up with that row painted over the hero's buttons */}
-      <div className="absolute inset-0 z-20 flex items-center px-4 md:px-8 pt-40 md:pt-56">
+          viewports can end up with that row painted over the hero's buttons.
+          pt is smaller than it used to be, and min-h above guarantees the
+          hero itself never gets so short that centered content collides with
+          that overlap zone in the first place */}
+      <div className="absolute inset-0 z-20 flex items-center px-4 md:px-8 pt-24 md:pt-32">
         <AnimatePresence mode="wait" initial={!instant}>
           <motion.div
             key={currentItem.id}
