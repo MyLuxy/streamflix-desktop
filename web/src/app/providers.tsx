@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { UpdateNotifyModal } from "@/components/UpdateNotifyModal";
+import { DesktopTitleLock } from "@/components/DesktopTitleLock";
 import { ScrollRestorer } from "@/components/ScrollRestorer";
 import { createI18n } from "@/i18n";
 import { recordPath } from "@/lib/nav-history";
@@ -51,6 +52,7 @@ export function Providers({
           </Suspense>
           <WelcomeModal />
           <UpdateNotifyModal />
+          <DesktopTitleLock />
           <Toaster />
           <Sonner />
           {children}
