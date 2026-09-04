@@ -272,7 +272,7 @@ object AnimeSaturnProvider : Provider {
 
     // ===================== tier 2: animesaturn.net (current official site, modern theme) =====================
 
-    private const val NET_DOMAIN = "https://www.animesaturn.net"
+    internal const val NET_DOMAIN = "https://www.animesaturn.net"
 
     private interface SaturnNetService {
         companion object {
@@ -336,7 +336,7 @@ object AnimeSaturnProvider : Provider {
         }.distinctBy { it.id }.toList()
     }
 
-    private suspend fun netGetHome(domain: String = NET_DOMAIN): List<Category> = coroutineScope {
+    internal suspend fun netGetHome(domain: String = NET_DOMAIN): List<Category> = coroutineScope {
         val rssDeferred = async { runCatching { netService.getRaw("$domain/rss/anime").string() }.getOrNull() }
         val homeDeferred = async { runCatching { netService.getDocument("$domain/") }.getOrNull() }
 
@@ -352,7 +352,7 @@ object AnimeSaturnProvider : Provider {
         categories
     }
 
-    private suspend fun netGetGenre(id: String, page: Int, domain: String = NET_DOMAIN): Genre {
+    internal suspend fun netGetGenre(id: String, page: Int, domain: String = NET_DOMAIN): Genre {
         val categoryId = NET_GENRE_IDS[id] ?: id
         val url = "$domain/filter?categories%5B%5D=$categoryId&page=$page"
         val shows = netService.getDocument(url).select("a.ac.group").mapNotNull { netParseCard(it) }
@@ -360,7 +360,7 @@ object AnimeSaturnProvider : Provider {
         return Genre(id = id, name = name, shows = shows)
     }
 
-    private suspend fun netGetTvShow(id: String, domain: String = NET_DOMAIN): TvShow {
+    internal suspend fun netGetTvShow(id: String, domain: String = NET_DOMAIN): TvShow {
         val document = netService.getDocument("$domain/anime/$id")
         val title = document.selectFirst("h1.font-display")?.text()?.trim() ?: ""
         if (title.isEmpty()) throw Exception("empty title")
@@ -378,7 +378,7 @@ object AnimeSaturnProvider : Provider {
         )
     }
 
-    private suspend fun netGetEpisodes(id: String, domain: String = NET_DOMAIN): List<Episode> {
+    internal suspend fun netGetEpisodes(id: String, domain: String = NET_DOMAIN): List<Episode> {
         val document = netService.getDocument("$domain/anime/$id")
         return document.select("a.ep-tile").mapNotNull { el ->
             val href = el.attr("href").takeIf { it.isNotEmpty() } ?: return@mapNotNull null
@@ -390,7 +390,7 @@ object AnimeSaturnProvider : Provider {
     // the watch page hands its whole initial state (servers included) to alpine.js as one
     // html-encoded json blob in x-data="watchPage({...})" - cheaper to pull that out with a
     // couple of regexes than to add a json dependency just for this one shape
-    private suspend fun netGetServers(episodeUrl: String, domain: String = NET_DOMAIN): List<Video.Server> {
+    internal suspend fun netGetServers(episodeUrl: String, domain: String = NET_DOMAIN): List<Video.Server> {
         // episode ids point at the seo landing page (/episode/{id}/ep-N) - the actual player
         // with server data lives at the anime watch page instead (/anime/{id}/ep-N)
         val watchPath = episodeUrl.replaceFirst("/episode/", "/anime/")
@@ -418,7 +418,7 @@ object AnimeSaturnProvider : Provider {
         return out.toString()
     }
 
-    private suspend fun netGetVideo(embedUrl: String): Video {
+    internal suspend fun netGetVideo(embedUrl: String): Video {
         val uri = URI(embedUrl)
         val episodeId = uri.path.trimEnd('/').substringAfterLast("/")
         val params = uri.query.orEmpty().split("&").mapNotNull {
