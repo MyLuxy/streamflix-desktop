@@ -5,6 +5,7 @@ const net = require("node:net");
 const path = require("node:path");
 const fs = require("node:fs");
 const { waitForReady } = require("./backend-manager");
+const { TMDB_PERSONAL_API_KEY } = require("./build-secrets");
 
 function findFreePort(startPort) {
   return new Promise((resolve, reject) => {
@@ -34,7 +35,16 @@ async function startFrontend(resourcesDir, logDir) {
   // spawned as a real OS child process (not required in-process) so it can be
   // torn down reliably on quit, same as the backend.
   const child = spawn(process.execPath, [serverJs], {
-    env: { ...process.env, PORT: String(port), HOSTNAME: "127.0.0.1", ELECTRON_RUN_AS_NODE: "1" },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      HOSTNAME: "127.0.0.1",
+      ELECTRON_RUN_AS_NODE: "1",
+      // same personal-key-with-demo-fallback behavior as the Kotlin backend (see
+      // UserPreferences.kt) - blank on any build that didn't get the CI secret, so
+      // web/src/lib/tmdb.ts falls through to its own hardcoded demo key
+      ...(TMDB_PERSONAL_API_KEY ? { TMDB_API_KEY: TMDB_PERSONAL_API_KEY } : {}),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.pipe(logStream);
