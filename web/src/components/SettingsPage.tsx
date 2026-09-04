@@ -457,11 +457,20 @@ export function SettingsPage() {
 
         {isDesktop && appVersion && (
           <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
-            <div className="flex items-center gap-3">
-              <Info className="w-6 h-6 md:w-7 md:h-7 text-primary flex-shrink-0" />
-              <div>
-                <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.version')}</p>
-                <p className="text-sm md:text-base text-muted-foreground">v{appVersion}</p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Info className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
+                <p className="font-semibold text-2xl md:text-3xl text-foreground">{t('settings.version')}</p>
+              </div>
+              <div className="flex items-baseline gap-3">
+                <p className="text-2xl md:text-3xl text-muted-foreground">v{appVersion}</p>
+                <span
+                  className={`relative -top-[4px] flex items-center gap-1.5 text-sm md:text-base font-medium ${
+                    updateState.status === "idle" ? "text-muted-foreground" : "text-primary"
+                  }`}
+                >
+                  {updateState.status === "idle" ? t('settings.versionUpToDate') : t('settings.versionUpdateAvailable')}
+                </span>
               </div>
             </div>
           </section>

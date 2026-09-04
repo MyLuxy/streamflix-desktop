@@ -38,6 +38,8 @@
       "about": "Über StreamFlix",
       "aboutDesc": "StreamFlix ist ein übersichtlicher Streaming-Aggregator, der Ihnen hilft, Ihre Lieblingsfilme und -serien zu entdecken und anzusehen.",
       "version": "Version",
+      "versionUpToDate": "Aktuell",
+      "versionUpdateAvailable": "Neue Version verfügbar",
       "madeWith": "Erstellt mit",
       "dataSource": "Datenquelle",
       "dataSourceDesc": "Dieses Produkt verwendet die TMDB-API, wird jedoch nicht von TMDB unterstützt oder zertifiziert.",

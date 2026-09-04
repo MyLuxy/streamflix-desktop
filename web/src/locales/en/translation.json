@@ -38,6 +38,8 @@
       "about": "About StreamFlix",
       "aboutDesc": "StreamFlix is a beautiful streaming aggregator that helps you discover and watch your favorite movies and TV shows.",
       "version": "Version",
+      "versionUpToDate": "Latest",
+      "versionUpdateAvailable": "New version available",
       "madeWith": "Made with",
       "dataSource": "Data Source",
       "dataSourceDesc": "This product uses the TMDB API but is not endorsed or certified by TMDB.",
