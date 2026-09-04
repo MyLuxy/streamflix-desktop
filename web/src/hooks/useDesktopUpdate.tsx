@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 interface UpdateEventPayload {
   type: "available" | "not-available" | "progress" | "downloaded" | "error";
@@ -31,6 +31,19 @@ interface UpdateState {
   message?: string;
 }
 
+interface UpdateContextValue {
+  isDesktop: boolean;
+  state: UpdateState;
+  download: () => void;
+  restart: () => void;
+}
+
+// the main process only ever sends "available"/"downloaded"/etc once, when its own
+// periodic check resolves - a component that mounts after that (e.g. navigating into
+// Settings later) has no way to learn about it unless the state lives above every
+// consumer instead of inside each one's own useDesktopUpdate() call
+const UpdateContext = createContext<UpdateContextValue | null>(null);
+
 // TEMPORARY - visual testing only, lets ?debugUpdate=available|downloading|downloaded be
 // tried in a plain browser without Electron or a real GitHub release. remove once the design
 // is settled: window.streamflixDesktop is the real signal everywhere else in the app
@@ -46,7 +59,7 @@ function debugStateFromUrl(): UpdateState | null {
 
 // notify-only: the main process checks on its own and tells us when something's available,
 // we never trigger a download/install without the user explicitly asking via download()/restart()
-export function useDesktopUpdate() {
+export function UpdateProvider({ children }: { children: ReactNode }) {
   // starts false so ssr/first client render match, flips true in the effect below if present
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDebug, setIsDebug] = useState(false); // TEMPORARY
@@ -106,5 +119,15 @@ export function useDesktopUpdate() {
     window.streamflixDesktop?.quitAndInstall();
   }, [isDebug]);
 
-  return { isDesktop, state, download, restart };
+  return (
+    <UpdateContext.Provider value={{ isDesktop, state, download, restart }}>
+      {children}
+    </UpdateContext.Provider>
+  );
+}
+
+export function useDesktopUpdate(): UpdateContextValue {
+  const ctx = useContext(UpdateContext);
+  if (!ctx) throw new Error("useDesktopUpdate must be used within UpdateProvider");
+  return ctx;
 }

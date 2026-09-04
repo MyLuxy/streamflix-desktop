@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { UpdateNotifyModal } from "@/components/UpdateNotifyModal";
+import { UpdateProvider } from "@/hooks/useDesktopUpdate";
 import { DesktopTitleLock } from "@/components/DesktopTitleLock";
 import { ScrollRestorer } from "@/components/ScrollRestorer";
 import { createI18n } from "@/i18n";
@@ -46,16 +47,18 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <I18nextProvider i18n={i18n}>
         <TooltipProvider>
-          <Suspense fallback={null}>
-            <PathRecorder />
-            <ScrollRestorer />
-          </Suspense>
-          <WelcomeModal />
-          <UpdateNotifyModal />
-          <DesktopTitleLock />
-          <Toaster />
-          <Sonner />
-          {children}
+          <UpdateProvider>
+            <Suspense fallback={null}>
+              <PathRecorder />
+              <ScrollRestorer />
+            </Suspense>
+            <WelcomeModal />
+            <UpdateNotifyModal />
+            <DesktopTitleLock />
+            <Toaster />
+            <Sonner />
+            {children}
+          </UpdateProvider>
         </TooltipProvider>
       </I18nextProvider>
     </QueryClientProvider>
