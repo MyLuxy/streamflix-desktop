@@ -105,8 +105,6 @@ interface Provider {
             CB01Provider to ProviderSupport(movies = true, tvShows = true),
             AnimeUnityProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeSaturnProvider to ProviderSupport(movies = false, tvShows = true),
-            // temporary - see AnimeSaturnNetTestProvider.kt, remove once .net fallback is checked out
-            AnimeSaturnNetTestProvider to ProviderSupport(movies = false, tvShows = true),
             AnimeSugeProvider to ProviderSupport(movies = true, tvShows = true),
             FshareTvProvider to ProviderSupport(movies = true, tvShows = false),
             FilmoProvider to ProviderSupport(movies = true, tvShows = false),
