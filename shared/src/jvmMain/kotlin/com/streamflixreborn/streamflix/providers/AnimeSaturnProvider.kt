@@ -63,17 +63,11 @@ object AnimeSaturnProvider : Provider {
             }
         }
 
-        @Headers(USER_AGENT)
-        @GET("anime/")
-        suspend fun getAnimeList(@Query("order") order: String? = null): Document
-
+        // wordpress redirects page/1/ to the plain archive url, no need for a separate
+        // "page 1" endpoint - the client follows redirects automatically
         @Headers(USER_AGENT)
         @GET("anime/page/{page}/")
         suspend fun getAnimeListPage(@Path("page") page: Int, @Query("order") order: String? = null): Document
-
-        @Headers(USER_AGENT)
-        @GET("genres/{id}/")
-        suspend fun getGenre(@Path("id") id: String): Document
 
         @Headers(USER_AGENT)
         @GET("genres/{id}/page/{page}/")
@@ -112,6 +106,10 @@ object AnimeSaturnProvider : Provider {
 
     private val service = AnimeSaturnService.build(baseUrl)
 
+    // the theme only shows 10 cards per page - barely fills a row, nothing left to scroll to.
+    // fetch a few of the site's own pages in parallel and merge them into one richer page of ours
+    private const val PAGE_MULTIPLIER = 4
+
     private fun idFromAnimeUrl(url: String): String = url.trimEnd('/').substringAfterLast("/anime/")
 
     private fun parseCard(element: Element): TvShow? {
@@ -123,6 +121,16 @@ object AnimeSaturnProvider : Provider {
         return TvShow(id = idFromAnimeUrl(href), title = title, poster = poster)
     }
 
+    private suspend fun fetchCards(page: Int, fetchSitePage: suspend (Int) -> Document): List<TvShow> = coroutineScope {
+        val firstSitePage = (page - 1) * PAGE_MULTIPLIER + 1
+        val documents = (firstSitePage until firstSitePage + PAGE_MULTIPLIER)
+            .map { sitePage -> async { runCatching { fetchSitePage(sitePage) }.getOrNull() } }
+            .awaitAll()
+        documents.filterNotNull()
+            .flatMap { it.select(".bs").mapNotNull { el -> parseCard(el) } }
+            .distinctBy { it.id }
+    }
+
     override suspend fun getHome(): List<Category> {
         return try {
             val sections = listOf(
@@ -131,7 +139,7 @@ object AnimeSaturnProvider : Provider {
                 "Aggiunti di recente" to "latest",
             )
             sections.mapNotNull { (title, order) ->
-                val shows = service.getAnimeList(order).select(".bs").mapNotNull { parseCard(it) }
+                val shows = fetchCards(1) { sitePage -> service.getAnimeListPage(sitePage, order) }
                 if (shows.isEmpty()) null else Category(title, shows)
             }
         } catch (e: Exception) {
@@ -151,8 +159,7 @@ object AnimeSaturnProvider : Provider {
 
     override suspend fun getGenre(id: String, page: Int): Genre {
         return try {
-            val document = if (page > 1) service.getGenrePage(id, page) else service.getGenre(id)
-            val shows = document.select(".bs").mapNotNull { parseCard(it) }
+            val shows = fetchCards(page) { sitePage -> service.getGenrePage(id, sitePage) }
             val name = id.split("-").joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
             Genre(id = id, name = name, shows = shows)
         } catch (e: Exception) {
@@ -166,8 +173,7 @@ object AnimeSaturnProvider : Provider {
 
     override suspend fun getTvShows(page: Int): List<TvShow> {
         return try {
-            val document = if (page > 1) service.getAnimeListPage(page, "latest") else service.getAnimeList("latest")
-            document.select(".bs").mapNotNull { parseCard(it) }
+            fetchCards(page) { sitePage -> service.getAnimeListPage(sitePage, "latest") }
         } catch (e: Exception) {
             emptyList()
         }
