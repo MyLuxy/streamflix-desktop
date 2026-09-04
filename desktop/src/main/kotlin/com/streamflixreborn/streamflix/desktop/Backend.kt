@@ -222,7 +222,7 @@ private fun faviconOverride(providerName: String): String? {
 private val HIDDEN_PROVIDERS = setOf(
     "AnyMovie", "SerienStream", "Moflix-stream", "FrenchStream", "CineHax",
     "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
-    "Animefenix", "AnimeFLV", "AnimeSaturn", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
+    "Animefenix", "AnimeFLV", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
     "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
     "SoloLatino", "Poseidonhd2", "Doramasflix", "FlixLatam", "GuardaFlix", "MKissa",
     // every vavoo stream routes through one shared relay domain whose TLS cert expired
