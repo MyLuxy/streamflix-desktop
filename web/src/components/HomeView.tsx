@@ -74,7 +74,7 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
           <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} />
         )}
 
-        <div className="home-content relative z-10 -mt-16 md:-mt-32 pb-24 space-y-10 md:space-y-12">
+        <div className="home-content relative z-10 -mt-8 md:-mt-16 pb-24 space-y-10 md:space-y-12">
           {error ? (
             <div className="flex flex-col items-center gap-3 text-center py-24 px-4">
               <AlertTriangle className="w-10 h-10 text-destructive" />
