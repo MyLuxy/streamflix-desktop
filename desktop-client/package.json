@@ -47,7 +47,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-${version}-Windows.${ext}"
     },
     "nsis": {
       "oneClick": true,
@@ -57,14 +58,16 @@
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "artifactName": "${productName}-${version}-OSX.${ext}"
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "artifactName": "${productName}-${version}-Linux.${ext}"
     }
   }
 }
