@@ -41,7 +41,8 @@
     "publish": {
       "provider": "github",
       "owner": "MyLuxy",
-      "repo": "streamflix-desktop"
+      "repo": "streamflix-desktop",
+      "channel": "updates"
     },
     "win": {
       "target": [
