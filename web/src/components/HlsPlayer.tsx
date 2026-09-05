@@ -16,6 +16,8 @@ import {
   Clock,
   Headphones,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
@@ -145,6 +147,34 @@ export function HlsPlayer({
     setShowControls(true);
     scheduleHide();
   }, [scheduleHide]);
+
+  // brief on-screen confirmation for keyboard shortcuts (seek/volume) that fades on its
+  // own, so keyboard input feels responsive without popping open the full controls bar
+  type KeyFeedback = { type: "seek"; direction: "back" | "forward" } | { type: "volume" };
+  const [keyFeedback, setKeyFeedback] = useState<KeyFeedback | null>(null);
+  const [keyFeedbackVisible, setKeyFeedbackVisible] = useState(false);
+  // bumped on every flash so the seek indicator remounts (and its pop-in animation
+  // replays) even when the same direction fires again before the previous one faded out
+  const [keyFeedbackNonce, setKeyFeedbackNonce] = useState(0);
+  const keyFeedbackHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keyFeedbackClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashKeyFeedback = useCallback((feedback: KeyFeedback) => {
+    if (keyFeedbackHideTimerRef.current) clearTimeout(keyFeedbackHideTimerRef.current);
+    if (keyFeedbackClearTimerRef.current) clearTimeout(keyFeedbackClearTimerRef.current);
+    setKeyFeedback(feedback);
+    setKeyFeedbackVisible(true);
+    setKeyFeedbackNonce((n) => n + 1);
+    keyFeedbackHideTimerRef.current = setTimeout(() => setKeyFeedbackVisible(false), 450);
+    keyFeedbackClearTimerRef.current = setTimeout(() => setKeyFeedback(null), 650);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (keyFeedbackHideTimerRef.current) clearTimeout(keyFeedbackHideTimerRef.current);
+      if (keyFeedbackClearTimerRef.current) clearTimeout(keyFeedbackClearTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -362,15 +392,14 @@ export function HlsPlayer({
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
-        wake();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         skip(-10);
-        wake();
+        flashKeyFeedback({ type: "seek", direction: "back" });
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         skip(10);
-        wake();
+        flashKeyFeedback({ type: "seek", direction: "forward" });
       } else if (e.code === "ArrowUp") {
         e.preventDefault();
         const video = videoRef.current;
@@ -378,16 +407,16 @@ export function HlsPlayer({
           video.volume = Math.min(1, video.volume + 0.05);
           video.muted = false;
         }
-        wake();
+        flashKeyFeedback({ type: "volume" });
       } else if (e.code === "ArrowDown") {
         e.preventDefault();
         const video = videoRef.current;
         if (video) video.volume = Math.max(0, video.volume - 0.05);
-        wake();
+        flashKeyFeedback({ type: "volume" });
       } else if (e.code === "KeyM") {
         e.preventDefault();
         toggleMute();
-        wake();
+        flashKeyFeedback({ type: "volume" });
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -573,7 +602,7 @@ export function HlsPlayer({
           <button
             onClick={togglePlay}
             aria-label={isPlaying ? "Pause" : "Play"}
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-white transition-opacity duration-300 ${
+            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] transition-opacity duration-300 ${
               showControls || !isPlaying ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
           >
@@ -585,6 +614,42 @@ export function HlsPlayer({
               <PlayIcon className="w-20 h-20 md:w-28 md:h-28" />
             )}
           </button>
+
+          {keyFeedback?.type === "seek" && (
+            <div
+              key={keyFeedbackNonce}
+              className={`absolute top-1/2 -translate-y-1/2 ${
+                keyFeedback.direction === "forward" ? "right-[14%]" : "left-[14%]"
+              } flex items-center gap-1.5 text-white text-2xl md:text-4xl font-bold pointer-events-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] animate-scale-in transition-opacity duration-200 ${
+                keyFeedbackVisible ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              {keyFeedback.direction === "forward" ? (
+                <>
+                  <span>+10</span>
+                  <ChevronRight className="w-7 h-7 md:w-10 md:h-10" strokeWidth={3} />
+                </>
+              ) : (
+                <>
+                  <ChevronLeft className="w-7 h-7 md:w-10 md:h-10" strokeWidth={3} />
+                  <span>-10</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {keyFeedback?.type === "volume" && (
+            <div
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 text-white pointer-events-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] transition-opacity duration-200 ${
+                keyFeedbackVisible ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <VolumeIcon className="w-14 h-14 md:w-20 md:h-20" />
+              <span className="text-lg md:text-2xl font-bold tabular-nums">
+                {Math.round((muted ? 0 : volume) * 100)}%
+              </span>
+            </div>
+          )}
 
           <div
             className={`absolute bottom-0 inset-x-0 px-4 md:px-8 pb-3 md:pb-5 pt-20 bg-gradient-to-t from-black/85 to-transparent transition-opacity duration-300 ${
@@ -615,7 +680,7 @@ export function HlsPlayer({
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-4 md:gap-5 min-w-0">
-                <button onClick={togglePlay} className="text-white/90 hover:text-white transition-colors flex-shrink-0">
+                <button onClick={togglePlay} className="text-white/90 hover:text-white transition-colors flex-shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
                   {isPlaying ? (
                     <PauseIcon className="w-11 h-11 md:w-14 md:h-14" />
                   ) : (
@@ -626,20 +691,20 @@ export function HlsPlayer({
                 <button
                   onClick={() => skip(-10)}
                   aria-label="-10s"
-                  className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0"
+                  className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]"
                 >
                   <SkipIcon direction="back" className="w-full h-full" />
                 </button>
                 <button
                   onClick={() => skip(10)}
                   aria-label="+10s"
-                  className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0"
+                  className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]"
                 >
                   <SkipIcon direction="forward" className="w-full h-full" />
                 </button>
 
                 <div className="group/volume flex items-center gap-2 flex-shrink-0">
-                  <button onClick={toggleMute} className="text-white/90 hover:text-white transition-colors">
+                  <button onClick={toggleMute} className="text-white/90 hover:text-white transition-colors drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
                     <VolumeIcon className="w-7 h-7 md:w-9 md:h-9" />
                   </button>
                   <input
@@ -673,7 +738,7 @@ export function HlsPlayer({
                     <button
                       onClick={() => setShowSettingsMenu((v) => !v)}
                       aria-label={t("player.audioTrack")}
-                      className={`transition-colors ${showSettingsMenu ? "text-white" : "text-white/90 hover:text-white"}`}
+                      className={`transition-colors drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] ${showSettingsMenu ? "text-white" : "text-white/90 hover:text-white"}`}
                     >
                       <Captions className="w-7 h-7 md:w-9 md:h-9" />
                     </button>
@@ -753,7 +818,7 @@ export function HlsPlayer({
                     )}
                   </div>
                 )}
-                <button onClick={toggleFullscreen} className="text-white/90 hover:text-white transition-colors">
+                <button onClick={toggleFullscreen} className="text-white/90 hover:text-white transition-colors drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
                   {isFullscreen ? (
                     <Minimize className="w-7 h-7 md:w-9 md:h-9" />
                   ) : (
