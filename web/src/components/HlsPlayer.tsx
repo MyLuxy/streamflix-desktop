@@ -532,7 +532,7 @@ export function HlsPlayer({
   return (
     <div
       ref={containerRef}
-      className={`group relative w-full h-full bg-black select-none ${
+      className={`group relative w-full h-full bg-black select-none [&_button:focus]:outline-none [&_button:focus-visible]:outline-none ${
         showControls ? "" : "cursor-none"
       }`}
       onMouseMove={wake}
@@ -689,14 +689,20 @@ export function HlsPlayer({
                 </button>
 
                 <button
-                  onClick={() => skip(-10)}
+                  onClick={() => {
+                    skip(-10);
+                    flashKeyFeedback({ type: "seek", direction: "back" });
+                  }}
                   aria-label="-10s"
                   className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]"
                 >
                   <SkipIcon direction="back" className="w-full h-full" />
                 </button>
                 <button
-                  onClick={() => skip(10)}
+                  onClick={() => {
+                    skip(10);
+                    flashKeyFeedback({ type: "seek", direction: "forward" });
+                  }}
                   aria-label="+10s"
                   className="text-white/90 hover:text-white transition-colors w-10 h-10 md:w-12 md:h-12 flex-shrink-0 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]"
                 >
