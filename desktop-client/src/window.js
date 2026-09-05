@@ -27,7 +27,7 @@ function createMainWindow() {
     height,
     minWidth: 960,
     minHeight: 600,
-    show: true,
+    show: false,
     autoHideMenuBar: true,
     backgroundColor: "#0a0a0a",
     webPreferences: {
@@ -44,6 +44,10 @@ function createMainWindow() {
   // shown, with no race
   win.on("page-title-updated", (event) => event.preventDefault());
   win.setTitle("StreamFlix");
+  // staying hidden until chromium has actually painted a frame skips the white flash
+  // that show:true causes - the window would otherwise appear empty for a moment before
+  // the (dark) loading html even starts rendering
+  win.once("ready-to-show", () => win.show());
   win.loadURL(LOADING_HTML);
   return win;
 }
