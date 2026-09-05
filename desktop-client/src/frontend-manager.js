@@ -23,7 +23,7 @@ function findFreePort(startPort) {
   });
 }
 
-async function startFrontend(resourcesDir, logDir) {
+async function startFrontend(resourcesDir, logDir, backendPort) {
   const serverJs = path.join(resourcesDir, "web", "server.js");
   if (!fs.existsSync(serverJs)) {
     throw new Error(`frontend server not found at ${serverJs}`);
@@ -40,6 +40,10 @@ async function startFrontend(resourcesDir, logDir) {
       PORT: String(port),
       HOSTNAME: "127.0.0.1",
       ELECTRON_RUN_AS_NODE: "1",
+      // not NEXT_PUBLIC_-prefixed on purpose, see web/src/lib/backend.ts - lets
+      // server-only fetches (streamflix.ts) follow the backend's real port even when
+      // it fell back off 3001, which the baked-in NEXT_PUBLIC_BACKEND_URL cant do
+      BACKEND_URL_RUNTIME: `http://127.0.0.1:${backendPort}`,
       // same personal-key-with-demo-fallback behavior as the Kotlin backend (see
       // UserPreferences.kt) - blank on any build that didn't get the CI secret, so
       // web/src/lib/tmdb.ts falls through to its own hardcoded demo key

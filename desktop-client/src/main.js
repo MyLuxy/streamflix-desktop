@@ -4,7 +4,7 @@ const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 
-const { startBackend } = require("./backend-manager");
+const { startBackend, BACKEND_PORT } = require("./backend-manager");
 const { startFrontend } = require("./frontend-manager");
 const { createMainWindow } = require("./window");
 const { initAutoUpdate } = require("./auto-update");
@@ -45,7 +45,19 @@ async function boot() {
     const backend = await startBackend(resDir, logDir);
     children.push(backend.process);
 
-    const frontend = await startFrontend(resDir, logDir);
+    // the frontend bundle only ever knows about BACKEND_PORT (baked in at build time,
+    // see copy-frontend.mjs) - if the backend actually ended up on a different port,
+    // rewrite every request for the baked-in one before it leaves the renderer
+    if (backend.port !== BACKEND_PORT) {
+      win.webContents.session.webRequest.onBeforeRequest(
+        { urls: [`http://127.0.0.1:${BACKEND_PORT}/*`] },
+        (details, callback) => {
+          callback({ redirectURL: details.url.replace(`:${BACKEND_PORT}/`, `:${backend.port}/`) });
+        }
+      );
+    }
+
+    const frontend = await startFrontend(resDir, logDir, backend.port);
     children.push(frontend.process);
 
     if (win.isDestroyed()) return;
