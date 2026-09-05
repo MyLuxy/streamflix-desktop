@@ -484,6 +484,9 @@ export function HlsPlayer({
     const v = Number(e.target.value);
     video.volume = v;
     video.muted = v === 0;
+    // otherwise the slider keeps keyboard focus after a drag, and the browser routes
+    // arrow keys/space to the native range input instead of our own player shortcuts
+    e.target.blur();
   };
 
   const toggleFullscreen = () => {
@@ -539,6 +542,10 @@ export function HlsPlayer({
       onClick={(e) => {
         if (e.target === videoRef.current) togglePlay();
         wake();
+        // any control (mute, fullscreen, skip...) keeps keyboard focus after a click,
+        // which then steals arrow keys/space from our own shortcuts (same issue the
+        // volume slider had) - drop it back to the player once the click is handled
+        (document.activeElement as HTMLElement | null)?.blur?.();
       }}
     >
       {/* no title attr, the native tooltip would fight our own label in the controls bar */}
