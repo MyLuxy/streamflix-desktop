@@ -10,7 +10,25 @@ permissions:
   contents: write
 
 jobs:
+  # the 3 build jobs below run in parallel and each just asks electron-builder to
+  # publish to "the release for this tag, creating it if missing" - without this job
+  # going first, two of them can both see "missing" at the same time and each create
+  # their own release, splitting the assets across two drafts with the same tag
+  create-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure the release exists before the build jobs race to create it
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" || \
+          gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" \
+            --draft --title "StreamFlix ${{ github.ref_name }}" --notes ""
+
   build:
+    needs: [create-release]
+    if: always() && (needs.create-release.result == 'success' || needs.create-release.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
