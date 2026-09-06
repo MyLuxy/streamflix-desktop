@@ -10,6 +10,20 @@ const { createMainWindow } = require("./window");
 const { initAutoUpdate } = require("./auto-update");
 
 let children = [];
+let mainWindow = null;
+
+// only one copy of the app should ever run at once - two would both try to bind the
+// same backend/frontend ports and fight over the same watch-progress/settings files
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
+app.on("second-instance", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
 
 // registered once at module scope, not inside boot() - boot() can run again on macOS
 // "activate" and ipcMain.handle throws if the same channel is registered twice
@@ -39,6 +53,7 @@ async function boot() {
   Menu.setApplicationMenu(null);
 
   const win = createMainWindow();
+  mainWindow = win;
 
   try {
     const resDir = resourcesDir();
@@ -73,7 +88,9 @@ async function boot() {
   }
 }
 
-app.whenReady().then(boot);
+if (gotSingleInstanceLock) {
+  app.whenReady().then(boot);
+}
 
 app.on("window-all-closed", () => {
   killChildren();
