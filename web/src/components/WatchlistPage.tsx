@@ -2,7 +2,8 @@ import { motion } from "framer-motion";
 import { Trash2, Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useWatchlist } from "@/hooks/useWatchlist";
-import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
+import { useProviders } from "@/hooks/useStreamflix";
+import { IMAGE_SIZES, imageUrl, proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { WatchlistItem } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
@@ -19,6 +20,13 @@ function posterSrc(item: WatchlistItem): string | null {
 export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
   const { t } = useTranslation();
   const { watchlist, removeFromWatchlist } = useWatchlist();
+  const { data: providers } = useProviders();
+
+  // a title saved from a provider that's since been hidden (or removed outright) just
+  // wont be in this list anymore - falls back to the generic icon below, which doubles
+  // as a quiet "this provider isn't around right now" signal instead of a broken image
+  const providerLogo = (name: string | undefined) =>
+    providers?.find((p) => p.name === name)?.logo;
 
   if (watchlist.length === 0) {
     return (
@@ -83,6 +91,22 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
                   )}
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                  {item.mediaType !== "hentai" && (() => {
+                    const logo = providerLogo(item.provider);
+                    return (
+                      <img
+                        src={logo ? proxyImage(logo) : GENERIC_PROVIDER_LOGO}
+                        alt={item.provider || ""}
+                        className="absolute bottom-2 right-2 w-9 h-9 md:w-11 md:h-11 rounded-md object-cover bg-black/80 shadow-md"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          if (img.src.endsWith(GENERIC_PROVIDER_LOGO)) return;
+                          img.src = GENERIC_PROVIDER_LOGO;
+                        }}
+                      />
+                    );
+                  })()}
 
                   <div
                     onClick={(e) => {

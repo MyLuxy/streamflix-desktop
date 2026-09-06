@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { WatchlistItem } from "@/lib/types";
-import { getSelectedProviderClient, PROVIDER_CHANGED_EVENT } from "@/lib/provider";
 
 const STORAGE_KEY = "streamify-watchlist";
 
@@ -77,18 +76,9 @@ const getSnapshot = () => items;
 const getServerSnapshot = () => EMPTY;
 
 export function useWatchlist() {
-  const allItems = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  const [activeProvider, setActiveProvider] = useState<string>(() => getSelectedProviderClient());
-  useEffect(() => {
-    setActiveProvider(getSelectedProviderClient());
-    const onProviderChanged = () => setActiveProvider(getSelectedProviderClient());
-    window.addEventListener(PROVIDER_CHANGED_EVENT, onProviderChanged);
-    return () => window.removeEventListener(PROVIDER_CHANGED_EVENT, onProviderChanged);
-  }, []);
-
-  // hentai items have no provider so they always stay visible, only movies/shows get filtered
-  const watchlist = allItems.filter((i) => !i.provider || i.provider === activeProvider);
+  // one unified list across all providers - opening an item switches the active provider
+  // to match it instead of hiding titles saved from a provider you're not on right now
+  const watchlist = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const addToWatchlist = useCallback((item: Omit<WatchlistItem, "addedAt">) => add(item), []);
   const removeFromWatchlist = useCallback(
@@ -97,7 +87,7 @@ export function useWatchlist() {
   );
   const isInWatchlist = useCallback(
     (id: number, mediaType: WatchlistItem["mediaType"]) => has(id, mediaType),
-    [allItems]
+    [watchlist]
   );
   const toggleWatchlist = useCallback((item: Omit<WatchlistItem, "addedAt">) => {
     if (has(item.id, item.mediaType)) remove(item.id, item.mediaType);

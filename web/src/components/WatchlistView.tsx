@@ -6,6 +6,7 @@ import { WatchlistPage } from "@/components/WatchlistPage";
 import { useLocale } from "@/hooks/useLocale";
 import { hrefForItem, typeSegment } from "@/lib/links";
 import { buildProviderSlug } from "@/lib/slug";
+import { setSelectedProviderClient } from "@/lib/provider";
 import type { MediaItem, WatchlistItem } from "@/lib/types";
 
 export function WatchlistView() {
@@ -19,6 +20,10 @@ export function WatchlistView() {
       return;
     }
     if (item.provider && item.realId) {
+      // the watchlist is unified across providers now, so opening a title saved from a
+      // provider other than the active one switches the app onto it - same as picking
+      // it manually in Settings, just triggered by the click instead
+      setSelectedProviderClient(item.provider);
       // only reliable way to resolve the item later, the numeric hash fallback below isnt
       const slug = buildProviderSlug(item.provider, item.realId, item.title);
       router.push(`/${locale}/${typeSegment(item.mediaType)}/${slug}`);
