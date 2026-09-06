@@ -18,6 +18,9 @@ export interface WatchedItem {
   episode?: number;
   // audioLabel() output (eg "Japanese"/"English"), lets resume pick the same track back up
   audioTrack?: string;
+  // dismissed from the home row via the X button, but the resume position is kept -
+  // playing it again writes a fresh item (see addItem), which naturally un-hides it
+  hidden?: boolean;
 }
 
 const STORAGE_KEY = "streamflix_continue_watching";
@@ -128,9 +131,13 @@ export function useContinueWatching() {
     });
   };
 
+  // hides from the home row instead of deleting outright, so the saved position survives
+  // for when the title gets opened again (see the type's `hidden` field)
   const removeItem = (provider: string, realId: string, mediaType: "movie" | "tv") => {
     setItems((prev) => {
-      const newItems = prev.filter((i) => !sameItem(i, { provider, realId, mediaType }));
+      const newItems = prev.map((i) =>
+        sameItem(i, { provider, realId, mediaType }) ? { ...i, hidden: true } : i
+      );
       saveToStorage(newItems);
       return newItems;
     });
@@ -143,8 +150,9 @@ export function useContinueWatching() {
 
   return {
     items,
-    // scoped to the active provider, for the home row
-    activeProviderItems: items.filter((i) => i.provider === activeProvider),
+    // scoped to the active provider, for the home row - hidden ones stay in `items` (raw)
+    // so DetailView can still look them up to resume, just not shown here
+    activeProviderItems: items.filter((i) => i.provider === activeProvider && !i.hidden),
     addItem,
     removeItem,
     updateProgress,
