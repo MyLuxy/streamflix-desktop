@@ -1,12 +1,20 @@
 <h1 align="center">Streamflix Desktop</h1>
 
 <p align="center">
-  <img src="./web/public/logo.png" height="100px" />
+  <img src="./web/public/logo.png" height="150px" />
   <br />
   <strong>🖥️ Desktop Port</strong> - Standalone desktop version of Streamflix Reborn
   <br />
   An open-source desktop app for educational streaming interface, with a Kotlin backend and a Next.js/Electron frontend
   <br />
+  <a href="https://github.com/MyLuxy/streamflix-desktop/releases/latest">
+    <strong>Download app »</strong>
+  </a>
+  <br />
+  <br />
+  <a href="https://github.com/MyLuxy/streamflix-desktop/issues">Report Bug</a>
+  ·
+  <a href="https://github.com/MyLuxy/streamflix-desktop/issues">Request Feature</a>
 </p>
 
 <details>
@@ -27,6 +35,10 @@
 </details>
 
 ## About the project
+
+<p align="center">
+  <img src="./.github/docs/StreamFlixDesktop.png" alt="Streamflix Preview">
+</p>
 
 **Streamflix Desktop** is a standalone desktop port of [Streamflix Reborn](https://github.com/streamflix-reborn2/streamflix), itself a community continuation of the original Streamflix project created by [Lory-Stan TANASI](https://github.com/stantanasi). This port swaps the Android app shell for a Kotlin/JVM backend and a Next.js web UI, packaged as a native desktop app with Electron.
 
