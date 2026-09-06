@@ -1,9 +1,6 @@
 package com.streamflixreborn.streamflix.extractors
 
 import com.streamflixreborn.streamflix.utils.MimeTypes
-
-import com.streamflixreborn.streamflix.utils.Base64
-
 import com.streamflixreborn.streamflix.utils.Uri
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
@@ -11,13 +8,22 @@ import com.streamflixreborn.streamflix.providers.RidomoviesProvider
 import com.streamflixreborn.streamflix.utils.JsUnpacker
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
+import org.mozilla.javascript.BaseFunction
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.ScriptableObject
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Url
-import java.nio.charset.Charset
+import java.util.Base64
 
+// the site's own decryption code has every identifier (function name, local vars, the
+// obfuscation "key" strings) renamed on every page load, so regexing for a hardcoded
+// function/variable name (the old approach) breaks on the very next reshuffle. running
+// their own script in a real JS engine sidesteps that entirely - whatever they call it,
+// it still has to produce the value that ends up in jwplayer's `sources` option
 class CloseloadExtractor : Extractor() {
 
     override val name = "Closeload"
@@ -28,135 +34,84 @@ class CloseloadExtractor : Extractor() {
         val service = Service.build(mainUrl)
         val document = service.get(link, RidomoviesProvider.URL)
         val html = document.toString()
-        var searchHtml = html
-        
-        val evalRegex = Regex("""eval\s*\(\s*function\s*\(\s*p\s*,\s*a\s*,\s*c\s*,\s*k\s*,\s*e""")
-        evalRegex.findAll(html).forEach { match ->
-            val endIdx = (match.range.first + 5000).coerceAtMost(html.length)
-            val chunk = html.substring(match.range.first, endIdx)
-            val unpacker = JsUnpacker(chunk)
+
+        val varNameMatch = Regex("""sources\s*:\s*\[\s*\{\s*file\s*:\s*([A-Za-z_$][A-Za-z0-9_$]*)""")
+            .find(html) ?: throw Exception("Can't find the video source variable in the embed page")
+        val varName = varNameMatch.groupValues[1]
+
+        // in document order: every inline <script>, plus whatever any p.a.c.k.e.r-packed
+        // one of them unpacks to - the decoder can live in either depending on the page
+        val candidates = mutableListOf<String>()
+        document.select("script").forEach { script ->
+            if (script.hasAttr("src")) return@forEach
+            val text = script.data().ifBlank { script.html() }
+            if (text.isBlank()) return@forEach
+            candidates.add(text)
+            val unpacker = JsUnpacker(text)
             if (unpacker.detect()) {
-                unpacker.unpack()?.let {
-                    searchHtml += "\n" + it
-                }
+                unpacker.unpack()?.let { candidates.add(it) }
             }
         }
 
-        val funcMatch = Regex("""function\s+(dc_[a-zA-Z0-9_]+)\(value_parts\)\s*\{(.*?return unmix;?)\s*\}""", RegexOption.DOT_MATCHES_ALL).find(searchHtml)
-            ?: throw Exception("Decryption function not found")
+        val assignmentRegex = Regex("""\b${Regex.escape(varName)}\s*=""")
+        val decoderScript = candidates.find { assignmentRegex.containsMatchIn(it) }
+            ?: throw Exception("Can't find the script assigning $varName")
 
-        val funcName = funcMatch.groupValues[1]
-        val funcBody = funcMatch.groupValues[2]
+        val sourceValue = runInSandbox(decoderScript, varName)
+            ?: throw Exception("Decryption produced no value for $varName")
 
-        val operations = mutableListOf<Pair<String, Int?>>()
-        val opRegex = Regex("""(atob\()|(reverse\(\))|(replace\(\/\[a-zA-Z\]\/g.*?o\s*-\s*base\s*\+\s*(\d+)\s*\)\s*%\s*26)""", RegexOption.DOT_MATCHES_ALL)
-        opRegex.findAll(funcBody).forEach { match ->
-            if (match.groupValues[1].isNotEmpty()) {
-                operations.add(Pair("atob", null))
-            } else if (match.groupValues[2].isNotEmpty()) {
-                operations.add(Pair("reverse", null))
-            } else if (match.groupValues[3].isNotEmpty()) {
-                val rotVal = match.groupValues[4].toInt()
-                operations.add(Pair("rot", rotVal))
-            }
+        if (!sourceValue.startsWith("http")) {
+            throw Exception("Decrypted value doesn't look like a URL: $sourceValue")
         }
-
-        var accInit = 2
-        var accAdd = 9
-        Regex("""var\s+acc\s*=\s*(\d+)""").find(funcBody)?.let { accInit = it.groupValues[1].toInt() }
-        Regex("""acc\s*=\s*\(\s*acc\s*\+\s*(\d+)\s*\)\s*%\s*256""").find(funcBody)?.let { accAdd = it.groupValues[1].toInt() }
-
-        val arrayMatches = Regex("""$funcName\(\s*\[\s*((?:"[^"]+",?\s*)+)\s*\]\s*\)""").findAll(searchHtml)
-        
-        var source: String? = null
-        
-        fun safeB64Decode(s: String): ByteArray {
-            val cleanStr = s.replace(Regex("""\s+"""), "")
-            val pad = cleanStr.length % 4
-            val paddedStr = if (pad > 0) cleanStr + "=".repeat(4 - pad) else cleanStr
-            return Base64.decode(paddedStr, Base64.DEFAULT)
-        }
-
-        fun safeB64DecodeBytes(b: ByteArray): ByteArray {
-            val s = String(b, Charsets.ISO_8859_1)
-            return safeB64Decode(s)
-        }
-
-        for (arrayMatch in arrayMatches) {
-            val partsStr = arrayMatch.groupValues[1]
-            val parts = Regex(""""([^"]+)"""").findAll(partsStr).map { it.groupValues[1] }.toList()
-            val value = parts.joinToString("").replace("\\/", "/")
-            
-            var resultStr: String? = value
-            var resultBytes: ByteArray? = null
-            var success = true
-            
-            for ((op, param) in operations) {
-                when (op) {
-                    "atob" -> {
-                        try {
-                            resultBytes = if (resultStr != null) {
-                                safeB64Decode(resultStr)
-                            } else {
-                                safeB64DecodeBytes(resultBytes!!)
-                            }
-                            resultStr = String(resultBytes, Charsets.ISO_8859_1)
-                        } catch (e: Exception) {
-                            success = false
-                            break
-                        }
-                    }
-                    "reverse" -> {
-                        resultStr = resultStr?.reversed() ?: String(resultBytes!!, Charsets.ISO_8859_1).reversed()
-                        resultBytes = null
-                    }
-                    "rot" -> {
-                        val rotOffset = param!!
-                        val currentStr = resultStr ?: String(resultBytes!!, Charsets.ISO_8859_1)
-                        val rotResult = StringBuilder()
-                        for (c in currentStr) {
-                            if (c in 'a'..'z') {
-                                rotResult.append((((c - 'a') + rotOffset) % 26 + 'a'.code).toChar())
-                            } else if (c in 'A'..'Z') {
-                                rotResult.append((((c - 'A') + rotOffset) % 26 + 'A'.code).toChar())
-                            } else {
-                                rotResult.append(c)
-                            }
-                        }
-                        resultStr = rotResult.toString()
-                        resultBytes = null
-                    }
-                }
-            }
-            
-            if (!success) continue
-            
-            val finalBytes = resultBytes ?: resultStr!!.toByteArray(Charsets.ISO_8859_1)
-            var acc = accInit
-            val unmix = StringBuilder()
-            for (b in finalBytes) {
-                val bInt = b.toInt() and 0xFF
-                acc = (acc + accAdd) % 256
-                val plain = bInt xor acc
-                acc = (acc + bInt) % 256
-                unmix.append(plain.toChar())
-            }
-            
-            val urlStr = unmix.toString().trim()
-            if (urlStr.startsWith("http")) {
-                source = urlStr
-                break
-            }
-        }
-
-        if (source == null) throw Exception("No video found")
 
         val url = Uri.parse(link)
         val referer = "${url.scheme}://${url.host}/"
 
-        return Video(source, headers = mapOf("Referer" to referer), type = MimeTypes.APPLICATION_M3U8)
+        return Video(sourceValue, headers = mapOf("Referer" to referer), type = MimeTypes.APPLICATION_M3U8)
     }
-    
+
+    // atob/btoa are browser globals, not part of the JS language itself - the decoder
+    // needs a real one (not a stub) since it base64-decodes the actual payload with it
+    private fun runInSandbox(script: String, varName: String): String? {
+        val cx = Context.enter()
+        return try {
+            cx.optimizationLevel = -1
+            val scope = cx.initStandardObjects()
+            registerBase64Globals(cx, scope)
+            try {
+                cx.evaluateString(scope, script, "closeload-decoder", 1, null)
+            } catch (e: Exception) {
+                // best-effort: a later, unrelated statement in the same script block
+                // throwing doesn't undo the target assignment if it already happened
+            }
+            val value = ScriptableObject.getProperty(scope, varName)
+            if (value == Scriptable.NOT_FOUND || value == null) null else Context.toString(value)
+        } finally {
+            Context.exit()
+        }
+    }
+
+    private fun registerBase64Globals(cx: Context, scope: Scriptable) {
+        val atob = object : BaseFunction() {
+            override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any {
+                val input = Context.toString(args.getOrNull(0) ?: "")
+                val cleaned = input.replace(Regex("""\s+"""), "")
+                val padded = cleaned + "=".repeat((4 - cleaned.length % 4) % 4)
+                val bytes = Base64.getDecoder().decode(padded)
+                return String(bytes, Charsets.ISO_8859_1)
+            }
+        }
+        val btoa = object : BaseFunction() {
+            override fun call(cx: Context, scope: Scriptable, thisObj: Scriptable, args: Array<out Any>): Any {
+                val input = Context.toString(args.getOrNull(0) ?: "")
+                val bytes = input.toByteArray(Charsets.ISO_8859_1)
+                return Base64.getEncoder().encodeToString(bytes)
+            }
+        }
+        ScriptableObject.putProperty(scope, "atob", atob)
+        ScriptableObject.putProperty(scope, "btoa", btoa)
+    }
+
     private interface Service {
         companion object {
             fun build(baseUrl: String): Service {

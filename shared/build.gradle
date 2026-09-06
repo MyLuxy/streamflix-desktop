@@ -27,6 +27,10 @@ kotlin {
                 implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0'
                 implementation 'org.json:json:20260814'
                 implementation 'com.microsoft.playwright:playwright:1.62.0'
+                // runs a video host's own obfuscated JS in a real interpreter instead of
+                // regexing it apart - the site renames every identifier per page load, so
+                // a hand-ported regex extractor breaks the moment they reshuffle names
+                implementation 'org.mozilla:rhino:1.7.15'
             }
         }
         jvmTest {
