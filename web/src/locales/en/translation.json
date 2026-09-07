@@ -4,6 +4,7 @@
       "home": "Home",
       "search": "Search",
       "watchlist": "Watchlist",
+      "downloads": "Downloads",
       "settings": "Settings",
       "movies": "Movies",
       "tv": "TV Shows"
@@ -223,6 +224,11 @@
       "typeHentai": "Hentai",
       "add": "Add to watchlist",
       "remove": "Remove from watchlist"
+    },
+    "downloadsPage": {
+      "title": "Downloads",
+      "empty": "No downloads yet",
+      "addContent": "Movies and TV shows you download to watch offline will show up here"
     },
     "hero": {
       "playNow": "Play Now"

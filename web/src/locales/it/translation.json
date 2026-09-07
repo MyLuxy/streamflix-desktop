@@ -4,6 +4,7 @@
       "home": "Home",
       "search": "Cerca",
       "watchlist": "Watchlist",
+      "downloads": "Downloads",
       "settings": "Impostazioni",
       "movies": "Film",
       "tv": "Serie TV"
@@ -223,6 +224,11 @@
       "typeHentai": "Hentai",
       "add": "Aggiungi alla watchlist",
       "remove": "Rimuovi dalla watchlist"
+    },
+    "downloadsPage": {
+      "title": "Downloads",
+      "empty": "Nessun download",
+      "addContent": "I film e le serie TV che scarichi per guardarli offline appariranno qui"
     },
     "hero": {
       "playNow": "Riproduci Ora"

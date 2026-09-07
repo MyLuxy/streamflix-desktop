@@ -4,6 +4,7 @@
       "home": "Home",
       "search": "Buscar",
       "watchlist": "Watchlist",
+      "downloads": "Downloads",
       "settings": "Ajustes",
       "movies": "Películas",
       "tv": "Series"
@@ -223,6 +224,11 @@
       "typeHentai": "Hentai",
       "add": "Añadir a la lista",
       "remove": "Quitar de la lista"
+    },
+    "downloadsPage": {
+      "title": "Downloads",
+      "empty": "Todavía no hay descargas",
+      "addContent": "Las películas y series de TV que descargues para ver sin conexión aparecerán aquí"
     },
     "hero": {
       "playNow": "Reproducir Ahora"
