@@ -101,7 +101,11 @@
       "animationMovies": "Animation Movies",
       "horror": "Horror",
       "thriller": "Thriller",
-      "categories": "Categories"
+      "categories": "Categories",
+      "offline": {
+        "title": "No internet connection",
+        "description": "It looks like this device is offline. Check your connection and try again."
+      }
     },
     "anime": {
       "label": "For true fans",

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
 import { HeroBanner } from "@/components/HeroBanner";
@@ -12,6 +12,7 @@ import { CustomGenreSections } from "@/components/CustomGenreSections";
 import { LiveTVRow } from "@/components/LiveTVRow";
 import { useContinueWatching, type WatchedItem } from "@/hooks/useContinueWatching";
 import { useLocale } from "@/hooks/useLocale";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { hrefForItem, typeSegment } from "@/lib/links";
 import { buildProviderSlug } from "@/lib/slug";
 import type { Movie, TVShow, MediaItem } from "@/lib/types";
@@ -32,6 +33,7 @@ interface HomeViewProps {
 export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
   const router = useRouter();
   const { t } = useTranslation();
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     if (error) console.error(`[StreamFlix] provider "${provider}" non raggiungibile:`, error);
@@ -72,12 +74,18 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
       <Navigation />
 
       <main>
-        {!error && heroRow && heroRow.items.length > 0 && (
+        {isOnline && !error && heroRow && heroRow.items.length > 0 && (
           <HeroBanner items={heroRow.items} onPlayClick={goToItem} onInfoClick={goToItem} />
         )}
 
         <div className="home-content relative z-10 -mt-8 md:-mt-16 pb-24 space-y-10 md:space-y-12">
-          {error ? (
+          {!isOnline ? (
+            <div className="flex flex-col items-center gap-3 text-center py-24 px-4">
+              <WifiOff className="w-10 h-10 text-destructive" />
+              <p className="text-lg font-semibold text-foreground">{t("home.offline.title")}</p>
+              <p className="text-sm text-muted-foreground max-w-md">{t("home.offline.description")}</p>
+            </div>
+          ) : error ? (
             <div className="flex flex-col items-center gap-3 text-center py-24 px-4">
               <AlertTriangle className="w-10 h-10 text-destructive" />
               <p className="text-lg font-semibold text-foreground">
