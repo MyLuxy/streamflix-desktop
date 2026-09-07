@@ -45,6 +45,29 @@ function killChildren() {
   children = [];
 }
 
+// same as killChildren, but resolves only once every process has actually exited - the
+// updater needs this: it spawns the installer before Electron even starts quitting, so if
+// backend.exe is still alive when NSIS tries to overwrite it, windows just leaves the old
+// binary in place (a locked exe can't be replaced) and the update silently only half-applies
+function killChildrenAndWait() {
+  const toKill = children;
+  children = [];
+  return Promise.all(
+    toKill.map((child) => {
+      if (child.exitCode !== null || child.killed) return Promise.resolve();
+      return new Promise((resolve) => {
+        child.once("exit", resolve);
+        child.kill("SIGTERM");
+        setTimeout(() => {
+          if (child.exitCode === null && !child.killed) child.kill("SIGKILL");
+        }, 3000);
+        // in case "exit" never fires for some reason, dont hang the update forever
+        setTimeout(resolve, 4000);
+      });
+    })
+  );
+}
+
 async function boot() {
   const logDir = app.getPath("logs");
   fs.mkdirSync(logDir, { recursive: true });
@@ -78,7 +101,7 @@ async function boot() {
     if (win.isDestroyed()) return;
     await win.loadURL(`http://127.0.0.1:${frontend.port}/`);
 
-    initAutoUpdate(win);
+    initAutoUpdate(win, killChildrenAndWait);
   } catch (err) {
     dialog.showErrorBox(
       "StreamFlix failed to start",
