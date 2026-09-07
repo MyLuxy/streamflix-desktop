@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 
-import { X, Play, Film, Check, ArrowLeft } from "lucide-react";
+import { X, Play, Film, Check, ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeasonEpisodes, type StreamflixEpisode } from "@/hooks/useStreamflix";
+import { useDownloads } from "@/hooks/useDownloads";
 import type { EpisodeProgress } from "@/hooks/useEpisodeProgress";
 import { useTranslation } from "react-i18next";
 import type { Season } from "@/lib/types";
@@ -27,6 +28,10 @@ interface EpisodePickerModalProps {
   currentEpisode?: number;
   getEpisodeProgress?: (season: number, episode: number) => EpisodeProgress | undefined;
   backdropUrl?: string | null;
+  // "watch" (default) picks an episode to play, same as always. "download" reuses the same
+  // picker but clicking an episode toggles it for download instead, and the modal stays open
+  // so more than one can be picked in a row
+  mode?: "watch" | "download";
 }
 
 export function EpisodePickerModal({
@@ -41,8 +46,10 @@ export function EpisodePickerModal({
   currentEpisode,
   getEpisodeProgress,
   backdropUrl,
+  mode = "watch",
 }: EpisodePickerModalProps) {
   const { t } = useTranslation();
+  const { isDownloaded, toggleDownload } = useDownloads();
   // >=0 not >0, some providers (AnimeUnity) number their first season 0
   const validSeasons = seasons.filter((s) => s.season_number >= 0);
   const [selectedSeason, setSelectedSeason] = useState(
@@ -110,7 +117,9 @@ export function EpisodePickerModal({
         </Button>
 
         <div className="min-w-0 text-center">
-          <h3 className="text-lg sm:text-xl md:text-3xl font-bold text-foreground truncate">{title}</h3>
+          <h3 className="text-lg sm:text-xl md:text-3xl font-bold text-foreground truncate">
+            {mode === "download" ? `Download ${title}` : title}
+          </h3>
         </div>
 
         <Button
@@ -169,13 +178,29 @@ export function EpisodePickerModal({
                   const isCurrent = ep.number === currentEpisode && selectedSeason === currentSeason;
                   const epProgress = getEpisodeProgress?.(selectedSeason, ep.number);
                   const isWatched = (epProgress?.progress ?? 0) >= WATCHED_THRESHOLD;
+                  const downloaded = isDownloaded(provider, tvId, "tv", selectedSeason, ep.number);
                   return (
                     <button
                       key={ep.id}
                       ref={(el) => {
                         if (el && isCurrent) episodeRefs.current.set(ep.number, el);
                       }}
-                      onClick={() => onSelect(selectedSeason, ep.number, ep.id)}
+                      onClick={() => {
+                        if (mode === "download") {
+                          toggleDownload({
+                            mediaType: "tv",
+                            title,
+                            posterPath: ep.poster,
+                            provider,
+                            realId: tvId,
+                            season: selectedSeason,
+                            episode: ep.number,
+                            episodeTitle: ep.title ?? undefined,
+                          });
+                          return;
+                        }
+                        onSelect(selectedSeason, ep.number, ep.id);
+                      }}
                       className={`w-full flex gap-4 md:gap-6 p-2 md:p-3 rounded-lg transition-colors text-left group ${
                         isCurrent
                           ? "bg-secondary ring-1 ring-foreground/30"
@@ -197,7 +222,15 @@ export function EpisodePickerModal({
                         )}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <div className="w-14 h-14 rounded-full bg-primary/90 flex items-center justify-center">
-                            <Play className="w-6 h-6 text-primary-foreground fill-current ml-0.5" />
+                            {mode === "download" ? (
+                              downloaded ? (
+                                <Check className="w-6 h-6 text-primary-foreground" />
+                              ) : (
+                                <Download className="w-6 h-6 text-primary-foreground" />
+                              )
+                            ) : (
+                              <Play className="w-6 h-6 text-primary-foreground fill-current ml-0.5" />
+                            )}
                           </div>
                         </div>
 

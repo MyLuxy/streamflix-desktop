@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Check, Star, Clock, Calendar, ArrowLeft, Volume2, Volume1, VolumeX } from "lucide-react";
+import { Plus, Check, Star, Clock, Calendar, ArrowLeft, Volume2, Volume1, VolumeX, Download } from "lucide-react";
 import { PlayIcon } from "@/components/MediaIcons";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useDownloads } from "@/hooks/useDownloads";
 import { useContinueWatching } from "@/hooks/useContinueWatching";
 import { useEpisodeProgress } from "@/hooks/useEpisodeProgress";
 import { useArtworkFallback } from "@/hooks/useArtworkFallback";
@@ -78,6 +79,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
 
   const [playing, setPlaying] = useState(!!initialWatch);
   const [showEpisodePicker, setShowEpisodePicker] = useState(false);
+  const [episodePickerMode, setEpisodePickerMode] = useState<"watch" | "download">("watch");
   // season 0 is a real thing for some providers (AnimeUnity), cant just default to 1
   const [startSeason, setStartSeason] = useState(
     initialWatch?.season ?? watchedItem?.season ?? seasons[0]?.season_number ?? 1
@@ -106,6 +108,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const router = useRouter();
   const locale = useLocale();
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
+  const { isDownloaded, toggleDownload } = useDownloads();
 
   const { data: currentSeasonEpisodes } = useSeasonEpisodes(
     provider,
@@ -197,6 +200,13 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     toggleWatchlist({ id, mediaType, title, posterPath: data.poster_path, provider, realId });
   };
 
+  // movies only here - a show downloads per episode, from EpisodePickerModal instead
+  const downloaded = mediaType === "movie" && isDownloaded(provider, realId, "movie");
+
+  const handleToggleDownload = () => {
+    toggleDownload({ mediaType: "movie", title, posterPath: data.poster_path, provider, realId });
+  };
+
   const beginPlayback = (season?: number, episode?: number, episodeId?: string) => {
     // only carry over saved progress if resuming the same episode, otherwise the new
     // one would inherit the old minutes while showing updated season/episode numbers
@@ -231,6 +241,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
 
   const handlePlayClick = () => {
     if (mediaType === "tv" && seasons.length > 0) {
+      setEpisodePickerMode("watch");
       setShowEpisodePicker(true);
       return;
     }
@@ -240,6 +251,13 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const handleEpisodePicked = (season: number, episode: number, episodeId: string) => {
     setShowEpisodePicker(false);
     beginPlayback(season, episode, episodeId);
+  };
+
+  // a show has no single "the file" to download - opens the same picker but in
+  // download mode, where clicking an episode toggles it instead of starting playback
+  const handleDownloadClick = () => {
+    setEpisodePickerMode("download");
+    setShowEpisodePicker(true);
   };
 
   const backButton = (className: string) => (
@@ -293,6 +311,18 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
         <PlayIcon />
         {t("content.play")}
       </Button>
+
+      {(mediaType === "movie" || seasons.length > 0) && (
+        <Button
+          variant="outline"
+          onClick={mediaType === "movie" ? handleToggleDownload : handleDownloadClick}
+          aria-label={downloaded ? t("content.downloaded") : t("content.download")}
+          title={downloaded ? t("content.downloaded") : t("content.download")}
+          className="w-9 sm:w-11 md:w-16 h-9 sm:h-11 md:h-16 px-0 [&_svg]:size-3.5 sm:[&_svg]:size-4 md:[&_svg]:size-8"
+        >
+          {downloaded ? <Check /> : <Download />}
+        </Button>
+      )}
 
       <Button
         variant="outline"
@@ -524,6 +554,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
           tvId={realId}
           seasons={seasons}
           title={title}
+          mode={episodePickerMode}
           onSelect={handleEpisodePicked}
           currentSeason={startSeason}
           currentEpisode={startEpisode}

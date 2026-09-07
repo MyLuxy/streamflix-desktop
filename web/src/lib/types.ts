@@ -141,6 +141,22 @@ export interface WatchlistItem {
   addedAt: number;
 }
 
+// UI-only for now (button + persisted "queued" state) - no actual file is fetched/stored
+// yet, that needs backend + Electron filesystem work that hasn't landed. season/episode are
+// only set for a tv entry, a movie entry downloads the whole thing so it has neither.
+export interface DownloadItem {
+  key: string;
+  mediaType: "movie" | "tv";
+  title: string;
+  posterPath: string | null;
+  provider: string;
+  realId: string;
+  season?: number;
+  episode?: number;
+  episodeTitle?: string;
+  addedAt: number;
+}
+
 export interface WatchProgressItem {
   id: number;
   mediaType: "movie" | "tv";
