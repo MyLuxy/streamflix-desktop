@@ -80,21 +80,25 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
         <div className="home-content relative z-10 -mt-8 md:-mt-16 pb-24 space-y-10 md:space-y-12">
           {!isOnline ? (
-            <div className="flex flex-col items-center gap-3 text-center py-24 px-4">
-              <WifiOff className="w-10 h-10 text-destructive" />
-              <p className="text-lg font-semibold text-foreground">{t("home.offline.title")}</p>
-              <p className="text-sm text-muted-foreground max-w-md">{t("home.offline.description")}</p>
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <WifiOff className="w-10 h-10 text-destructive" />
+                <p className="text-lg font-semibold text-foreground">{t("home.offline.title")}</p>
+                <p className="text-sm text-muted-foreground max-w-md">{t("home.offline.description")}</p>
+              </div>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center gap-3 text-center py-24 px-4">
-              <AlertTriangle className="w-10 h-10 text-destructive" />
-              <p className="text-lg font-semibold text-foreground">
-                Impossibile contattare &quot;{provider}&quot;
-              </p>
-              <p className="text-sm text-muted-foreground max-w-md">
-                Il provider selezionato non ha risposto. Prova a selezionarne un altro dalle Impostazioni, o riprova più tardi.
-              </p>
-              <p className="text-xs text-muted-foreground/70 font-mono max-w-md break-words">{error}</p>
+            <div className="flex items-center justify-center min-h-screen px-4">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <AlertTriangle className="w-10 h-10 text-destructive" />
+                <p className="text-lg font-semibold text-foreground">
+                  Impossibile contattare &quot;{provider}&quot;
+                </p>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Il provider selezionato non ha risposto. Prova a selezionarne un altro dalle Impostazioni, o riprova più tardi.
+                </p>
+                <p className="text-xs text-muted-foreground/70 font-mono max-w-md break-words">{error}</p>
+              </div>
             </div>
           ) : (
             <>
