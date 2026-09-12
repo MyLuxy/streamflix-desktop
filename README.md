@@ -1,9 +1,9 @@
 <h1 align="center">Streamflix Desktop</h1>
 
 <p align="center">
-  <img src="./web/public/logo.png" height="150px" />
+  <img src="./.github/docs/StreamFlixLogo.png" height="265px" />
   <br />
-  <strong>🖥️ Desktop Port</strong> - Standalone desktop version of Streamflix Reborn
+  <strong> Desktop Port</strong> - Standalone desktop version of Streamflix Reborn
   <br />
   An open-source desktop app for educational streaming interface, with a Kotlin backend and a Next.js/Electron frontend
   <br />
