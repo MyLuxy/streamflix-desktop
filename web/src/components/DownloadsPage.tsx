@@ -303,14 +303,17 @@ export function DownloadsPage({ onPlay }: DownloadsPageProps) {
       )}
 
       <AlertDialog open={confirmDeleteKey !== null} onOpenChange={(open) => !open && setConfirmDeleteKey(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-2xl p-10 gap-8">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("downloadsPage.deleteTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("downloadsPage.deleteDescription")}</AlertDialogDescription>
+            <AlertDialogTitle className="text-3xl">{t("downloadsPage.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription className="text-lg">{t("downloadsPage.deleteDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("content.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-red-500 text-white hover:bg-red-500/90">
+            <AlertDialogCancel className="h-12 min-w-[9rem] text-base">{t("content.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="h-12 min-w-[9rem] text-base bg-red-500 text-white hover:bg-red-500/90"
+            >
               {t("downloadsPage.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
