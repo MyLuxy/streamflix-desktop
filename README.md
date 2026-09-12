@@ -1,7 +1,7 @@
 <h1 align="center">Streamflix Desktop</h1>
 
 <p align="center">
-  <img src="./.github/docs/StreamFlixLogo.png" height="265px" />
+  <img src="./.github/docs/StreamFlixLogo.png" height="235px" />
   <br />
   <strong> Desktop Port</strong> - Standalone desktop version of Streamflix Reborn
   <br />
