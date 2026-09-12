@@ -14,3 +14,5 @@ app/src/main/cpp/native-lib.cpp
 .aider*
 .playwright-mcp/
 /segment_test.ts
+CLAUDE.md
+.claude/

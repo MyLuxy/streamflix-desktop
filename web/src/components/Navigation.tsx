@@ -12,10 +12,9 @@ import { useProviders } from "@/hooks/useStreamflix";
 import { getSelectedProviderClient, PROVIDER_CHANGED_EVENT } from "@/lib/provider";
 import { proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { useDesktopUpdate } from "@/hooks/useDesktopUpdate";
+import { useDownloads } from "@/hooks/useDownloads";
 
-// mobile bottom bar keeps its original 4 equally-styled tabs (not a priority to redesign
-// right now) - the desktop top bar below treats search as a netflix-style icon-only action
-// instead of a tab, and adds downloads there only
+// mobile bottom bar keeps its original 4 tabs, desktop treats search as icon-only and adds downloads
 const tabs: { path: string; labelKey: string; icon: typeof Home }[] = [
   { path: "/", labelKey: "nav.home", icon: Home },
   { path: "/search", labelKey: "nav.search", icon: Search },
@@ -56,6 +55,8 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
   const { isDesktop, state: updateState } = useDesktopUpdate();
   // error included on purpose: a failed download still needs the user's attention in settings
   const hasUpdate = isDesktop && updateState.status !== "idle";
+  const { downloads } = useDownloads();
+  const hasActiveDownload = downloads.some((d) => d.status === "downloading");
 
   const isActive = (path: string) => {
     const full = localePath(locale, path);
@@ -100,7 +101,7 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
                     <Link href={localePath(locale, tab.path)}>
                       <span className="relative">
                         <tab.icon />
-                        {tab.path === "/settings" && hasUpdate && (
+                        {((tab.path === "/settings" && hasUpdate) || (tab.path === "/downloads" && hasActiveDownload)) && (
                           <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-background" />
                         )}
                       </span>
@@ -141,9 +142,7 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
         </div>
       </nav>
 
-      {/* mobile only: downloads doesn't fit in the bottom bar without crowding it, so it gets
-          its own quiet top-right shortcut instead - filled background, no border, so it reads
-          as floating over the page rather than part of a toolbar */}
+      {/* mobile: downloads gets its own floating top-right shortcut instead of crowding the bottom bar */}
       <Link
         href={localePath(locale, "/downloads")}
         aria-label={t("nav.downloads")}
@@ -151,7 +150,12 @@ export function Navigation({ hideMobileBar = false }: NavigationProps = {}) {
           isActive("/downloads") ? "bg-primary/20 text-primary" : "bg-background/60 text-foreground"
         } ${hideMobileBar ? "hidden" : ""}`}
       >
-        <Download className="w-5 h-5" />
+        <span className="relative">
+          <Download className="w-5 h-5" />
+          {hasActiveDownload && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-background" />
+          )}
+        </span>
       </Link>
 
       <nav className={`fixed bottom-0 left-0 right-0 z-[65] md:hidden ${hideMobileBar ? "hidden" : ""}`}>

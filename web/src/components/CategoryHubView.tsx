@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect, Fragment } from "react";
+import { useMemo, useState, Fragment } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Flame } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ interface CategoryHubViewProps {
   rows: HubRow[];
   titleKey: string;
   taglineKey: string;
-  showAdultBanner?: boolean;
   heroVariant?: "grid" | "parallax" | "horror";
 }
 
@@ -39,7 +38,6 @@ export function CategoryHubView({
   rows,
   titleKey,
   taglineKey,
-  showAdultBanner = false,
   heroVariant = "grid",
 }: CategoryHubViewProps) {
   const { t } = useTranslation();
@@ -80,21 +78,6 @@ export function CategoryHubView({
       return filled;
     });
   }, [rows]);
-
-  // random pick after mount, avoids ssr/client mismatch
-  const [bannerImg, setBannerImg] = useState("/hentai2.png");
-  const [bannerLoaded, setBannerLoaded] = useState(false);
-  useEffect(() => {
-    setBannerImg(Math.random() < 0.5 ? "/hentai.jpg" : "/hentai2.png");
-  }, []);
-  // onLoad doesnt fire for a cached img, gotta check .complete too
-  useEffect(() => {
-    setBannerLoaded(false);
-    const img = new window.Image();
-    img.src = bannerImg;
-    if (img.complete) setBannerLoaded(true);
-    else img.onload = () => setBannerLoaded(true);
-  }, [bannerImg]);
 
   const handleBack = () => {
     markRestoreIntent();
@@ -206,41 +189,6 @@ export function CategoryHubView({
                       <img src="/horror/h2.webp" alt="" className="h-full w-auto max-w-none opacity-90" loading="lazy" />
                     </div>
                   )}
-                </div>
-              )}
-              {showAdultBanner && row.key === "seinen" && (
-                <div className="px-4 md:px-8 py-4">
-                  <Link
-                    href={`/${locale}/category/hentai`}
-                    className="group relative block w-full max-w-3xl mx-auto overflow-hidden rounded-2xl h-36 sm:h-44 md:h-48 shadow-xl bg-black transition-shadow duration-300 hover:shadow-2xl"
-                  >
-                    {!bannerLoaded && (
-                      <div className="absolute inset-0 shimmer-wave bg-gradient-to-br from-pink-900/40 via-purple-900/30 to-black" />
-                    )}
-
-                    <img
-                      src={bannerImg}
-                      alt=""
-                      onLoad={() => setBannerLoaded(true)}
-                      className={`absolute inset-0 h-full w-full object-cover object-left transition-all duration-700 ease-out group-hover:scale-[1.03] ${
-                        bannerLoaded
-                          ? "opacity-100 blur-0 scale-100"
-                          : "opacity-0 blur-md scale-110"
-                      }`}
-                    />
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-
-                    <div className="relative h-full flex flex-col justify-end pb-4 gap-2 md:gap-3 px-5 md:px-7 max-w-[70%]">
-                      <h3 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)] leading-tight">
-                        {t("anime.adultTitle")}
-                      </h3>
-                      <span className="inline-flex items-center gap-1.5 md:gap-2 self-start bg-pink-600 hover:bg-pink-500 text-white font-bold text-xs sm:text-sm md:text-base px-4 md:px-6 py-2 md:py-2.5 rounded-full shadow-lg transition-colors">
-                        <Flame className="w-4 h-4 md:w-5 md:h-5" />
-                        {t("anime.adultCta")}
-                      </span>
-                    </div>
-                  </Link>
                 </div>
               )}
             </Fragment>

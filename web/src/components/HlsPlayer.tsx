@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
-import { resolveStream, type StreamServer } from "@/hooks/useStreamflix";
+import { resolveStream, type StreamServer, type StreamResult } from "@/hooks/useStreamflix";
 import { PlayIcon, PauseIcon, SkipIcon, NextIcon } from "@/components/MediaIcons";
 
 interface HlsPlayerProps {
@@ -31,6 +31,8 @@ interface HlsPlayerProps {
   seasonNumber?: number;
   episodeId?: string;
   episodeNumber?: number;
+  // a downloaded file already on disk, plays this url directly and skips resolveStream entirely
+  directSource?: string;
   title: string;
   seasonEpisodeLabel?: string;
   // ignored if too close to zero, not worth resuming from
@@ -53,16 +55,14 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// most servers are just mirrors named after the host, sites like hianime tag sub/dub
-// in the name instead, that maps to the actual spoken language so the picker reads clean
+// most servers are just host mirrors, but hianime tags sub/dub in the name, map that to a real language
 function audioLabel(name: string): string {
   const tag = name.match(/\b(sub|dub)\b/i);
   if (!tag) return name;
   return tag[1].toLowerCase() === "sub" ? "Japanese" : "English";
 }
 
-// mirrors of the same file arent audio tracks, only show the tab when servers actually
-// look like language variants (hianime style), not just interchangeable hosts
+// mirrors of the same file arent audio tracks, only show the tab for real language variants
 function hasAudioVariants(servers: StreamServer[]): boolean {
   return servers.length > 1 && servers.some((s) => /\b(sub|dub)\b/i.test(s.name));
 }
@@ -71,8 +71,7 @@ const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 type SettingsTab = "quality" | "speed" | "audio" | "subtitles";
 
-// custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs
-// headers browsers cant set on a cross origin request
+// custom video+hls.js instead of an embed iframe, backend proxies segments and spoofs cross-origin headers
 export function HlsPlayer({
   provider,
   itemId,
@@ -80,6 +79,7 @@ export function HlsPlayer({
   seasonNumber,
   episodeId,
   episodeNumber,
+  directSource,
   title,
   seasonEpisodeLabel,
   startTime,
@@ -148,13 +148,11 @@ export function HlsPlayer({
     scheduleHide();
   }, [scheduleHide]);
 
-  // brief on-screen confirmation for keyboard shortcuts (seek/volume) that fades on its
-  // own, so keyboard input feels responsive without popping open the full controls bar
+  // brief on-screen confirmation for keyboard shortcuts that fades on its own
   type KeyFeedback = { type: "seek"; direction: "back" | "forward" } | { type: "volume" };
   const [keyFeedback, setKeyFeedback] = useState<KeyFeedback | null>(null);
   const [keyFeedbackVisible, setKeyFeedbackVisible] = useState(false);
-  // bumped on every flash so the seek indicator remounts (and its pop-in animation
-  // replays) even when the same direction fires again before the previous one faded out
+  // bumped on every flash so the indicator remounts and replays even for a repeat press
   const [keyFeedbackNonce, setKeyFeedbackNonce] = useState(0);
   const keyFeedbackHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyFeedbackClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,7 +238,6 @@ export function HlsPlayer({
   useEffect(() => {
     setSelectedServerId(undefined);
     setSelectedSubtitleUrl(undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, episodeId]);
 
   useEffect(() => {
@@ -257,8 +254,7 @@ export function HlsPlayer({
     if (videoRef.current) videoRef.current.playbackRate = playbackRate;
   }, [playbackRate, status]);
 
-  // the default attr on <track> isnt reliable once tracks change dynamically, force it.
-  // undefined means no manual pick yet, follow whatever track came back marked default
+  // <track> default attr isnt reliable once tracks change dynamically, force it here instead
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -279,11 +275,10 @@ export function HlsPlayer({
     setStatus("loading");
     setErrorMessage(null);
 
-    resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId).then((result) => {
+    const handleResult = (result: StreamResult) => {
       if (cancelled) return;
       if (!result.success || !result.manifestUrl) {
-        // raw backend errors arent user friendly, log em and show a generic message -
-        // unless every server confirmed the title just isn't there, then say that instead
+        // raw backend errors arent user friendly, show a generic one unless every server confirmed not found
         console.error("[StreamFlix] stream error:", result.error);
         setStatus("error");
         setErrorMessage(result.notFound ? t("player.contentNotAvailable") : t("player.streamUnavailable"));
@@ -292,8 +287,7 @@ export function HlsPlayer({
 
       const resultServers = result.servers ?? [];
 
-      // first pass (no manual pick yet), a saved preference from last time wins over
-      // whatever the provider defaulted to, requires resolving this one again
+      // first pass: a saved preference from last time wins over whatever the provider defaulted to
       if (selectedServerId === undefined && preferredAudioTrackRef.current) {
         const preferred = resultServers.find((s) => audioLabel(s.name) === preferredAudioTrackRef.current);
         if (preferred && preferred.id !== resultServers[0]?.id) {
@@ -327,6 +321,12 @@ export function HlsPlayer({
           applyStartTime();
           video.play().catch(() => {});
         });
+        video.addEventListener("error", () => {
+          if (cancelled) return;
+          console.error("[StreamFlix] video load error:", video.error);
+          setStatus("error");
+          setErrorMessage(t("player.streamError"));
+        });
       } else if (Hls.isSupported()) {
         const hls = new Hls();
         hlsRef.current = hls;
@@ -353,25 +353,36 @@ export function HlsPlayer({
           applyStartTime();
           video.play().catch(() => {});
         });
+        video.addEventListener("error", () => {
+          if (cancelled) return;
+          console.error("[StreamFlix] video load error:", video.error);
+          setStatus("error");
+          setErrorMessage(t("player.streamError"));
+        });
       } else {
         setStatus("error");
         setErrorMessage(t("player.hlsUnsupported"));
       }
-    });
+    };
+
+    if (directSource) {
+      handleResult({ success: true, manifestUrl: directSource, type: "direct", subtitles: [], servers: [] });
+    } else {
+      resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId).then(handleResult);
+    }
 
     return () => {
       cancelled = true;
       hlsRef.current?.destroy();
       hlsRef.current = null;
-      // destroy() doesnt pause the video, buffered content keeps playing (and saving
-      // progress onto the wrong title) unless we stop it here too
+      // destroy() doesnt pause the video, it'd keep playing and saving progress onto the wrong title
       video.pause();
       video.removeAttribute("src");
       video.load();
     };
     // startTime and onProgress excluded on purpose, or this reloads the stream every tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId]);
+  }, [provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId, directSource]);
 
   useEffect(() => {
     const onFsChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
@@ -379,9 +390,7 @@ export function HlsPlayer({
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  // space to play/pause, left/right to skip 10s, up/down for volume, m to mute -
-  // togglePlay/skip/toggleMute read straight off the video ref so a stale closure here
-  // is fine, no need to re-bind on every render
+  // handlers read straight off the video ref so a stale closure is fine, no need to re-bind every render
   useEffect(() => {
     if (status !== "playing") return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -442,7 +451,7 @@ export function HlsPlayer({
       const t = seekToClientX(e.clientX);
       if (t !== null && videoRef.current) {
         videoRef.current.currentTime = t;
-        // same as skip() - dont wait on buffering before the bar reflects the drop point
+        // same as skip(), dont wait on buffering before the bar reflects the drop point
         setCurrentTime(t);
       }
       setDragging(false);
@@ -484,8 +493,7 @@ export function HlsPlayer({
     const v = Number(e.target.value);
     video.volume = v;
     video.muted = v === 0;
-    // otherwise the slider keeps keyboard focus after a drag, and the browser routes
-    // arrow keys/space to the native range input instead of our own player shortcuts
+    // otherwise the slider keeps focus and eats arrow keys/space meant for player shortcuts
     e.target.blur();
   };
 
@@ -542,9 +550,7 @@ export function HlsPlayer({
       onClick={(e) => {
         if (e.target === videoRef.current) togglePlay();
         wake();
-        // any control (mute, fullscreen, skip...) keeps keyboard focus after a click,
-        // which then steals arrow keys/space from our own shortcuts (same issue the
-        // volume slider had) - drop it back to the player once the click is handled
+        // same focus-stealing issue as the volume slider, blur whatever control just got clicked
         (document.activeElement as HTMLElement | null)?.blur?.();
       }}
     >

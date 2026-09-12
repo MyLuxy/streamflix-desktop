@@ -15,6 +15,7 @@ interface StreamflixDesktopBridge {
   quitAndInstall: () => Promise<void>;
   getVersion: () => Promise<string>;
   onUpdateEvent: (callback: (payload: UpdateEventPayload) => void) => () => void;
+  showInFolder: (filePath: string) => Promise<void>;
 }
 
 declare global {
@@ -38,15 +39,10 @@ interface UpdateContextValue {
   restart: () => void;
 }
 
-// the main process only ever sends "available"/"downloaded"/etc once, when its own
-// periodic check resolves - a component that mounts after that (e.g. navigating into
-// Settings later) has no way to learn about it unless the state lives above every
-// consumer instead of inside each one's own useDesktopUpdate() call
+// state lives above every consumer, a component mounting after the main process's one-time event would otherwise miss it
 const UpdateContext = createContext<UpdateContextValue | null>(null);
 
-// TEMPORARY - visual testing only, lets ?debugUpdate=available|downloading|downloaded be
-// tried in a plain browser without Electron or a real GitHub release. remove once the design
-// is settled: window.streamflixDesktop is the real signal everywhere else in the app
+// TEMPORARY: lets ?debugUpdate=available|downloading|downloaded be tried in a plain browser, remove later
 function debugStateFromUrl(): UpdateState | null {
   if (typeof window === "undefined") return null;
   const requested = new URLSearchParams(window.location.search).get("debugUpdate");
@@ -57,8 +53,7 @@ function debugStateFromUrl(): UpdateState | null {
   return null;
 }
 
-// notify-only: the main process checks on its own and tells us when something's available,
-// we never trigger a download/install without the user explicitly asking via download()/restart()
+// notify-only, never triggers a download/install without the user explicitly calling download()/restart()
 export function UpdateProvider({ children }: { children: ReactNode }) {
   // starts false so ssr/first client render match, flips true in the effect below if present
   const [isDesktop, setIsDesktop] = useState(false);
@@ -95,7 +90,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const download = useCallback(() => {
     setState((prev) => ({ status: "downloading", version: prev.version, percent: 0 }));
     if (isDebug) {
-      // TEMPORARY - fake a download finishing in ~2s so the "downloaded" state is reachable too
+      // temporary: fake a download finishing in ~2s so the "downloaded" state is reachable too
       let percent = 0;
       const iv = setInterval(() => {
         percent += 20;

@@ -6,13 +6,12 @@ const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
 
-const BACKEND_PORT = 3001; // fixed - baked into the frontend's client bundle at build time, see copy-frontend.mjs
+const BACKEND_PORT = 3001; // baked into the frontend's client bundle at build time, see copy-frontend.mjs
 
 function backendLauncherPath(resourcesDir) {
   const dir = path.join(resourcesDir, "backend");
   if (process.platform === "win32") return path.join(dir, "streamflix-backend.exe");
-  // jpackage always wraps a macOS app-image in a real .app bundle - the actual binary
-  // lives inside it, not at the top level like on windows/linux
+  // jpackage wraps macOS in a real .app bundle, binary's inside it not at the top level
   if (process.platform === "darwin") return path.join(dir, "Contents", "MacOS", "streamflix-backend");
   return path.join(dir, "bin", "streamflix-backend");
 }
@@ -45,9 +44,7 @@ function waitForReady(url, { timeoutMs = 20000, intervalMs = 300 } = {}) {
   });
 }
 
-// if BACKEND_PORT is taken, this walks up to 20 ports looking for a free one instead
-// of failing to launch - the frontend bundle still only knows about BACKEND_PORT, so
-// main.js patches every request for it at the session level when the real port differs
+// walks up to 20 ports for a free one instead of failing, main.js patches requests if it differs
 async function findBackendPort(startPort) {
   let port = startPort;
   while (await isPortInUse(port)) {
@@ -59,7 +56,13 @@ async function findBackendPort(startPort) {
   return port;
 }
 
-async function startBackend(resourcesDir, logDir) {
+// packaged builds bundle a static ffmpeg next to the backend, dev falls back to PATH
+function ffmpegPath(resourcesDir) {
+  const bundled = path.join(resourcesDir, "ffmpeg", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  return fs.existsSync(bundled) ? bundled : null;
+}
+
+async function startBackend(resourcesDir, logDir, downloadsDir) {
   const port = await findBackendPort(BACKEND_PORT);
 
   const launcher = backendLauncherPath(resourcesDir);
@@ -67,9 +70,15 @@ async function startBackend(resourcesDir, logDir) {
     throw new Error(`backend launcher not found at ${launcher}`);
   }
 
+  const bundledFfmpeg = ffmpegPath(resourcesDir);
   const logStream = fs.createWriteStream(path.join(logDir, "backend.log"), { flags: "a" });
   const child = spawn(launcher, [], {
-    env: { ...process.env, STREAMFLIX_BACKEND_PORT: String(port) },
+    env: {
+      ...process.env,
+      STREAMFLIX_BACKEND_PORT: String(port),
+      STREAMFLIX_DOWNLOADS_DIR: downloadsDir,
+      ...(bundledFfmpeg ? { STREAMFLIX_FFMPEG_PATH: bundledFfmpeg } : {}),
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.pipe(logStream);

@@ -132,7 +132,7 @@ export interface Video {
 
 export interface WatchlistItem {
   id: number;
-  mediaType: "movie" | "tv" | "hentai";
+  mediaType: "movie" | "tv";
   title: string;
   posterPath: string | null;
   slug?: string;
@@ -141,9 +141,7 @@ export interface WatchlistItem {
   addedAt: number;
 }
 
-// UI-only for now (button + persisted "queued" state) - no actual file is fetched/stored
-// yet, that needs backend + Electron filesystem work that hasn't landed. season/episode are
-// only set for a tv entry, a movie entry downloads the whole thing so it has neither.
+// season/episode only set for a tv entry, a movie downloads as one whole file
 export interface DownloadItem {
   key: string;
   mediaType: "movie" | "tv";
@@ -155,6 +153,13 @@ export interface DownloadItem {
   episode?: number;
   episodeTitle?: string;
   addedAt: number;
+  status: "downloading" | "done" | "failed";
+  jobId?: string;
+  phase?: string;
+  progress?: number;
+  paused?: boolean;
+  filePath?: string;
+  error?: string;
 }
 
 export interface WatchProgressItem {

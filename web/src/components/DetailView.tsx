@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Check, Star, Clock, Calendar, ArrowLeft, Volume2, Volume1, VolumeX, Download } from "lucide-react";
+import { Plus, Check, Star, Clock, Calendar, ArrowLeft, Volume2, Volume1, VolumeX, Download, Loader2 } from "lucide-react";
 import { PlayIcon } from "@/components/MediaIcons";
 import { motion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -108,7 +108,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const router = useRouter();
   const locale = useLocale();
   const { isInWatchlist, toggleWatchlist } = useWatchlist();
-  const { isDownloaded, toggleDownload } = useDownloads();
+  const { getDownload, startDownload } = useDownloads();
 
   const { data: currentSeasonEpisodes } = useSeasonEpisodes(
     provider,
@@ -162,8 +162,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   );
   const effectiveBackdropUrl = fallbackBackdrop ?? backdropUrl;
   const effectivePosterUrl = fallbackPoster ?? posterUrl;
-  // no native backdrop at all (common for hianime), and hianime's own poster is known dead too -
-  // dont wait for an onError that'll never fire
+  // hianime often has no backdrop and a dead poster too, dont wait for an onError that'll never fire
   useEffect(() => {
     if (!backdropUrl || skipOwnArtwork) triggerFallback();
   }, [backdropUrl, skipOwnArtwork, triggerFallback]);
@@ -200,16 +199,22 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     toggleWatchlist({ id, mediaType, title, posterPath: data.poster_path, provider, realId });
   };
 
-  // movies only here - a show downloads per episode, from EpisodePickerModal instead
-  const downloaded = mediaType === "movie" && isDownloaded(provider, realId, "movie");
+  // movies only here, a show downloads per episode from EpisodePickerModal instead
+  const download = mediaType === "movie" ? getDownload(provider, realId, "movie") : undefined;
+  const downloaded = download?.status === "done";
+  const downloading = download?.status === "downloading";
 
-  const handleToggleDownload = () => {
-    toggleDownload({ mediaType: "movie", title, posterPath: data.poster_path, provider, realId });
+  const handleStartDownload = () => {
+    // already tracked, the Downloads page shows its real status
+    if (download) {
+      router.push(`/${locale}/downloads`);
+      return;
+    }
+    startDownload({ mediaType: "movie", title, posterPath: data.poster_path, provider, realId });
   };
 
   const beginPlayback = (season?: number, episode?: number, episodeId?: string) => {
-    // only carry over saved progress if resuming the same episode, otherwise the new
-    // one would inherit the old minutes while showing updated season/episode numbers
+    // only carry over saved progress if resuming the exact same episode
     const isResumingSameEpisode =
       mediaType === "movie" ||
       (season === undefined && episode === undefined) ||
@@ -253,8 +258,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
     beginPlayback(season, episode, episodeId);
   };
 
-  // a show has no single "the file" to download - opens the same picker but in
-  // download mode, where clicking an episode toggles it instead of starting playback
+  // a show has no single file to download, opens the picker in download mode instead
   const handleDownloadClick = () => {
     setEpisodePickerMode("download");
     setShowEpisodePicker(true);
@@ -315,12 +319,12 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
       {(mediaType === "movie" || seasons.length > 0) && (
         <Button
           variant="outline"
-          onClick={mediaType === "movie" ? handleToggleDownload : handleDownloadClick}
+          onClick={mediaType === "movie" ? handleStartDownload : handleDownloadClick}
           aria-label={downloaded ? t("content.downloaded") : t("content.download")}
           title={downloaded ? t("content.downloaded") : t("content.download")}
           className="w-9 sm:w-11 md:w-16 h-9 sm:h-11 md:h-16 px-0 [&_svg]:size-3.5 sm:[&_svg]:size-4 md:[&_svg]:size-8"
         >
-          {downloaded ? <Check /> : <Download />}
+          {downloaded ? <Check /> : downloading ? <Loader2 className="animate-spin" /> : <Download />}
         </Button>
       )}
 

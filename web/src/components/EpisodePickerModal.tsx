@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-import { X, Play, Film, Check, ArrowLeft, Download } from "lucide-react";
+import { X, Play, Film, Check, ArrowLeft, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSeasonEpisodes, type StreamflixEpisode } from "@/hooks/useStreamflix";
@@ -28,9 +28,7 @@ interface EpisodePickerModalProps {
   currentEpisode?: number;
   getEpisodeProgress?: (season: number, episode: number) => EpisodeProgress | undefined;
   backdropUrl?: string | null;
-  // "watch" (default) picks an episode to play, same as always. "download" reuses the same
-  // picker but clicking an episode toggles it for download instead, and the modal stays open
-  // so more than one can be picked in a row
+  // "download" reuses this same picker but toggles the episode instead of playing it, and stays open
   mode?: "watch" | "download";
 }
 
@@ -49,7 +47,7 @@ export function EpisodePickerModal({
   mode = "watch",
 }: EpisodePickerModalProps) {
   const { t } = useTranslation();
-  const { isDownloaded, toggleDownload } = useDownloads();
+  const { getDownload, startDownload } = useDownloads();
   // >=0 not >0, some providers (AnimeUnity) number their first season 0
   const validSeasons = seasons.filter((s) => s.season_number >= 0);
   const [selectedSeason, setSelectedSeason] = useState(
@@ -178,7 +176,9 @@ export function EpisodePickerModal({
                   const isCurrent = ep.number === currentEpisode && selectedSeason === currentSeason;
                   const epProgress = getEpisodeProgress?.(selectedSeason, ep.number);
                   const isWatched = (epProgress?.progress ?? 0) >= WATCHED_THRESHOLD;
-                  const downloaded = isDownloaded(provider, tvId, "tv", selectedSeason, ep.number);
+                  const download = getDownload(provider, tvId, "tv", selectedSeason, ep.number);
+                  const downloaded = download?.status === "done";
+                  const downloading = download?.status === "downloading";
                   return (
                     <button
                       key={ep.id}
@@ -187,7 +187,8 @@ export function EpisodePickerModal({
                       }}
                       onClick={() => {
                         if (mode === "download") {
-                          toggleDownload({
+                          if (download) return; // manage an existing one from the Downloads page instead
+                          startDownload({
                             mediaType: "tv",
                             title,
                             posterPath: ep.poster,
@@ -225,6 +226,8 @@ export function EpisodePickerModal({
                             {mode === "download" ? (
                               downloaded ? (
                                 <Check className="w-6 h-6 text-primary-foreground" />
+                              ) : downloading ? (
+                                <Loader2 className="w-6 h-6 text-primary-foreground animate-spin" />
                               ) : (
                                 <Download className="w-6 h-6 text-primary-foreground" />
                               )

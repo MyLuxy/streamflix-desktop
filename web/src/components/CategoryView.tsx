@@ -32,8 +32,7 @@ export function CategoryView({ slug, items, mediaType, titleKey }: CategoryViewP
   const router = useRouter();
   const { revealed: heroRevealed, instant: heroInstant } = useHeroEntrance();
 
-  // hentai category just hardcodes its title
-  const title = slug === "hentai" ? "Hentai" : t(titleKey);
+  const title = t(titleKey);
 
   // round robin into columns, dupe posters so the scroll loop looks seamless
   const columns = useMemo(() => {

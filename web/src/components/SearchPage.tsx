@@ -14,10 +14,7 @@ import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { MediaItem } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 
-// kept the hentai variant for SearchView.tsx compat, this page doesnt produce those results anymore
-export type SearchClickPayload =
-  | { kind: "tmdb"; item: MediaItem }
-  | { kind: "hentai"; slug: string; name: string };
+export type SearchClickPayload = { kind: "tmdb"; item: MediaItem };
 
 interface SearchPageProps {
   onItemClick: (payload: SearchClickPayload) => void;
@@ -150,7 +147,7 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
               <button
                 onClick={() => setQuery("")}
                 className="absolute right-5 md:right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label={t("hentai.clear")}
+                aria-label={t("search.clear")}
               >
                 <X className="w-6 h-6 md:w-7 md:h-7" />
               </button>

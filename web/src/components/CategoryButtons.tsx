@@ -22,12 +22,6 @@ const Icons = {
   animation: <Wand2 className={ICON_CLS} strokeWidth={1.8} />,
   horror: <Skull className={ICON_CLS} strokeWidth={1.8} />,
   thriller: <VenetianMask className={ICON_CLS} strokeWidth={1.8} />,
-  // html circle scales cleaner than an svg icon here
-  hentai: (
-    <span className="flex items-center justify-center w-full h-full rounded-full border-[3px] border-current font-bold leading-none">
-      <span className="text-2xl md:text-3xl tracking-tight">18+</span>
-    </span>
-  ),
 };
 
 const IMG = "https://image.tmdb.org/t/p/w780";
@@ -50,12 +44,6 @@ const CATEGORIES: CategoryLink[] = [
     labelKey: "home.anime",
     bg: `${IMG}/oHqYrPAsIiTD5m4DuxumV4er8BU.jpg`, // Re:Zero (poster)
     icon: Icons.anime,
-  },
-  {
-    slug: "hentai",
-    labelKey: "hentai.title",
-    bg: `${IMG}/vRlQeiTHdB49n8xeIipQIi40qZE.jpg`, // Muchuu no Tou (poster)
-    icon: Icons.hentai,
   },
   {
     slug: "animation-movies",

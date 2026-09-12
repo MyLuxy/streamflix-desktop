@@ -129,9 +129,7 @@
       "psychological": "Psychological",
       "comedy": "Comedy",
       "kids": "For Kids",
-      "movies": "Anime Movies",
-      "adultTitle": "Searching something else?",
-      "adultCta": "Hentai Section +18"
+      "movies": "Anime Movies"
     },
     "hub": {
       "trending": "Trending",
@@ -170,7 +168,8 @@
       "hint": "Type to search for movies and TV shows",
       "noResultsFor": "No results found for \"{{query}}\"",
       "badgeMovie": "Movie",
-      "badgeTV": "TV"
+      "badgeTV": "TV",
+      "clear": "Clear"
     },
     "player": {
       "hint": "If the movie doesn't load, try switching servers below",
@@ -212,7 +211,6 @@
         "popular-tv": "The series everyone loves",
         "anime": "Japan at your fingertips",
         "animation-movies": "Animated magic for all ages",
-        "hentai": "For adult audiences only",
         "horror": "Fear, served fresh",
         "thriller": "Suspense until the very last minute"
       }
@@ -223,14 +221,31 @@
       "addContent": "Add movies and TV shows to keep track of what you want to watch",
       "typeMovie": "Movie",
       "typeTV": "TV Series",
-      "typeHentai": "Hentai",
       "add": "Add to watchlist",
-      "remove": "Remove from watchlist"
+      "remove": "Remove"
     },
     "downloadsPage": {
       "title": "Downloads",
       "empty": "No downloads yet",
-      "addContent": "Movies and TV shows you download to watch offline will show up here"
+      "addContent": "Movies and TV shows you download to watch offline will show up here",
+      "inProgress": "In progress",
+      "ready": "Ready",
+      "resolving": "Finding the stream...",
+      "fetching": "Downloading...",
+      "encoding": "Compressing...",
+      "failed": "Download failed",
+      "retry": "Retry",
+      "options": "More options",
+      "pause": "Pause",
+      "resume": "Resume",
+      "pausedLabel": "Paused",
+      "cancel": "Cancel download",
+      "cancelTitle": "Cancel this download?",
+      "cancelDescription": "The download in progress will stop and whatever's been fetched so far will be lost.",
+      "openFolder": "Open folder",
+      "delete": "Delete",
+      "deleteTitle": "Delete this download?",
+      "deleteDescription": "The file will be permanently removed from your computer. This can't be undone."
     },
     "hero": {
       "playNow": "Play Now"
@@ -255,51 +270,6 @@
         "description": "You can change this later in Settings",
         "noProviders": "No providers for this language.",
         "showAllLanguages": "Show all languages"
-      }
-    },
-    "hentai": {
-      "title": "Hentai",
-      "tagline": "Unfiltered, uncensored",
-      "filterTitle": "Filter",
-      "filterDesc": "Narrow results by genre, studio, year or title.",
-      "resultsLabel": "results",
-      "genres": "Genres",
-      "studio": "Studio",
-      "year": "Year",
-      "type": "Type",
-      "order": "Sort by",
-      "search": "Search",
-      "searchPlaceholder": "Title, synonyms...",
-      "genreSearchPlaceholder": "Search a genre...",
-      "all": "All",
-      "selected": "{{count}} selected",
-      "clear": "Clear",
-      "resetAll": "Reset filters",
-      "censored": "Censored",
-      "uncensored": "Uncensored",
-      "loadMore": "Load more",
-      "noResults": "No results",
-      "resolving": "Finding the stream…",
-      "notStreamable": "No in-app stream available for this title. You can watch it on hanime.tv.",
-      "watchOnHanime": "Watch on hanime.tv",
-      "orders": {
-        "standard": "Standard",
-        "mostViewed": "Most viewed",
-        "mostLiked": "Most liked",
-        "latest": "Latest releases",
-        "az": "Title (A-Z)"
-      },
-      "rows": {
-        "popular": "Most viewed",
-        "latest": "Latest releases",
-        "uncensored": "Uncensored",
-        "harem": "Harem",
-        "vanilla": "Vanilla",
-        "large-breasts": "Big Boobs",
-        "ahegao": "Ahegao",
-        "milf": "MILF",
-        "school-girls": "School Girls",
-        "maid": "Maid"
       }
     }
   }

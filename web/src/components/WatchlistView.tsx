@@ -14,15 +14,8 @@ export function WatchlistView() {
   const locale = useLocale();
 
   const open = (item: WatchlistItem) => {
-    if (item.mediaType === "hentai") {
-      const q = new URLSearchParams({ watch: item.slug || "", n: item.title });
-      router.push(`/${locale}/category/hentai?${q.toString()}`);
-      return;
-    }
     if (item.provider && item.realId) {
-      // the watchlist is unified across providers now, so opening a title saved from a
-      // provider other than the active one switches the app onto it - same as picking
-      // it manually in Settings, just triggered by the click instead
+      // unified across providers, opening a title switches the app onto its provider if it differs
       setSelectedProviderClient(item.provider);
       // only reliable way to resolve the item later, the numeric hash fallback below isnt
       const slug = buildProviderSlug(item.provider, item.realId, item.title);

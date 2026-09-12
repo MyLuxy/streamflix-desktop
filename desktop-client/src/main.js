@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 
@@ -12,8 +12,7 @@ const { initAutoUpdate } = require("./auto-update");
 let children = [];
 let mainWindow = null;
 
-// only one copy of the app should ever run at once - two would both try to bind the
-// same backend/frontend ports and fight over the same watch-progress/settings files
+// only one copy should ever run, two would fight over the same ports and progress files
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
@@ -25,9 +24,15 @@ app.on("second-instance", () => {
   mainWindow.focus();
 });
 
-// registered once at module scope, not inside boot() - boot() can run again on macOS
-// "activate" and ipcMain.handle throws if the same channel is registered twice
+// module scope not inside boot(), boot() can rerun on macOS activate and handle() cant double-register
 ipcMain.handle("streamflix:get-version", () => app.getVersion());
+
+// only reveals paths under our own downloads dir, never an arbitrary renderer-supplied one
+ipcMain.handle("streamflix:show-in-folder", (_event, filePath) => {
+  const root = path.join(app.getPath("downloads"), "StreamFlix");
+  if (!path.resolve(filePath).startsWith(root)) return;
+  shell.showItemInFolder(filePath);
+});
 
 function resourcesDir() {
   if (app.isPackaged) return process.resourcesPath;
@@ -45,10 +50,7 @@ function killChildren() {
   children = [];
 }
 
-// same as killChildren, but resolves only once every process has actually exited - the
-// updater needs this: it spawns the installer before Electron even starts quitting, so if
-// backend.exe is still alive when NSIS tries to overwrite it, windows just leaves the old
-// binary in place (a locked exe can't be replaced) and the update silently only half-applies
+// same as killChildren but waits for real exit, the updater needs backend.exe truly gone before NSIS can overwrite it
 function killChildrenAndWait() {
   const toKill = children;
   children = [];
@@ -72,7 +74,7 @@ async function boot() {
   const logDir = app.getPath("logs");
   fs.mkdirSync(logDir, { recursive: true });
 
-  // no File/Edit/View bar - this is a media app, not a document editor
+  // no File/Edit/View bar, this is a media app, not a document editor
   Menu.setApplicationMenu(null);
 
   const win = createMainWindow();
@@ -80,12 +82,12 @@ async function boot() {
 
   try {
     const resDir = resourcesDir();
-    const backend = await startBackend(resDir, logDir);
+    const downloadsDir = path.join(app.getPath("downloads"), "StreamFlix");
+    fs.mkdirSync(downloadsDir, { recursive: true });
+    const backend = await startBackend(resDir, logDir, downloadsDir);
     children.push(backend.process);
 
-    // the frontend bundle only ever knows about BACKEND_PORT (baked in at build time,
-    // see copy-frontend.mjs) - if the backend actually ended up on a different port,
-    // rewrite every request for the baked-in one before it leaves the renderer
+    // frontend only knows the baked-in BACKEND_PORT, rewrite requests if we landed on a different one
     if (backend.port !== BACKEND_PORT) {
       win.webContents.session.webRequest.onBeforeRequest(
         { urls: [`http://127.0.0.1:${BACKEND_PORT}/*`] },

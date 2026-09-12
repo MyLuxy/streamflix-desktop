@@ -129,9 +129,7 @@
       "psychological": "Psicológicos",
       "comedy": "Comedia",
       "kids": "Para Niños",
-      "movies": "Películas Anime",
-      "adultTitle": "Searching something else?",
-      "adultCta": "Sección Hentai +18"
+      "movies": "Películas Anime"
     },
     "hub": {
       "trending": "Tendencias",
@@ -170,7 +168,8 @@
       "hint": "Escribe para buscar películas y series",
       "noResultsFor": "No hay resultados para \"{{query}}\"",
       "badgeMovie": "Película",
-      "badgeTV": "TV"
+      "badgeTV": "TV",
+      "clear": "Borrar"
     },
     "player": {
       "hint": "Si la película no carga, prueba cambiando de servidor abajo",
@@ -212,7 +211,6 @@
         "popular-tv": "Las series que todos ven",
         "anime": "Japón al alcance de tu mano",
         "animation-movies": "Magia animada para todas las edades",
-        "hentai": "Solo para público adulto",
         "horror": "El miedo está servido",
         "thriller": "Suspense hasta el último minuto"
       }
@@ -223,14 +221,31 @@
       "addContent": "Agrega películas y series de TV para hacer seguimiento de lo que quieres ver",
       "typeMovie": "Película",
       "typeTV": "Serie",
-      "typeHentai": "Hentai",
       "add": "Añadir a la lista",
-      "remove": "Quitar de la lista"
+      "remove": "Quitar"
     },
     "downloadsPage": {
       "title": "Downloads",
       "empty": "Todavía no hay descargas",
-      "addContent": "Las películas y series de TV que descargues para ver sin conexión aparecerán aquí"
+      "addContent": "Las películas y series de TV que descargues para ver sin conexión aparecerán aquí",
+      "inProgress": "En curso",
+      "ready": "Listos",
+      "resolving": "Buscando la fuente...",
+      "fetching": "Descargando...",
+      "encoding": "Comprimiendo...",
+      "failed": "Descarga fallida",
+      "retry": "Reintentar",
+      "options": "Más opciones",
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "pausedLabel": "En pausa",
+      "cancel": "Cancelar descarga",
+      "cancelTitle": "¿Cancelar esta descarga?",
+      "cancelDescription": "La descarga en curso se detendrá y se perderá lo que se haya descargado hasta ahora.",
+      "openFolder": "Abrir carpeta",
+      "delete": "Eliminar",
+      "deleteTitle": "¿Eliminar esta descarga?",
+      "deleteDescription": "El archivo se eliminará permanentemente de tu ordenador. Esta acción no se puede deshacer."
     },
     "hero": {
       "playNow": "Reproducir Ahora"
@@ -255,51 +270,6 @@
         "description": "Puedes cambiarla más tarde en Ajustes",
         "noProviders": "No hay proveedores para este idioma.",
         "showAllLanguages": "Mostrar todos los idiomas"
-      }
-    },
-    "hentai": {
-      "title": "Hentai",
-      "tagline": "Sin filtros, sin límites",
-      "filterTitle": "Filtro",
-      "filterDesc": "Acota los resultados por género, estudio, año o título.",
-      "resultsLabel": "resultados",
-      "genres": "Géneros",
-      "studio": "Estudio",
-      "year": "Año",
-      "type": "Tipo",
-      "order": "Ordenar por",
-      "search": "Buscar",
-      "searchPlaceholder": "Título, sinónimos...",
-      "genreSearchPlaceholder": "Buscar un género...",
-      "all": "Todos",
-      "selected": "{{count}} seleccionados",
-      "clear": "Borrar",
-      "resetAll": "Restablecer filtros",
-      "censored": "Censurado",
-      "uncensored": "Sin censura",
-      "loadMore": "Cargar más",
-      "noResults": "Sin resultados",
-      "resolving": "Buscando el stream…",
-      "notStreamable": "No hay stream en la app para este título. Puedes verlo en hanime.tv.",
-      "watchOnHanime": "Ver en hanime.tv",
-      "orders": {
-        "standard": "Estándar",
-        "mostViewed": "Más vistos",
-        "mostLiked": "Más gustados",
-        "latest": "Últimos lanzamientos",
-        "az": "Título (A-Z)"
-      },
-      "rows": {
-        "popular": "Más vistos",
-        "latest": "Últimos lanzamientos",
-        "uncensored": "Sin censura",
-        "harem": "Harem",
-        "vanilla": "Vanilla",
-        "large-breasts": "Senos Grandes",
-        "ahegao": "Ahegao",
-        "milf": "MILF",
-        "school-girls": "Colegialas",
-        "maid": "Sirvientas"
       }
     }
   }

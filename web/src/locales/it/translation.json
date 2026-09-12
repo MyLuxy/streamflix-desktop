@@ -129,9 +129,7 @@
       "psychological": "Psicologici",
       "comedy": "Commedia",
       "kids": "Per Bambini",
-      "movies": "Film Anime",
-      "adultTitle": "Searching something else?",
-      "adultCta": "Sezione Hentai +18"
+      "movies": "Film Anime"
     },
     "hub": {
       "trending": "Di Tendenza",
@@ -170,7 +168,8 @@
       "hint": "Scrivi per cercare film e serie TV",
       "noResultsFor": "Nessun risultato per \"{{query}}\"",
       "badgeMovie": "Film",
-      "badgeTV": "TV"
+      "badgeTV": "TV",
+      "clear": "Azzera"
     },
     "player": {
       "hint": "Se il film non carica, prova a cambiare server qui sotto",
@@ -212,7 +211,6 @@
         "popular-tv": "Le serie che tutti guardano",
         "anime": "Il Giappone a portata di mano",
         "animation-movies": "Magia animata per tutte le età",
-        "hentai": "Solo per un pubblico adulto",
         "horror": "Le tue paure, senza limiti",
         "thriller": "Tensione fino all'ultimo minuto"
       }
@@ -223,14 +221,31 @@
       "addContent": "Aggiungi film e serie TV per tenere traccia di cosa vuoi guardare",
       "typeMovie": "Film",
       "typeTV": "Serie TV",
-      "typeHentai": "Hentai",
       "add": "Aggiungi alla watchlist",
-      "remove": "Rimuovi dalla watchlist"
+      "remove": "Rimuovi"
     },
     "downloadsPage": {
       "title": "Downloads",
       "empty": "Nessun download",
-      "addContent": "I film e le serie TV che scarichi per guardarli offline appariranno qui"
+      "addContent": "I film e le serie TV che scarichi per guardarli offline appariranno qui",
+      "inProgress": "In corso",
+      "ready": "Pronti",
+      "resolving": "Ricerca dello stream...",
+      "fetching": "Scaricamento...",
+      "encoding": "Compressione...",
+      "failed": "Download fallito",
+      "retry": "Riprova",
+      "options": "Altre opzioni",
+      "pause": "Metti in pausa",
+      "resume": "Riprendi",
+      "pausedLabel": "In pausa",
+      "cancel": "Annulla download",
+      "cancelTitle": "Annullare questo download?",
+      "cancelDescription": "Il download in corso verrà interrotto e i dati scaricati finora andranno persi.",
+      "openFolder": "Apri cartella",
+      "delete": "Elimina",
+      "deleteTitle": "Eliminare questo download?",
+      "deleteDescription": "Il file verrà rimosso definitivamente dal tuo computer. Questa azione non può essere annullata."
     },
     "hero": {
       "playNow": "Riproduci Ora"
@@ -255,51 +270,6 @@
         "description": "Puoi cambiarla in seguito nelle Impostazioni",
         "noProviders": "Nessun provider per questa lingua.",
         "showAllLanguages": "Mostra tutte le lingue"
-      }
-    },
-    "hentai": {
-      "title": "Hentai",
-      "tagline": "Senza filtri, senza limiti",
-      "filterTitle": "Filtro",
-      "filterDesc": "Restringi i risultati per genere, studio, anno o titolo.",
-      "resultsLabel": "risultati",
-      "genres": "Generi",
-      "studio": "Studio",
-      "year": "Anno",
-      "type": "Tipo",
-      "order": "Ordina per",
-      "search": "Cerca",
-      "searchPlaceholder": "Titolo, sinonimi...",
-      "genreSearchPlaceholder": "Cerca un genere...",
-      "all": "Tutti",
-      "selected": "{{count}} selezionati",
-      "clear": "Azzera",
-      "resetAll": "Azzera filtri",
-      "censored": "Censurato",
-      "uncensored": "Senza censura",
-      "loadMore": "Carica altri",
-      "noResults": "Nessun risultato",
-      "resolving": "Ricerca dello stream…",
-      "notStreamable": "Stream non disponibile in-app per questo titolo. Puoi guardarlo su hanime.tv.",
-      "watchOnHanime": "Guarda su hanime.tv",
-      "orders": {
-        "standard": "Standard",
-        "mostViewed": "Più visti",
-        "mostLiked": "Più piaciuti",
-        "latest": "Ultime uscite",
-        "az": "Titolo (A-Z)"
-      },
-      "rows": {
-        "popular": "Più visti",
-        "latest": "Ultime uscite",
-        "uncensored": "Senza censura",
-        "harem": "Harem",
-        "vanilla": "Vanilla",
-        "large-breasts": "Grandi Seni",
-        "ahegao": "Ahegao",
-        "milf": "MILF",
-        "school-girls": "Scolarette",
-        "maid": "Cameriere"
       }
     }
   }

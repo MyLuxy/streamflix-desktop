@@ -14,12 +14,7 @@ import java.net.http.HttpResponse
 import java.util.Base64
 import java.util.concurrent.Executors
 
-// standalone proof-of-concept, entirely separate from the real app: proves a browser-based
-// player (native <video> + hls.js) can actually play a stream this project's scrapers extract,
-// including the Referer/User-Agent spoofing some providers require on every segment request -
-// something a browser can't do itself (no custom headers allowed on <video>/fetch to another
-// origin), so this server proxies the manifest and every segment/key it references, attaching
-// the right headers server-side. Run with: ./gradlew :desktop:runWebPlayerTest
+// standalone poc, proves a browser player can handle provider referer/UA spoofing via this proxy
 fun main() {
     println("WebPlayerTest: extracting a real video from StreamingCommunity...")
     val video = runBlocking { extractSampleVideo() }
@@ -104,11 +99,10 @@ private fun servePage(exchange: HttpExchange) {
     exchange.responseBody.use { it.write(bytes) }
 }
 
-private val httpClient: HttpClient = HttpClient.newBuilder().build()
+private val testHttpClient: HttpClient = HttpClient.newBuilder().build()
 
-// fetches (or decodes, for a data: URI) the manifest text for `url`, rewrites every URI line to
-// route back through this server so segments/sub-manifests/keys carry our spoofed headers too
-private fun manifestTextFor(url: String, referer: String?, userAgent: String?): String? {
+// rewrites every URI line to route back through this server so segments/keys carry the spoofed headers too
+private fun testManifestTextFor(url: String, referer: String?, userAgent: String?): String? {
     if (url.startsWith("data:")) {
         val payload = url.substringAfter(",", "")
         if (payload.isBlank()) return null
@@ -118,7 +112,7 @@ private fun manifestTextFor(url: String, referer: String?, userAgent: String?): 
         val builder = HttpRequest.newBuilder(URI.create(url)).GET()
         referer?.let { builder.header("Referer", it) }
         userAgent?.let { builder.header("User-Agent", it) }
-        httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString()).body()
+        testHttpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString()).body()
     }.getOrNull()
 }
 
@@ -128,27 +122,21 @@ private fun serveManifest(exchange: HttpExchange, video: Video) {
     val referer = video.headers?.get("Referer")
     val userAgent = video.headers?.get("User-Agent")
 
-    val text = manifestTextFor(targetUrl, referer, userAgent)
+    val text = testManifestTextFor(targetUrl, referer, userAgent)
     if (text == null) {
         exchange.sendResponseHeaders(502, -1)
         exchange.close()
         return
     }
 
-    // URIs inside a manifest (segments, sub-manifests, AES keys, alternate audio/subtitle
-    // renditions) can be relative to the manifest's OWN url rather than absolute - vixcloud's
-    // encryption key ("/storage/enc.key") is - so every one of them has to be resolved against
-    // that base before being handed to /segment or /manifest.m3u8, otherwise the proxy tries to
-    // fetch a bare path with no scheme/host and fails
+    // manifest URIs can be relative to its own url (vixcloud's key is), resolve before proxying or it's a bare path
     fun resolve(uri: String): String {
         if (uri.startsWith("http://") || uri.startsWith("https://")) return uri
         val base = targetUrl.takeIf { it.startsWith("http") } ?: referer ?: return uri
         return runCatching { URI.create(base).resolve(uri).toString() }.getOrDefault(uri)
     }
 
-    // a manifest is either a MASTER playlist (STREAM-INF entries whose URIs point at other
-    // manifests) or a MEDIA playlist (EXTINF entries whose URIs point at actual segments) - never
-    // both, so one check up front decides how every plain URI line in it should be rewritten
+    // a manifest is either master (points at other manifests) or media (points at segments), never both
     val isMaster = text.lineSequence().any { it.startsWith("#EXT-X-STREAM-INF") }
     val attrUriRegex = Regex("URI=\"([^\"]+)\"")
 
@@ -156,15 +144,10 @@ private fun serveManifest(exchange: HttpExchange, video: Video) {
         for (rawLine in text.lineSequence()) {
             val line = rawLine.trimEnd('\r')
             when {
-                // any #EXT-X-* tag can carry a URI="..." attribute (KEY, MAP, MEDIA for
-                // alternate audio/subtitle renditions, ...) - handled generically instead of
-                // enumerating every tag name, so nothing slips through unrewritten
+                // any #EXT-X-* tag can carry a URI attribute, handled generically so nothing slips through
                 line.startsWith("#EXT-X-") && attrUriRegex.containsMatchIn(line) -> {
                     val uri = attrUriRegex.find(line)!!.groupValues[1]
                     val resolved = resolve(uri)
-                    // an alternate-rendition URI (EXT-X-MEDIA) points at another manifest, same
-                    // as a master playlist's variant entries do; a key/init-segment URI points
-                    // at a small binary blob, same as a media segment does
                     val endpoint = if (line.startsWith("#EXT-X-MEDIA")) "/manifest.m3u8" else "/segment"
                     val proxied = "$endpoint?url=" + java.net.URLEncoder.encode(resolved, "UTF-8")
                     append(line.replace(uri, proxied))
@@ -200,7 +183,7 @@ private fun serveSegment(exchange: HttpExchange, video: Video) {
         val builder = HttpRequest.newBuilder(URI.create(targetUrl)).GET()
         referer?.let { builder.header("Referer", it) }
         userAgent?.let { builder.header("User-Agent", it) }
-        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        val response = testHttpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
         val contentType = response.headers().firstValue("content-type").orElse("application/octet-stream")
         exchange.responseHeaders.add("Content-Type", contentType)
         exchange.sendResponseHeaders(response.statusCode(), response.body().size.toLong())
