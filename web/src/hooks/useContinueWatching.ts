@@ -18,8 +18,7 @@ export interface WatchedItem {
   episode?: number;
   // audioLabel() output (eg "Japanese"/"English"), lets resume pick the same track back up
   audioTrack?: string;
-  // dismissed from the home row via the X button, but the resume position is kept -
-  // playing it again writes a fresh item (see addItem), which naturally un-hides it
+  // dismissed via the X button but the resume position is kept, playing again un-hides it naturally
   hidden?: boolean;
 }
 
@@ -31,8 +30,7 @@ function sameItem(a: { provider: string; realId: string; mediaType: string }, b:
 }
 
 export function useContinueWatching() {
-  // reads localStorage synchronously here (not in an effect), HlsPlayer needs startTime on
-  // first mount for the resume seek and only reads it once
+  // reads localStorage synchronously not in an effect, HlsPlayer needs startTime on first mount
   const [items, setItems] = useState<WatchedItem[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -131,8 +129,7 @@ export function useContinueWatching() {
     });
   };
 
-  // hides from the home row instead of deleting outright, so the saved position survives
-  // for when the title gets opened again (see the type's `hidden` field)
+  // hides instead of deleting outright, so the saved position survives for next time
   const removeItem = (provider: string, realId: string, mediaType: "movie" | "tv") => {
     setItems((prev) => {
       const newItems = prev.map((i) =>
@@ -150,8 +147,7 @@ export function useContinueWatching() {
 
   return {
     items,
-    // scoped to the active provider, for the home row - hidden ones stay in `items` (raw)
-    // so DetailView can still look them up to resume, just not shown here
+    // hidden ones stay in raw `items` so DetailView can still resume them, just not shown here
     activeProviderItems: items.filter((i) => i.provider === activeProvider && !i.hidden),
     addItem,
     removeItem,

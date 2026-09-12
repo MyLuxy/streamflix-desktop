@@ -124,8 +124,7 @@ function toTVShowDetails(dto: BackendShow, provider: string): TVShowDetails {
   };
 }
 
-// no fixed trending/popular/horror rows like TMDB, the provider's own home feed is already
-// organized into named sections and we just render those
+// no fixed trending/popular/horror rows like TMDB, just render the provider's own named sections
 export interface HomeRow {
   name: string;
   items: MediaItem[];
@@ -135,8 +134,7 @@ export async function getHomeRows(provider: string, isIptv = false): Promise<Hom
   const categories = await api<BackendCategory[]>(`/api/home?provider=${encodeURIComponent(provider)}`, 900);
   const nonEmpty = categories.filter((c) => c.items.length > 0);
 
-  // prefer the first category that actually has a real banner, not just the first category,
-  // poster-only stuff (AnimeUnity's "Ultimi Episodi") looked stretched and grainy in the hero
+  // prefer the first category with a real banner, poster-only stuff looked stretched in the hero
   const heroIndex = nonEmpty.findIndex((c) => c.items.some((it) => it.banner));
   const ordered =
     heroIndex > 0
@@ -170,8 +168,7 @@ export async function getHomeRows(provider: string, isIptv = false): Promise<Hom
         const title = "title" in enrichedItem ? enrichedItem.title : enrichedItem.name;
         const year = ("release_date" in enrichedItem ? enrichedItem.release_date : enrichedItem.first_air_date)?.slice(0, 4) || null;
         const mediaType = "title" in enrichedItem ? "movie" : "tv";
-        // anilist only ever searches anime, so it can't accidentally return a live-action
-        // adaptation the way a plain tmdb title search can (e.g. "One Piece")
+        // anilist only ever searches anime, so it cant accidentally return a live-action adaptation
         let art = usesAniListArtwork(provider)
           ? await searchAniList(cleanTitle(title)).catch(() => null)
           : null;

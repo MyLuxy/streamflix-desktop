@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// starts true (matches SSR, where there's no navigator) and only flips based on the
-// browser's own online/offline events - navigator.onLine reflects the OS-reported network
-// interface state, so this catches "no connection at all", not a single site being down
+// starts true since SSR has no navigator, catches "no connection at all" not one site being down
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(true);
 

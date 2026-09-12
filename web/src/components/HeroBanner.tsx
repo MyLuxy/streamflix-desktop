@@ -25,8 +25,7 @@ function titleSizeClass(title: string): string {
 
 // below this ratio the img is a poster used as fallback, not a real banner
 const WIDE_BANNER_MIN_RATIO = 1.4;
-// below this width a wide-enough image still looks soft blown up full-bleed (hianime's own
-// art when tmdb has no match, live-tv channel logos) - real tmdb backdrops are always wider
+// below this width an image looks soft blown up full-bleed, real tmdb backdrops are always wider
 const LOW_RES_MIN_WIDTH = 1280;
 
 export function HeroBanner({ items, onPlayClick, onInfoClick }: HeroBannerProps) {

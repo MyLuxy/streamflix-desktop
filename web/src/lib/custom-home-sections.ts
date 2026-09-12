@@ -82,7 +82,7 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Krimi", genreId: "https://hdfilme.win/krimi/" },
     { label: "Animation", genreId: "https://hdfilme.win/animation/" },
   ],
-  // id format is "Name|catid" - catid comes straight off the site's own genre menu
+  // id format is "Name|catid", catid comes straight off the site's own genre menu
   Kidraz: [
     { label: "Action", genreId: "Action|1" },
     { label: "Comédie", genreId: "Comédie|6" },

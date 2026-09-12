@@ -2,7 +2,7 @@
 export const PROVIDER_COOKIE = "streamflix_provider";
 export const DEFAULT_PROVIDER = "StreamingCommunity";
 
-// server components / route handlers only - dynamic import keeps next/headers out of the client bundle
+// server components / route handlers only, dynamic import keeps next/headers out of the client bundle
 export async function getSelectedProvider(): Promise<string> {
   const { cookies } = await import("next/headers");
   const store = await cookies();

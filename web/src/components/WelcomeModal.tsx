@@ -80,8 +80,7 @@ export function WelcomeModal() {
 
   // keeps the pick if it's still in the (possibly re-filtered) list, otherwise falls back to the first one
   useEffect(() => {
-    // direct scrollLeft assignment jumps instantly, scrollTo() would animate because of the
-    // container's scroll-smooth class and leave the left arrow visible until it catches up
+    // direct scrollLeft jumps instantly, scrollTo() would animate via the scroll-smooth class
     if (providerScrollRef.current) providerScrollRef.current.scrollLeft = 0;
     setSelectedProviderName((prev) =>
       prev && filteredProviders.some((p) => p.name === prev) ? prev : filteredProviders[0]?.name ?? null
@@ -96,9 +95,7 @@ export function WelcomeModal() {
     setStep("tmdb");
   };
 
-  // checks the key against tmdb itself as the user types (debounced), instead of waiting for
-  // them to hit continue - that's also the point where a valid key actually gets saved, so by
-  // the time continue says "Continue" instead of "Skip" there's nothing left to do but advance
+  // validates against tmdb as the user types (debounced) instead of waiting for them to hit continue
   useEffect(() => {
     const key = tmdbKeyInput.trim();
     if (!key) {

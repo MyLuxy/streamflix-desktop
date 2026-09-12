@@ -7,8 +7,7 @@ const FALLBACK_TMDB_API_KEY = process.env.TMDB_API_KEY_FALLBACK || "2dca580c2a14
 
 export const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
-// a key the user entered themselves always wins and always goes through api_key, the bearer
-// token (if configured) is only ever used for the built-in default
+// a user-entered key always wins and goes through api_key, the bearer token is only for the built-in default
 async function resolveTmdbAuth() {
   const store = await cookies();
   const customKey = store.get(TMDB_KEY_COOKIE)?.value?.trim() || null;
@@ -24,9 +23,7 @@ async function resolveTmdbAuth() {
   };
 }
 
-// pathWithQuery already has its own "?...", e.g. "/person/123?language=en-US". retries once
-// with the fallback key if the primary one (custom or built-in) comes back rate limited or
-// revoked, same behavior as the desktop backend's own tmdb client
+// retries once with the fallback key if the primary comes back rate limited or revoked
 export async function tmdbFetch(pathWithQuery: string): Promise<Response> {
   const { headers, apiKeyParam, fallbackKeyParam } = await resolveTmdbAuth();
   const fullHeaders = { accept: "application/json", ...headers };
@@ -40,16 +37,11 @@ export async function tmdbFetch(pathWithQuery: string): Promise<Response> {
   return res;
 }
 
-// a trailing "(2026)", "(Alt Title)", "- Season 2" or "Part 2 French" (also fr/it/es/de)
-// throws off the match more than it helps - some providers tack these onto every title
-// since each season/cour is its own entry, or append a dub-language tag after the number.
-// anime titles also use "2nd Season"/"3rd Cour" (number before the keyword, ordinal suffix)
-// and "Final Season" (no number at all) - tmdb only ever indexes the base show title
+// strips trailing year/alt-title/season/language noise some providers tack onto every title, tmdb only indexes the base name
 const TITLE_NOISE =
   /\s*\([^)]*\)\s*$|\s*[-–:]?\s*(season|saison|stagione|temporada|staffel|part|parte|partie|teil|cour)\s*\d+(?:\s+\S+)?\s*$|\s*[-–:]?\s*\d+(?:st|nd|rd|th)\s+(season|cour|part|series)\s*$|\s*[-–:]?\s*(final|last)\s+(season|cour|part|series)\s*$/i;
 
-// strips one layer of noise at a time since some providers double it up, e.g.
-// "Reacher - Saison 4 - Saison 4 French"
+// strips one layer of noise at a time, some providers double it up like "Reacher - Saison 4 - Saison 4 French"
 export function cleanTitle(rawTitle: string): string {
   let title = rawTitle;
   let prev;
@@ -60,8 +52,7 @@ export function cleanTitle(rawTitle: string): string {
   return title;
 }
 
-// best-match poster/backdrop for a title, used both as a broken-image fallback and to
-// swap a provider's own art for tmdb's on the homepage hero
+// best-match poster/backdrop, used as a broken-image fallback and to swap art on the homepage hero
 export async function searchTmdbArtwork(rawTitle: string, year: string | null, type: "movie" | "tv") {
   const title = cleanTitle(rawTitle);
   let query = `/search/${type}?query=${encodeURIComponent(title)}&language=en-US`;

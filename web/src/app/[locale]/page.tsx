@@ -65,9 +65,7 @@ export default async function HomePage({ params }: Params) {
 
   const provider = await getSelectedProvider();
 
-  // resolved server-side (not via the client useProviders hook) so live-tv providers
-  // render their landscape channel cards on the first paint, no post-hydration flash.
-  // also decides whether the hero swaps a provider's own art for tmdb's below
+  // resolved server-side so live-tv landscape cards render first paint, no hydration flash
   let isIptv = false;
   try {
     const providers = await getProviders();

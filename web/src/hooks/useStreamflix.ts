@@ -12,9 +12,7 @@ export interface StreamflixEpisode {
   poster: string | null;
 }
 
-// replaces the old useSeasonDetails(tvId, seasonNumber) TMDB hook - same shape of call (tv show +
-// season number), but against our own backend and keyed by the season NUMBER rather than an
-// opaque season id (see slug.ts/streamflix.ts for why that matters for cross-request lookups)
+// same shape as the old TMDB hook but against our backend, keyed by season NUMBER not an opaque id
 export function useSeasonEpisodes(provider: string, tvId: string, seasonNumber: number | null) {
   return useQuery({
     queryKey: ["streamflix", "episodes", provider, tvId, seasonNumber],
@@ -56,10 +54,7 @@ export interface StreamflixProvider {
   iptv: boolean;
 }
 
-// stub replacing the old TMDB genre-list hook: the provider catalog has no global, queryable
-// genre taxonomy (genres only come attached to individual items already loaded), so this always
-// resolves empty rather than hitting a network endpoint that doesn't exist. Callers that already
-// guard with `?? []` (the search page's genre dropdown) degrade to "no genre filter" cleanly.
+// stub: providers have no global queryable genre taxonomy, always resolves empty instead of a fake endpoint
 export function useGenres(_type: "movie" | "tv") {
   return { data: undefined as { genres: { id: number; name: string }[] } | undefined, isLoading: false };
 }
@@ -87,8 +82,7 @@ export interface StreamflixSearchItem {
   released: string | null;
 }
 
-// plain (non-hook) version, for call sites that already manage their own query lifecycle
-// (react-query's useInfiniteQuery, in SearchPage.tsx) instead of using this as a hook directly
+// plain non-hook version, for call sites managing their own query lifecycle (useInfiniteQuery in SearchPage)
 export async function searchStreamflix(provider: string, query: string): Promise<StreamflixSearchItem[]> {
   const res = await fetch(`${BACKEND_URL}/api/search?provider=${encodeURIComponent(provider)}&q=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error(`search failed: ${res.status}`);
@@ -122,13 +116,11 @@ export interface StreamResult {
   subtitles: { label: string; url: string; default: boolean }[];
   servers?: StreamServer[];
   error?: string;
-  // true only when every server checked gave a clean "not there" answer, never on a
-  // network/parse error - safe to show a precise "not available" message for this one
+  // true only when every server checked gave a clean "not there" answer, never on a network/parse error
   notFound?: boolean;
 }
 
-// resolves a playable stream for a movie or a specific episode, returning a manifest URL that's
-// already a full StreamFlix backend path (proxy-rewritten, header-spoofed) ready to hand to hls.js
+// resolves a playable stream, returning a proxy-rewritten manifest URL ready to hand to hls.js
 export async function resolveStream(
   provider: string,
   itemId: string,

@@ -3,26 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
-// drag/animation handlers excluded: framer-motion's own gesture and animation-lifecycle
-// types collide with the native DOM ones on <img>, and nothing here uses the native versions
+// drag/animation handlers excluded, framer-motion's gesture types collide with native DOM ones on <img>
 type ImageWithSpinnerProps = Omit<
   React.ImgHTMLAttributes<HTMLImageElement>,
   "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration"
 >;
 
-// generic img with a slow pulsing placeholder until it's ready, then a quick fade in
-// (same reveal technique as the hero banner). needs to sit inside a position:relative
-// (or absolute) container, same as a normal <img>
+// generic img with a pulsing placeholder then a fade in, needs a position:relative container
 export function ImageWithSpinner({ onLoad, onError, ...imgProps }: ImageWithSpinnerProps) {
   const [loaded, setLoaded] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // a server-rendered <img> starts loading the instant html parses, way before react
-  // hydrates and attaches onError, a fast 404 fires and is gone before anyone's listening.
-  // .complete + naturalWidth 0 after mount is how you catch that miss after the fact.
-  // useEffect not useLayoutEffect: the latter fires synchronously during the hydration
-  // commit, and with dozens of cards on the home page all at once it looped the hydration
-  // of loading.tsx's Suspense boundary on Opera GX (React error #419)
+  // a server-rendered <img> can 404 before onError attaches, .complete + naturalWidth 0 catches it after
   useEffect(() => {
     const img = imgRef.current;
     setLoaded(img?.complete ?? false);

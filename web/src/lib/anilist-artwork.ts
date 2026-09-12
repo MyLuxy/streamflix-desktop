@@ -2,9 +2,7 @@ import "server-only";
 
 const ANILIST_URL = "https://graphql.anilist.co";
 
-// anime tends to land on anilist before tmdb even catalogs it, no key needed either. also
-// keeps a live-action adaptation (e.g. tmdb's "One Piece" live action) from ever winning a
-// search meant for the anime, since anilist only ever searches type: ANIME
+// anime lands on anilist before tmdb catalogs it, and anilist only searches type: ANIME so a live-action match never wins
 export async function searchAniList(title: string) {
   const query = `
     query ($search: String) {

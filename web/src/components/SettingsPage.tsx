@@ -50,8 +50,7 @@ export function SettingsPage() {
   const [tmdbKeyInput, setTmdbKeyInput] = useState("");
   const [tmdbKeyError, setTmdbKeyError] = useState<string | null>(null);
   const [tmdbKeyStatus, setTmdbKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
-  // whether a personal key is saved server-side right now, the input itself never gets
-  // pre-filled with it - a stored secret shouldnt reappear in plaintext just from loading the page
+  // whether a key is saved server-side, the input never gets pre-filled with the actual secret
   const [hasStoredTmdbKey, setHasStoredTmdbKey] = useState(false);
 
   useEffect(() => {
@@ -69,8 +68,7 @@ export function SettingsPage() {
   useEffect(() => {
     const key = tmdbKeyInput.trim();
     if (!key) {
-      // nothing typed, just reflect whatever's already stored - typing then erasing shouldnt
-      // silently delete a saved key, removing it is its own explicit action below
+      // typing then erasing shouldnt silently delete a saved key, removing it is its own action below
       setTmdbKeyStatus(hasStoredTmdbKey ? "valid" : "idle");
       setTmdbKeyError(null);
       return;

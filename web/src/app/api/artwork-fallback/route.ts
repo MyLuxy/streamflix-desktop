@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { searchTmdbArtwork, cleanTitle } from "@/lib/tmdb";
 import { searchAniList } from "@/lib/anilist-artwork";
 
-// last resort when a provider's own poster/backdrop 404s, tries to find the same
-// title elsewhere instead of leaving the card blank
+// last resort when a provider's own poster/backdrop 404s, tries to find the same title elsewhere
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const rawTitle = searchParams.get("title");

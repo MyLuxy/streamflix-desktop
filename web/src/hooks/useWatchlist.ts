@@ -20,7 +20,7 @@ function loadOnce() {
   }
 
   // drops old entries saved before provider/realId existed, cant resolve those to a url anymore
-  const cleaned = items.filter((i) => i.mediaType === "hentai" || (i.provider && i.realId));
+  const cleaned = items.filter((i) => i.provider && i.realId);
   if (cleaned.length !== items.length) {
     items = cleaned;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
@@ -76,8 +76,7 @@ const getSnapshot = () => items;
 const getServerSnapshot = () => EMPTY;
 
 export function useWatchlist() {
-  // one unified list across all providers - opening an item switches the active provider
-  // to match it instead of hiding titles saved from a provider you're not on right now
+  // one unified list across all providers, opening an item switches the active provider to match
   const watchlist = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const addToWatchlist = useCallback((item: Omit<WatchlistItem, "addedAt">) => add(item), []);

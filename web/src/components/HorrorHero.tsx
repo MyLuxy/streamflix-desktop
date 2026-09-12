@@ -44,8 +44,7 @@ export function HorrorHero({ rows, titleKey, taglineKey }: HorrorHeroProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const { revealed, instant } = useHeroEntrance(imgLoaded);
 
-  // carousel autoplay. index is in the deps so any change (manual dot click
-  // included) resets the timer, that way the next slide always gets a full run
+  // index is in the deps so any change, manual dot click included, resets the autoplay timer
   useEffect(() => {
     if (featured.length <= 1) return;
     const id = setInterval(

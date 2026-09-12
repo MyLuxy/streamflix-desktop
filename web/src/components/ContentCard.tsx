@@ -96,8 +96,7 @@ export function ContentCard({
     </div>
   );
 
-  // no shadow and no overflow-hidden here on purpose: this is the "group" element itself,
-  // and group-hover only matches descendants of it, never the group element's own classes
+  // no shadow/overflow-hidden here, group-hover only matches descendants not the group itself
   const className = inGrid
     ? "group relative w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
     : isLandscape

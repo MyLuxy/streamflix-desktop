@@ -1,5 +1,4 @@
-// non-httpOnly cookie so both the server-side tmdb routes and this client helper read the
-// same value. client-safe (no next/headers), unlike lib/tmdb.ts
+// non-httpOnly so both server-side tmdb routes and this client helper read the same value
 export const TMDB_KEY_COOKIE = "tmdb_api_key";
 
 export function getCustomTmdbKeyClient(): string | null {

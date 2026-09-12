@@ -18,8 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// shows once per app session, a couple seconds after launch, only for a freshly-available
-// update - doesn't nag again while downloading/downloaded, that's what settings is for
+// shows once per session for a freshly-available update, doesnt nag once downloading starts
 export function UpdateNotifyModal() {
   const { t } = useTranslation();
   const router = useRouter();

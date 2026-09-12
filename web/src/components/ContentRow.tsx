@@ -20,11 +20,8 @@ interface ContentRowProps {
   isIptv?: boolean;
 }
 
-// reserves the card's exact footprint immediately (so scrollWidth/layout never shifts) but
-// only mounts the real, animated card once it's within rootMargin of the scroll container -
-// a home row with dozens of items otherwise pays the react+framer-motion cost for every
-// single one up front, most of which the user may never scroll to. applies to every row/
-// provider uniformly, current and future - no per-provider opt-in needed
+// reserves the card's footprint immediately but only mounts the real animated card near the viewport,
+// a row with dozens of items would otherwise pay the react+framer-motion cost for all of them up front
 function LazyCard({
   rootRef,
   isIptv,
@@ -106,8 +103,7 @@ export function ContentRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, resetScroll]);
 
-  // a lazy-mounted card popping in changes scrollWidth well after the mount check above
-  // ran - without this the arrow can get stuck on whatever it measured that first time
+  // a lazy-mounted card popping in changes scrollWidth after the mount check already ran
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;

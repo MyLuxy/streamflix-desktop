@@ -20,13 +20,10 @@ import type { HomeRow } from "@/lib/streamflix";
 
 interface HomeViewProps {
   rows: HomeRow[];
-  // set when the selected provider didnt respond (site down, timeout, network error).
-  // no auto retry: a dead provider would just keep slowing down every home load
-  // until the user picks a different one
+  // set when the selected provider didnt respond, no auto retry so a dead one doesnt slow every load
   error?: string | null;
   provider?: string;
-  // live-tv channel cards read better as landscape thumbnails than movie/show posters.
-  // resolved server-side in page.tsx so it's correct on first paint, no hydration flash
+  // resolved server-side in page.tsx so live-tv landscape cards are correct on first paint
   isIptv?: boolean;
 }
 
@@ -48,13 +45,10 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
   const goToContinue = (item: WatchedItem) => {
     const slug = buildProviderSlug(item.provider, item.realId, item.title);
     let href = `/${locale}/${typeSegment(item.mediaType)}/${slug}`;
-    // !== undefined, not a truthy check: for providers like AnimeUnity season 0 is
-    // legit and "0" is falsy in JS, with `item.season &&` the resume was silently lost
+    // !== undefined not a truthy check, season 0 (AnimeUnity) is legit but falsy
     if (item.mediaType === "tv" && item.season !== undefined && item.episode !== undefined) {
       href += `?watch=s${item.season}e${item.episode}`;
     } else if (item.mediaType === "movie") {
-      // starts playback right away for movies too, not just series. DetailView reads
-      // ?watch and resumes from the saved position (see startTime passed to HlsPlayer)
       href += `?watch=1`;
     }
     router.push(href);
@@ -62,11 +56,9 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
   // the provider's first row (usually the "featured"/"trending" one) is used as the hero
   const [heroRow, ...allRestRows] = rows;
-  // HiAnime's own home rows are mostly redundant with the custom genre sections below,
-  // keep just the one row that isn't (new releases) and let the genre sections do the rest
+  // HiAnime's own rows mostly duplicate the genre sections below, keep just the new-releases one
   const restRows = provider === "HiAnime"
     ? allRestRows.filter((row) => row.name === "New On HiAnime")
-    // StreamingCommunity's own "Top 10" row was redundant with the rest of the home rows
     : allRestRows.filter((row) => row.name !== "Top 10 titoli oggi" && row.name !== "Top 10 titles today");
 
   return (

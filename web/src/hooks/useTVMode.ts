@@ -4,7 +4,6 @@ export function useTVMode() {
   const [isTVMode, setIsTVMode] = useState(false);
 
   useEffect(() => {
-    // Detect if user is on Android TV / FireStick
     const detectTV = () => {
       const userAgent = navigator.userAgent.toLowerCase();
 

@@ -13,8 +13,7 @@ function send(win, payload) {
   win.webContents.send("streamflix:update-event", payload);
 }
 
-// user-driven only: we never download or install on our own, the renderer decides when to
-// call checkForUpdates/downloadUpdate/quitAndInstall via the ipc handlers below
+// user-driven only, we never auto download/install, renderer decides via the ipc handlers below
 function initAutoUpdate(win, killChildrenAndWait) {
   if (!app.isPackaged) return; // no update feed in dev, checking would just error
   if (initialized) return;
@@ -52,10 +51,7 @@ function initAutoUpdate(win, killChildrenAndWait) {
   });
 
   ipcMain.handle("streamflix:quit-and-install", async () => {
-    // quitAndInstall spawns the NSIS installer before electron even starts quitting - if
-    // backend.exe is still running at that point, windows wont let the installer overwrite
-    // its locked exe, and the update silently keeps the old backend. waiting here for our
-    // own child processes to actually be gone closes that race
+    // quitAndInstall spawns NSIS before electron even quits, so backend.exe must be dead first
     await killChildrenAndWait();
     autoUpdater.quitAndInstall();
   });

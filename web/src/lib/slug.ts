@@ -37,8 +37,7 @@ export function slugWithFallback(
   return buildSlug(id, "");
 }
 
-// a numeric hash cant survive a navigation, no server memory to map it back. encode
-// provider+id right into the token so the url itself is the source of truth
+// a numeric hash cant survive navigation with no server memory, encode provider+id right into the token
 function toBase64Url(str: string): string {
   return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

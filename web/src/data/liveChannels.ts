@@ -1,9 +1,7 @@
-// src/data/liveChannels.ts
-
 export interface LiveChannel {
   id: string;
   name: string;
-  logo: string; // URL logo canale
+  logo: string;
   url: string;
   provider: 'pluto' | 'ustvgo';
   category: 'news' | 'entertainment' | 'sports' | 'movies';

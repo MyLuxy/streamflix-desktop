@@ -31,9 +31,7 @@ export function usesAniListArtwork(provider: string | undefined): boolean {
   return !!provider && ANIME_PROVIDERS_USE_ANILIST.has(provider);
 }
 
-// hianime's own uploads are full of genuinely missing files - wordpress itself 301s them to
-// the homepage (x-redirect-by: WordPress, confirmed even bypassing cloudflare's cache), not
-// a bot block, so retrying them is pointless - skip straight to anilist/tmdb every time
+// hianime's own uploads are full of genuinely missing files, wordpress just 301s them home, skip straight to anilist/tmdb
 const SKIP_OWN_ARTWORK = new Set(["HiAnime"]);
 
 export function skipsOwnArtwork(provider: string | undefined): boolean {

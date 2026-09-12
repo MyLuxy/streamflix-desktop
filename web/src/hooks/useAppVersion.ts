@@ -2,14 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-// window.streamflixDesktop is declared in useDesktopUpdate.ts, already loaded wherever
-// this hook is used since the settings page pulls in both
+// window.streamflixDesktop is declared in useDesktopUpdate.ts, already loaded since settings pulls in both
 export function useAppVersion() {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
-    // TEMPORARY - matches useDesktopUpdate's own debugUpdate override, so the version
-    // section is visible in the same plain-browser test as the rest of the update ui
+    // TEMPORARY: matches useDesktopUpdate's own debugUpdate override for plain-browser testing
     if (new URLSearchParams(window.location.search).has("debugUpdate")) {
       setVersion("1.0.4");
       return;
