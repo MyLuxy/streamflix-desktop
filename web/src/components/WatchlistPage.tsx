@@ -1,18 +1,24 @@
 import { motion } from "framer-motion";
-import { Trash2, Play } from "lucide-react";
+import { Trash2, Play, MoreVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useProviders } from "@/hooks/useStreamflix";
 import { IMAGE_SIZES, imageUrl, proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { WatchlistItem } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface WatchlistPageProps {
   onItemClick: (item: WatchlistItem) => void;
 }
 
-// imageUrl() already passes an absolute URL (hentai items, or anything from StreamFlix's own
-// backend) through unchanged, so no per-mediaType branching is needed here anymore.
+// imageUrl() already passes an absolute URL through unchanged, no per-mediaType branching needed
 function posterSrc(item: WatchlistItem): string | null {
   return imageUrl(item.posterPath, IMAGE_SIZES.poster.medium);
 }
@@ -22,9 +28,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
   const { watchlist, removeFromWatchlist } = useWatchlist();
   const { data: providers } = useProviders();
 
-  // a title saved from a provider that's since been hidden (or removed outright) just
-  // wont be in this list anymore - falls back to the generic icon below, which doubles
-  // as a quiet "this provider isn't around right now" signal instead of a broken image
+  // a title from a hidden/removed provider falls back to the generic icon instead of a broken image
   const providerLogo = (name: string | undefined) =>
     providers?.find((p) => p.name === name)?.logo;
 
@@ -58,7 +62,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-6">
+        <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 md:mb-8">
           {t("watchlistPage.title")}
         </h1>
 
@@ -71,10 +75,15 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
               transition={{ delay: index * 0.05 }}
               className="relative"
             >
-              <div className="rounded-lg overflow-hidden shadow-md">
-                <button
+              <div className="relative rounded-lg overflow-hidden shadow-md">
+                <div
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onItemClick(item)}
-                  className="group relative w-full aspect-[2/3] block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") onItemClick(item);
+                  }}
+                  className="group relative w-full aspect-[2/3] block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
                   {posterSrc(item) ? (
                     <ImageWithSpinner
@@ -92,7 +101,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                  {item.mediaType !== "hentai" && (() => {
+                  {(() => {
                     const logo = providerLogo(item.provider);
                     return (
                       <img
@@ -107,28 +116,37 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
                       />
                     );
                   })()}
+                </div>
 
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromWatchlist(item.id, item.mediaType);
-                    }}
-                    className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-red-600"
-                  >
-                    <Trash2 className="w-5 h-5 text-white" />
-                  </div>
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("watchlistPage.remove")}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-2 right-2 h-10 w-10 [&_svg]:size-6 hover:bg-secondary hover:text-foreground cursor-pointer"
+                    >
+                      <MoreVertical className="w-6 h-6" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[9rem] p-2">
+                    <DropdownMenuItem
+                      onClick={() => removeFromWatchlist(item.id, item.mediaType)}
+                      className="text-base py-3 px-3 cursor-pointer text-destructive focus:bg-secondary focus:text-destructive"
+                    >
+                      <Trash2 className="w-5 h-5 mr-3" />
+                      {t("watchlistPage.remove")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <p className="mt-3 text-base font-medium text-foreground line-clamp-2">
                 {item.title}
               </p>
               <p className="text-sm text-muted-foreground">
-                {item.mediaType === "hentai"
-                  ? t("watchlistPage.typeHentai")
-                  : item.mediaType === "tv"
-                    ? t("watchlistPage.typeTV")
-                    : t("watchlistPage.typeMovie")}
+                {item.mediaType === "tv" ? t("watchlistPage.typeTV") : t("watchlistPage.typeMovie")}
               </p>
             </motion.div>
           ))}
