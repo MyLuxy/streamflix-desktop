@@ -38,6 +38,9 @@
       "updateRetry": "Réessayer",
       "about": "À propos de StreamFlix",
       "aboutDesc": "StreamFlix est un magnifique agrégateur de streaming qui vous aide à découvrir et regarder vos films et séries TV préférés.",
+      "debug": "Débogage",
+      "debugDesc": "Voyez en temps réel ce que fait le backend",
+      "debugOpen": "Ouvrir le terminal",
       "version": "Version",
       "versionUpToDate": "À jour",
       "versionUpdateAvailable": "Nouvelle version disponible",
@@ -246,6 +249,13 @@
       "delete": "Supprimer",
       "deleteTitle": "Supprimer ce téléchargement ?",
       "deleteDescription": "Le fichier sera définitivement supprimé de votre ordinateur. Cette action est irréversible."
+    },
+    "debugTerminal": {
+      "title": "Terminal de débogage",
+      "clear": "Effacer",
+      "save": "Enregistrer dans un fichier",
+      "exit": "Quitter",
+      "waiting": "En attente d'activité du backend..."
     },
     "hero": {
       "playNow": "Lire Maintenant"

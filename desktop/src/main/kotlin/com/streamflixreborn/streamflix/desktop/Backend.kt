@@ -60,6 +60,7 @@ fun main() {
     server.createContext("/api/download/cancel") { withCors(it) { handleDownloadCancel(it) } }
     server.createContext("/api/download/pause") { withCors(it) { handleDownloadPause(it) } }
     server.createContext("/api/settings/tmdb-key") { withCors(it) { handleTmdbKeySettings(it) } }
+    server.createContext("/api/debug/stream") { withCors(it) { handleDebugStream(it) } }
     server.createContext("/manifest.m3u8") { withCors(it) { serveManifest(it) } }
     server.createContext("/segment") { withCors(it) { serveSegment(it) } }
     server.createContext("/direct") { withCors(it) { serveDirect(it) } }
@@ -177,7 +178,11 @@ private fun withCors(exchange: HttpExchange, handle: () -> Unit) {
         exchange.close()
         return
     }
+    val path = exchange.requestURI.path
+    // skip logging the debug stream itself, watching it open its own connection is just noise
+    if (path != "/api/debug/stream") DebugLog.info("http", "${exchange.requestMethod} $path")
     runCatching { handle() }.onFailure {
+        DebugLog.error("http", "${exchange.requestMethod} $path failed: ${it.message ?: it::class.simpleName}")
         it.printStackTrace()
         runCatching {
             val bytes = """{"error":"${(it.message ?: "internal error").replace("\"", "'")}"}""".toByteArray()
@@ -362,6 +367,7 @@ private val streamCache = ConcurrentHashMap<String, Video>()
 
 // shared by handleStream and the download pipeline, races every server and returns whichever comes back usable first
 fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video, List<Video.Server>> {
+    DebugLog.info("stream", "resolving ${request.type} on ${provider.name} (${request.itemId})")
     return runBlocking {
         // covers the metadata/server-list calls too, not just the race below, neither has its own timeout
         withTimeoutOrNull(45_000L) {
@@ -392,6 +398,7 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
             }
             val servers = provider.getServers(itemIdForServers, videoType)
             if (servers.isEmpty()) error("no server available")
+            DebugLog.info("stream", "racing ${servers.size} server(s) on ${provider.name}")
             // race every server instead of waiting on all of them, some (flixlatam) fall back to a slow headless browser per mirror
             val resultChannel = Channel<Pair<Video.Server, Result<Video>>>(servers.size)
             val jobs = servers.map { server ->
@@ -432,11 +439,17 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
             val picked = requestedMatch ?: firstSuccess ?: run {
                 // not every extractor can tell "not found" apart from a network hiccup, so one confirmed sighting is enough
                 val anyNotFound = errors.any { it is ContentNotFoundException }
-                throw if (anyNotFound) ContentNotFoundException("Not available on ${provider.name}")
+                val failure = if (anyNotFound) ContentNotFoundException("Not available on ${provider.name}")
                 else (errors.firstOrNull() ?: Exception("no server available"))
+                DebugLog.error("stream", "no working server on ${provider.name}: ${failure.message}")
+                throw failure
             }
+            DebugLog.success("stream", "resolved via ${picked.first.name} on ${provider.name}")
             picked.second to working
-        } ?: throw Exception("Timed out resolving a stream on ${provider.name}")
+        } ?: run {
+            DebugLog.error("stream", "timed out resolving on ${provider.name}")
+            throw Exception("Timed out resolving a stream on ${provider.name}")
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -447,6 +447,30 @@ export function SettingsPage() {
               )}
             </div>
           )}
+        </section>
+
+        <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <TerminalSquare className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.debug')}</p>
+                <p className="text-sm md:text-base text-muted-foreground">{t('settings.debugDesc')}</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                if (window.streamflixDesktop) window.streamflixDesktop.openDebugTerminal(currentLocale);
+                else window.open(`/${currentLocale}/debug`, "_blank", "width=900,height=640");
+              }}
+              variant="outline"
+              size="lg"
+              className="gap-2.5 h-12 px-6 text-base [&_svg]:size-5"
+            >
+              <TerminalSquare />
+              {t('settings.debugOpen')}
+            </Button>
+          </div>
         </section>
 
         {isDesktop && appVersion && (

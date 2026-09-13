@@ -38,6 +38,9 @@
       "updateRetry": "Reintentar",
       "about": "Acerca de StreamFlix",
       "aboutDesc": "StreamFlix es un hermoso agregador de streaming que te ayuda a descubrir y ver tus películas y series de TV favoritas.",
+      "debug": "Depuración",
+      "debugDesc": "Mira en tiempo real lo que está haciendo el backend",
+      "debugOpen": "Abrir terminal",
       "version": "Versión",
       "versionUpToDate": "Actualizado",
       "versionUpdateAvailable": "Nueva versión disponible",
@@ -246,6 +249,13 @@
       "delete": "Eliminar",
       "deleteTitle": "¿Eliminar esta descarga?",
       "deleteDescription": "El archivo se eliminará permanentemente de tu ordenador. Esta acción no se puede deshacer."
+    },
+    "debugTerminal": {
+      "title": "Terminal de depuración",
+      "clear": "Limpiar",
+      "save": "Guardar en un archivo",
+      "exit": "Salir",
+      "waiting": "Esperando actividad del backend..."
     },
     "hero": {
       "playNow": "Reproducir Ahora"

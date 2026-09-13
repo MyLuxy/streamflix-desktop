@@ -16,6 +16,8 @@ interface StreamflixDesktopBridge {
   getVersion: () => Promise<string>;
   onUpdateEvent: (callback: (payload: UpdateEventPayload) => void) => () => void;
   showInFolder: (filePath: string) => Promise<void>;
+  openDebugTerminal: (locale: string) => Promise<void>;
+  saveDebugLog: (content: string) => Promise<{ success: boolean; filePath?: string }>;
 }
 
 declare global {

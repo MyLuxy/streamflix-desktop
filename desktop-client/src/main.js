@@ -11,6 +11,7 @@ const { initAutoUpdate } = require("./auto-update");
 
 let children = [];
 let mainWindow = null;
+let frontendPort = null;
 
 // only one copy should ever run, two would fight over the same ports and progress files
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -32,6 +33,39 @@ ipcMain.handle("streamflix:show-in-folder", (_event, filePath) => {
   const root = path.join(app.getPath("downloads"), "StreamFlix");
   if (!path.resolve(filePath).startsWith(root)) return;
   shell.showItemInFolder(filePath);
+});
+
+// its own real window, not a modal, so it survives being moved to another monitor or kept open alongside the app
+ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {
+  if (!frontendPort) return;
+  const win = new BrowserWindow({
+    width: 900,
+    height: 640,
+    minWidth: 480,
+    minHeight: 320,
+    backgroundColor: "#09090b",
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      // this window's whole point is live output, chromium throttling it while unfocused/occluded defeats that
+      backgroundThrottling: false,
+    },
+  });
+  win.on("page-title-updated", (event) => event.preventDefault());
+  win.setTitle("StreamFlix Debug");
+  win.loadURL(`http://127.0.0.1:${frontendPort}/${locale || "en"}/debug`);
+});
+
+ipcMain.handle("streamflix:save-debug-log", async (event, content) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    defaultPath: `streamflix-debug-${Date.now()}.log`,
+    filters: [{ name: "Log files", extensions: ["log", "txt"] }],
+  });
+  if (canceled || !filePath) return { success: false };
+  await fs.promises.writeFile(filePath, content, "utf-8");
+  return { success: true, filePath };
 });
 
 function resourcesDir() {
@@ -99,6 +133,7 @@ async function boot() {
 
     const frontend = await startFrontend(resDir, logDir, backend.port);
     children.push(frontend.process);
+    frontendPort = frontend.port;
 
     if (win.isDestroyed()) return;
     await win.loadURL(`http://127.0.0.1:${frontend.port}/`);
