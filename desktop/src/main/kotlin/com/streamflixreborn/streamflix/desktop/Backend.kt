@@ -235,7 +235,7 @@ val HIDDEN_PROVIDERS = setOf(
     "Animefenix", "AnimeFLV", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
     "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
     "SoloLatino", "Poseidonhd2", "Doramasflix", "FlixLatam", "GuardaFlix", "MKissa",
-    "AnimeSuge", "HiAnime", "HDFilme", "Einschalten",
+    "AnimeSuge", "HiAnime", "HDFilme", "Einschalten", "Anikoto",
     // vavoo's shared relay domain has an expired TLS cert, temporary, un-hide once they renew it
     "Vavoo Germany Live TV", "Vavoo Italy Live TV", "Vavoo France Live TV", "Vavoo Spain Live TV", "Vavoo Poland Live TV",
 )
