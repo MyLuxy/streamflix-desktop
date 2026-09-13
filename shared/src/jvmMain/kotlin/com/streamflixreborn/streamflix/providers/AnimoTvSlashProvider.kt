@@ -94,12 +94,16 @@ object AnimoTvSlashProvider : Provider {
         }
     }
 
+    // these widgets only ever carry a handful of items, too few to fill a scrollable row
+    private val SKIPPED_HOME_SECTIONS = setOf("Ongoing Anime", "Latest Movies", "Latest Completed", "Upcoming Anime")
+
     override suspend fun getHome(): List<Category> {
         val doc = service.getHome()
         val categories = mutableListOf<Category>()
 
         doc.select("div.bixbox").forEach { box ->
             val heading = box.selectFirst("h2, h3")?.text()?.trim()?.takeIf { it.isNotBlank() } ?: return@forEach
+            if (heading in SKIPPED_HOME_SECTIONS) return@forEach
             val items = box.select("div.listupd article.bs").mapNotNull { parseCard(it) }.distinctBy { it.id }
             if (items.isNotEmpty()) categories.add(Category(name = heading, list = items))
         }
