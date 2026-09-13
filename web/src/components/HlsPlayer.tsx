@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
-import { resolveStream, type StreamServer, type StreamResult } from "@/hooks/useStreamflix";
+import { resolveStream, useProviders, type StreamServer, type StreamResult } from "@/hooks/useStreamflix";
+import { languageLabel } from "@/lib/content-languages";
 import { PlayIcon, PauseIcon, SkipIcon, NextIcon } from "@/components/MediaIcons";
 
 interface HlsPlayerProps {
@@ -55,11 +56,13 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// most servers are just host mirrors, but hianime tags sub/dub in the name, map that to a real language
-function audioLabel(name: string): string {
+// most servers are just host mirrors, but some providers tag sub/dub in the name instead.
+// "sub" is (almost) always the original japanese audio; "dub" is dubbed into whatever language
+// the provider itself publishes in, which we can't guess, so it's passed in from provider.language
+function audioLabel(name: string, dubLanguage?: string): string {
   const tag = name.match(/\b(sub|dub)\b/i);
   if (!tag) return name;
-  return tag[1].toLowerCase() === "sub" ? "Japanese" : "English";
+  return tag[1].toLowerCase() === "sub" ? "Japanese" : dubLanguage ? languageLabel(dubLanguage) : "English";
 }
 
 // mirrors of the same file arent audio tracks, only show the tab for real language variants
@@ -91,6 +94,8 @@ export function HlsPlayer({
   onNextEpisode,
 }: HlsPlayerProps) {
   const { t } = useTranslation();
+  const { data: providers } = useProviders();
+  const dubLanguage = providers?.find((p) => p.name === provider)?.language;
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -131,6 +136,9 @@ export function HlsPlayer({
   const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
   const selectedLevelRef = useRef(selectedLevel);
   selectedLevelRef.current = selectedLevel;
+
+  const dubLanguageRef = useRef(dubLanguage);
+  dubLanguageRef.current = dubLanguage;
 
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
@@ -296,7 +304,7 @@ export function HlsPlayer({
 
       // first pass: a saved preference from last time wins over whatever the provider defaulted to
       if (selectedServerId === undefined && preferredAudioTrackRef.current) {
-        const preferred = resultServers.find((s) => audioLabel(s.name) === preferredAudioTrackRef.current);
+        const preferred = resultServers.find((s) => audioLabel(s.name, dubLanguageRef.current) === preferredAudioTrackRef.current);
         if (preferred && preferred.id !== resultServers[0]?.id) {
           setSelectedServerId(preferred.id);
           return;
@@ -308,7 +316,7 @@ export function HlsPlayer({
       setLevels([]);
       const activeServerId = selectedServerId ?? resultServers[0]?.id;
       const activeServer = resultServers.find((s) => s.id === activeServerId);
-      if (activeServer) onAudioTrackChangeRef.current?.(audioLabel(activeServer.name));
+      if (activeServer) onAudioTrackChangeRef.current?.(audioLabel(activeServer.name, dubLanguageRef.current));
 
       const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
 
@@ -825,13 +833,16 @@ export function HlsPlayer({
                             ))}
                           {activeTab === "audio" &&
                             // providers like AnimeX list several mirrors per language, collapse those down to one button each
-                            Array.from(new Map(servers.map((s) => [audioLabel(s.name), s])).values()).map((s) => (
+                            Array.from(new Map(servers.map((s) => [audioLabel(s.name, dubLanguage), s])).values()).map((s) => (
                               <button
                                 key={s.id}
                                 onClick={() => selectServer(s.id)}
-                                className={optionRowClass(audioLabel(s.name) === audioLabel(servers.find((sv) => sv.id === activeServerId)?.name ?? ""))}
+                                className={optionRowClass(
+                                  audioLabel(s.name, dubLanguage) ===
+                                    audioLabel(servers.find((sv) => sv.id === activeServerId)?.name ?? "", dubLanguage)
+                                )}
                               >
-                                {audioLabel(s.name)}
+                                {audioLabel(s.name, dubLanguage)}
                               </button>
                             ))}
                           {activeTab === "subtitles" && (
