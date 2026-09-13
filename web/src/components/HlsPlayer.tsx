@@ -116,8 +116,9 @@ export function HlsPlayer({
 
   const [servers, setServers] = useState<StreamServer[]>([]);
   const [selectedServerId, setSelectedServerId] = useState<string | undefined>(undefined);
+  // by label, not url: the url embeds a per-resolution token so it never matches again after a server switch.
   // undefined = follow whatever track came back marked default, null = "Off" was picked
-  const [selectedSubtitleUrl, setSelectedSubtitleUrl] = useState<string | null | undefined>(undefined);
+  const [selectedSubtitleLabel, setSelectedSubtitleLabel] = useState<string | null | undefined>(undefined);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("subtitles");
   const settingsMenuRef = useRef<HTMLDivElement>(null);
@@ -237,7 +238,7 @@ export function HlsPlayer({
   // an audio/subtitle pick belongs to one episode, a new one starts back on the provider default
   useEffect(() => {
     setSelectedServerId(undefined);
-    setSelectedSubtitleUrl(undefined);
+    setSelectedSubtitleLabel(undefined);
   }, [itemId, episodeId]);
 
   useEffect(() => {
@@ -258,14 +259,20 @@ export function HlsPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const activeUrl = selectedSubtitleUrl === undefined
-      ? subtitles.find((s) => s.default)?.url ?? null
-      : selectedSubtitleUrl;
+    const activeLabel = selectedSubtitleLabel === undefined
+      ? subtitles.find((s) => s.default)?.label ?? null
+      : selectedSubtitleLabel;
+    // disable everything first, a stale cue from the previously-showing track can otherwise stay
+    // painted on screen even after its track is switched off or swapped out for a new server
+    for (let i = 0; i < video.textTracks.length; i++) {
+      video.textTracks[i].mode = "disabled";
+    }
     subtitles.forEach((s, i) => {
+      if (s.label !== activeLabel) return;
       const track = video.textTracks[i];
-      if (track) track.mode = s.url === activeUrl ? "showing" : "disabled";
+      if (track) track.mode = "showing";
     });
-  }, [subtitles, selectedSubtitleUrl]);
+  }, [subtitles, selectedSubtitleLabel]);
 
   useEffect(() => {
     // captured once here, cleanup runs after react may have already unset the ref
@@ -511,8 +518,8 @@ export function HlsPlayer({
     setSelectedServerId(id);
   };
 
-  const selectSubtitle = (url: string | null) => {
-    setSelectedSubtitleUrl(url);
+  const selectSubtitle = (label: string | null) => {
+    setSelectedSubtitleLabel(label);
   };
 
   const selectQuality = (index: number | null) => {
@@ -528,9 +535,9 @@ export function HlsPlayer({
   const displayedTime = dragging && dragTime !== null ? dragTime : currentTime;
   const progressPct = duration > 0 ? (displayedTime / duration) * 100 : 0;
   const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
-  const activeSubtitleUrl = selectedSubtitleUrl === undefined
-    ? subtitles.find((s) => s.default)?.url ?? null
-    : selectedSubtitleUrl;
+  const activeSubtitleLabel = selectedSubtitleLabel === undefined
+    ? subtitles.find((s) => s.default)?.label ?? null
+    : selectedSubtitleLabel;
   const activeServerId = selectedServerId ?? servers[0]?.id;
   const showAudioTab = hasAudioVariants(servers);
   const showQualityTab = levels.length > 0;
@@ -557,7 +564,9 @@ export function HlsPlayer({
       {/* no title attr, the native tooltip would fight our own label in the controls bar */}
       <video ref={videoRef} className="w-full h-full" playsInline crossOrigin="anonymous">
         {subtitles.map((s) => (
-          <track key={s.url} kind="subtitles" src={`${BACKEND_URL}${s.url}`} label={s.label} default={s.default} />
+          // keyed by label (stable across a server switch), not url (a fresh token every resolve,
+          // which would force a full remount and could leave a stale cue rendered on screen)
+          <track key={s.label} kind="subtitles" src={`${BACKEND_URL}${s.url}`} label={s.label} default={s.default} />
         ))}
       </video>
 
@@ -827,11 +836,11 @@ export function HlsPlayer({
                             ))}
                           {activeTab === "subtitles" && (
                             <>
-                              <button onClick={() => selectSubtitle(null)} className={optionRowClass(activeSubtitleUrl === null)}>
+                              <button onClick={() => selectSubtitle(null)} className={optionRowClass(activeSubtitleLabel === null)}>
                                 {t("player.off")}
                               </button>
                               {subtitles.map((s) => (
-                                <button key={s.url} onClick={() => selectSubtitle(s.url)} className={optionRowClass(s.url === activeSubtitleUrl)}>
+                                <button key={s.label} onClick={() => selectSubtitle(s.label)} className={optionRowClass(s.label === activeSubtitleLabel)}>
                                   {s.label}
                                 </button>
                               ))}
