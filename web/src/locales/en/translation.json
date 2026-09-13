@@ -253,8 +253,12 @@
     "debugTerminal": {
       "title": "Debug terminal",
       "clear": "Clear",
-      "save": "Save to file",
-      "exit": "Exit",
+      "save": "Save",
+      "checkProviders": "Check providers",
+      "checkingProviders": "Checking...",
+      "jumpToBottom": "Jump to bottom",
+      "commandPlaceholder": "Type a command (help for a list)",
+      "runningHint": "Running, press Ctrl+C to stop",
       "waiting": "Waiting for backend activity..."
     },
     "hero": {

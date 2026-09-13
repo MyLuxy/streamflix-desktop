@@ -253,9 +253,13 @@
     "debugTerminal": {
       "title": "Terminale di debug",
       "clear": "Pulisci",
-      "save": "Salva su file",
-      "exit": "Esci",
-      "waiting": "In attesa di attività dal backend..."
+      "save": "Salva",
+      "checkProviders": "Verifica provider",
+      "checkingProviders": "Verifica in corso...",
+      "waiting": "In attesa di attività dal backend...",
+      "jumpToBottom": "Vai al fondo",
+      "commandPlaceholder": "Digita un comando (help per l'elenco)",
+      "runningHint": "In corso, premi Ctrl+C per interrompere"
     },
     "hero": {
       "playNow": "Riproduci Ora"

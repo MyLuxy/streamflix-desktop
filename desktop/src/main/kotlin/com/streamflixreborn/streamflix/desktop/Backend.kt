@@ -61,6 +61,9 @@ fun main() {
     server.createContext("/api/download/pause") { withCors(it) { handleDownloadPause(it) } }
     server.createContext("/api/settings/tmdb-key") { withCors(it) { handleTmdbKeySettings(it) } }
     server.createContext("/api/debug/stream") { withCors(it) { handleDebugStream(it) } }
+    server.createContext("/api/debug/check-providers") { withCors(it) { handleDebugCheckProviders(it) } }
+    server.createContext("/api/debug/cancel") { withCors(it) { handleDebugCancel(it) } }
+    server.createContext("/api/debug/command") { withCors(it) { handleDebugCommand(it) } }
     server.createContext("/manifest.m3u8") { withCors(it) { serveManifest(it) } }
     server.createContext("/segment") { withCors(it) { serveSegment(it) } }
     server.createContext("/direct") { withCors(it) { serveDirect(it) } }
@@ -226,7 +229,7 @@ private fun faviconOverride(providerName: String): String? {
 }
 
 // these are busted rn, still work if queried directly, just dont show em in the picker
-private val HIDDEN_PROVIDERS = setOf(
+val HIDDEN_PROVIDERS = setOf(
     "AnyMovie", "SerienStream", "Moflix-stream", "FrenchStream", "CineHax",
     "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
     "Animefenix", "AnimeFLV", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",

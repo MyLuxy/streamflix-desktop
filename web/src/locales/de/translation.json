@@ -253,8 +253,12 @@
     "debugTerminal": {
       "title": "Debug-Terminal",
       "clear": "Leeren",
-      "save": "In Datei speichern",
-      "exit": "Beenden",
+      "save": "Speichern",
+      "checkProviders": "Anbieter prüfen",
+      "checkingProviders": "Prüfung läuft...",
+      "jumpToBottom": "Nach unten springen",
+      "commandPlaceholder": "Befehl eingeben (help für eine Liste)",
+      "runningHint": "Läuft, Strg+C zum Abbrechen",
       "waiting": "Warte auf Backend-Aktivität..."
     },
     "hero": {

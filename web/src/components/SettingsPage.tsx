@@ -465,7 +465,7 @@ export function SettingsPage() {
               }}
               variant="outline"
               size="lg"
-              className="gap-2.5 h-12 px-6 text-base [&_svg]:size-5"
+              className="gap-3 h-14 px-8 text-lg [&_svg]:size-6"
             >
               <TerminalSquare />
               {t('settings.debugOpen')}

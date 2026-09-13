@@ -253,8 +253,12 @@
     "debugTerminal": {
       "title": "Terminal de depuración",
       "clear": "Limpiar",
-      "save": "Guardar en un archivo",
-      "exit": "Salir",
+      "save": "Guardar",
+      "checkProviders": "Verificar proveedores",
+      "checkingProviders": "Verificando...",
+      "jumpToBottom": "Ir al final",
+      "commandPlaceholder": "Escribe un comando (help para la lista)",
+      "runningHint": "En curso, pulsa Ctrl+C para detener",
       "waiting": "Esperando actividad del backend..."
     },
     "hero": {

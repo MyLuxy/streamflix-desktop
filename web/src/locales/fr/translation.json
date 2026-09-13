@@ -253,8 +253,12 @@
     "debugTerminal": {
       "title": "Terminal de débogage",
       "clear": "Effacer",
-      "save": "Enregistrer dans un fichier",
-      "exit": "Quitter",
+      "save": "Enregistrer",
+      "checkProviders": "Vérifier les fournisseurs",
+      "checkingProviders": "Vérification en cours...",
+      "jumpToBottom": "Aller en bas",
+      "commandPlaceholder": "Tapez une commande (help pour la liste)",
+      "runningHint": "En cours, appuyez sur Ctrl+C pour arrêter",
       "waiting": "En attente d'activité du backend..."
     },
     "hero": {

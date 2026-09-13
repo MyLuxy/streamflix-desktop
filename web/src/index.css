@@ -792,13 +792,24 @@ a {
   }
 }
 
-/* hard on/off toggle instead of a smooth fade, closer to how a real terminal cursor blinks */
-@keyframes term-cursor-blink {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
+/* overrides the app-wide hidden scrollbar, this one's a dev tool where the scroll position itself is useful info */
+.debug-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
-.term-cursor {
-  animation: term-cursor-blink 1s steps(1) infinite;
+.debug-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 10px;
+}
+.debug-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.debug-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+}
+.debug-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
 }
 
 /* masks progressive card loading on category hero */
