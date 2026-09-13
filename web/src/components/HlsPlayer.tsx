@@ -815,8 +815,13 @@ export function HlsPlayer({
                               </button>
                             ))}
                           {activeTab === "audio" &&
-                            servers.map((s) => (
-                              <button key={s.id} onClick={() => selectServer(s.id)} className={optionRowClass(s.id === activeServerId)}>
+                            // providers like AnimeX list several mirrors per language, collapse those down to one button each
+                            Array.from(new Map(servers.map((s) => [audioLabel(s.name), s])).values()).map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => selectServer(s.id)}
+                                className={optionRowClass(audioLabel(s.name) === audioLabel(servers.find((sv) => sv.id === activeServerId)?.name ?? ""))}
+                              >
                                 {audioLabel(s.name)}
                               </button>
                             ))}
