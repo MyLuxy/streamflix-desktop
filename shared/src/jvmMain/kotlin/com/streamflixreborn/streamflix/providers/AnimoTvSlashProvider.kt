@@ -12,6 +12,9 @@ import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -199,10 +202,23 @@ object AnimoTvSlashProvider : Provider {
         return parseEpisodes(doc, seasonId)
     }
 
+    private fun genrePagePath(id: String, sitePage: Int): String =
+        if (sitePage > 1) "genres/$id/page/$sitePage/" else "genres/$id/"
+
     override suspend fun getGenre(id: String, page: Int): Genre {
-        val path = if (page > 1) "genres/$id/page/$page/" else "genres/$id/"
-        val doc = service.getPage("$baseUrl/$path")
-        val shows = doc.select("div.listupd article.bs").mapNotNull { parseCard(it) }.distinctBy { it.id }
+        // the site only puts 10 cards per page, nowhere near enough to fill a scrollable home row,
+        // so a single "page" here pulls a few real site pages at once and merges them
+        val sitePages = if (page <= 1) listOf(1, 2, 3) else listOf(page + 2)
+        val shows = coroutineScope {
+            sitePages.map { sitePage ->
+                async {
+                    runCatching {
+                        service.getPage("$baseUrl/${genrePagePath(id, sitePage)}")
+                            .select("div.listupd article.bs").mapNotNull { parseCard(it) }
+                    }.getOrDefault(emptyList())
+                }
+            }.awaitAll().flatten()
+        }.distinctBy { it.id }
         return Genre(id = id, name = id, shows = shows)
     }
 
