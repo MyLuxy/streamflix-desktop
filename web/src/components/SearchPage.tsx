@@ -13,6 +13,7 @@ import { getSelectedProviderClient } from "@/lib/provider";
 import { IMAGE_SIZES, imageUrl } from "@/lib/constants";
 import { MediaItem } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
+import { isBackNav } from "@/lib/scroll-history";
 
 export type SearchClickPayload = { kind: "tmdb"; item: MediaItem };
 
@@ -29,6 +30,7 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
   const searchParams = useSearchParams();
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const [skipEntrance] = useState(() => isBackNav());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -126,7 +128,7 @@ export function SearchPage({ onItemClick }: SearchPageProps) {
 
   return (
     <div>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.div initial={skipEntrance ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 md:mb-8">
           {t("search.title")}
         </h1>

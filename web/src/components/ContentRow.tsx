@@ -7,6 +7,7 @@ import { ContentCard } from "./ContentCard";
 import { useLocale } from "@/hooks/useLocale";
 import { hrefForItem } from "@/lib/links";
 import { providerTagOf } from "@/lib/provider-tag";
+import { isBackNav } from "@/lib/scroll-history";
 import { Movie, TVShow, MediaItem } from "@/lib/types";
 
 interface ContentRowProps {
@@ -77,6 +78,8 @@ export function ContentRow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  // same as the hero banner: returning to a page you already saw shouldnt replay its entrance
+  const [skipEntrance] = useState(() => isBackNav());
 
   // stable key so back nav lands on the same scroll spot
   const storageKey = `rowscroll:${seeMoreHref || title}`;
@@ -172,7 +175,7 @@ export function ContentRow({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={skipEntrance ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className="py-4 group/row"

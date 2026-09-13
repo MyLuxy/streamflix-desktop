@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   saveScrollPosition,
@@ -14,7 +14,6 @@ import {
 export function ScrollRestorer() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const restored = useRef(false);
   const pathKey = searchParams.toString()
     ? `${pathname}?${searchParams.toString()}`
     : pathname;
@@ -46,36 +45,53 @@ export function ScrollRestorer() {
     };
   }, [pathKey]);
 
-  useEffect(() => {
-    restored.current = false;
+  // layout effect so this lands before the browser ever paints the fresh page at scroll 0
+  useLayoutEffect(() => {
     // only restore on actual back nav, forward nav starts at top
     if (!consumeRestoreIntent()) return;
     const target = getScrollPosition(pathKey);
     if (target <= 0) return;
 
-    // retries while waiting for layout/images to settle
-    const tryScroll = (attempt = 0) => {
-      if (restored.current) return;
-      if (attempt > 15) return;
-      const maxY = Math.max(
-        document.body.scrollHeight,
-        document.documentElement.scrollHeight
-      );
-      if (target < maxY || attempt >= 5) {
-        window.scrollTo({ top: target, behavior: attempt < 3 ? "instant" : "smooth" });
-        restored.current = true;
-      } else {
-        setTimeout(() => tryScroll(attempt + 1), 200 + attempt * 50);
+    let settled = false;
+    let userTookOver = false;
+
+    const maxScrollable = () =>
+      Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - window.innerHeight;
+
+    const attempt = () => {
+      if (settled || userTookOver) return;
+      window.scrollTo(0, target);
+      if (maxScrollable() >= target) {
+        settled = true;
+        cleanup();
       }
     };
-    const onLoad = () => { if (!restored.current) tryScroll(10); };
-    window.addEventListener("load", onLoad);
-    tryScroll();
-    return () => {
-      window.removeEventListener("load", onLoad);
-      restored.current = true;
+
+    // a real scroll input while were still homing in means the user is driving now, dont fight them
+    const onUserScroll = () => {
+      userTookOver = true;
+      cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    const observer = new ResizeObserver(attempt);
+    observer.observe(document.body);
+    const giveUpTimer = setTimeout(() => {
+      settled = true;
+      cleanup();
+    }, 4000);
+
+    function cleanup() {
+      observer.disconnect();
+      clearTimeout(giveUpTimer);
+      window.removeEventListener("wheel", onUserScroll);
+      window.removeEventListener("touchmove", onUserScroll);
+    }
+
+    window.addEventListener("wheel", onUserScroll, { passive: true });
+    window.addEventListener("touchmove", onUserScroll, { passive: true });
+
+    attempt();
+    return cleanup;
   }, [pathKey]);
 
   return null;

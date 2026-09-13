@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Play, MoreVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { isBackNav } from "@/lib/scroll-history";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useProviders } from "@/hooks/useStreamflix";
 import { IMAGE_SIZES, imageUrl, proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
@@ -27,6 +29,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
   const { t } = useTranslation();
   const { watchlist, removeFromWatchlist } = useWatchlist();
   const { data: providers } = useProviders();
+  const [skipEntrance] = useState(() => isBackNav());
 
   // a title from a hidden/removed provider falls back to the generic icon instead of a broken image
   const providerLogo = (name: string | undefined) =>
@@ -59,7 +62,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
     <div>
       <motion.div
         key="watchlist-filled"
-        initial={{ opacity: 0, y: 20 }}
+        initial={skipEntrance ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6 md:mb-8">
@@ -70,9 +73,9 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
           {watchlist.map((item, index) => (
             <motion.div
               key={`${item.mediaType}-${item.id}`}
-              initial={{ opacity: 0, y: 20 }}
+              initial={skipEntrance ? false : { opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
+              transition={{ delay: skipEntrance ? 0 : index * 0.05 }}
               className="relative"
             >
               <div className="relative rounded-lg overflow-hidden shadow-md">

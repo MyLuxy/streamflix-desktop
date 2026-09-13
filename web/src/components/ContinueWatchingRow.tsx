@@ -8,6 +8,7 @@ import { useContinueWatching } from "@/hooks/useContinueWatching";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
 import { useArtworkFallback } from "@/hooks/useArtworkFallback";
 import { skipsOwnArtwork } from "@/lib/anime-providers";
+import { isBackNav } from "@/lib/scroll-history";
 
 interface ContinueWatchingRowProps {
   items: WatchedItem[];
@@ -25,6 +26,7 @@ export function ContinueWatchingRow({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [skipEntrance] = useState(() => isBackNav());
 
   // instant scroll restore on mount
   useEffect(() => {
@@ -73,7 +75,7 @@ export function ContinueWatchingRow({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={skipEntrance ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className="py-4 group/row"
