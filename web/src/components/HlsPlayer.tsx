@@ -759,7 +759,7 @@ export function HlsPlayer({
                       aria-label={t("player.audioTrack")}
                       className={`transition-colors drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] ${showSettingsMenu ? "text-white" : "text-white/90 hover:text-white"}`}
                     >
-                      <Captions className="w-7 h-7 md:w-9 md:h-9" />
+                      <Captions className="relative top-[3px] w-9 h-9 md:w-11 md:h-11" />
                     </button>
                     {showSettingsMenu && (
                       <div className="absolute bottom-full right-0 mb-3 w-96 md:w-[28rem] bg-card border border-border/50 shadow-xl overflow-hidden">
