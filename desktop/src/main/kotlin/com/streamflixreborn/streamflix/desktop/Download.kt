@@ -221,6 +221,7 @@ fun handleDownloadDelete(exchange: HttpExchange) {
 private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadStartRequest) {
     val job = downloadJobs.getValue(jobId)
     val workDir = File(downloadsDir(), ".partial-${stableDownloadKey(request)}")
+    DebugLog.info("download", "starting \"${request.title}\" on ${request.provider}")
     try {
         workDir.mkdirs()
         job.phase = DownloadPhase.RESOLVING
@@ -238,23 +239,35 @@ private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadS
                 it.seasonNumber == request.seasonNumber && it.episodeNumber == request.episodeNumber
         }
         val meta = existingMeta ?: DownloadMeta(request.provider, request.itemId, request.type, request.seasonNumber, request.episodeNumber)
+        if (existingMeta != null) DebugLog.info("download", "resuming \"${request.title}\" from segment ${existingMeta.segmentsCompleted}")
         fetchAndConcatSegments(job, video, workDir, meta) { fraction -> job.progress = fraction }
 
+        // leave progress at 100% here, ffmpeg has no per-segment progress to report and resetting to 0 just looks like it restarted
         job.phase = DownloadPhase.ENCODING
-        job.progress = 0.0
+        DebugLog.info("download", "encoding \"${request.title}\"")
         val outFile = File(downloadsDir(), sanitizeFileName(request.title) + ".mp4")
-        transcodeToMp4(job, File(workDir, "segments.ts"), outFile)
+        val audioFile = File(workDir, "segments_audio.ts").takeIf { it.exists() && it.length() > 0 }
+        val tempOutFile = File(workDir, "output.mp4")
+        transcodeToMp4(job, File(workDir, "segments.ts"), audioFile, tempOutFile)
+        // encode to a temp file first, a crash mid-ffmpeg never leaves a broken moov-less file where the user can see it
+        java.nio.file.Files.move(
+            tempOutFile.toPath(), outFile.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        )
 
         job.filePath = outFile.absolutePath
         job.progress = 1.0
         job.phase = DownloadPhase.DONE
+        DebugLog.success("download", "\"${request.title}\" done -> ${outFile.name}")
     } catch (e: DownloadCancelledException) {
         job.phase = DownloadPhase.CANCELLED
+        DebugLog.warn("download", "\"${request.title}\" cancelled")
         // an explicit cancel means give up entirely, unlike a crash/timeout theres no reason to keep the partial around
         workDir.deleteRecursively()
     } catch (e: Exception) {
         job.error = e.message ?: "download failed"
         job.phase = DownloadPhase.FAILED
+        DebugLog.error("download", "\"${request.title}\" failed: ${job.error}")
         // partial segments stay on disk so retrying resumes instead of starting over
     } finally {
         if (job.phase == DownloadPhase.DONE) workDir.deleteRecursively()
@@ -264,11 +277,13 @@ private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadS
 private const val MAX_SEGMENT_BYTES = 30L * 1024 * 1024
 
 private fun fetchBytes(url: String, headers: Map<String, String>?): ByteArray? {
-    repeat(2) {
+    var lastStatus: Int? = null
+    repeat(5) { attempt ->
         val bytes = runCatching {
             val builder = HttpRequest.newBuilder(URI.create(url)).GET()
             applyHeaders(builder, headers)
             val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+            lastStatus = response.statusCode()
             if (response.statusCode() !in 200..299) return@runCatching null
             response.body().use { input ->
                 val buffer = java.io.ByteArrayOutputStream()
@@ -283,7 +298,10 @@ private fun fetchBytes(url: String, headers: Map<String, String>?): ByteArray? {
             }
         }.getOrNull()
         if (bytes != null) return bytes
+        // a 429 needs real wall clock time to clear, hammering it again instantly just extends the ban
+        if (attempt < 4) Thread.sleep(if (lastStatus == 429) 800L * (attempt + 1) else 200L)
     }
+    if (lastStatus != null) DebugLog.warn("download", "segment fetch gave up after retries, HTTP $lastStatus: $url")
     return null
 }
 
@@ -340,6 +358,47 @@ private fun decryptAes128(data: ByteArray, key: ByteArray, iv: ByteArray): ByteA
     return cipher.doFinal(data)
 }
 
+private data class Segment(val url: String, val key: HlsKey?, val iv: ByteArray?)
+
+// parses a plain (non-master) media playlist into its segment list, resolving relative uris against it
+private fun parsePlaylistSegments(text: String, baseUrl: String, headers: Map<String, String>?): List<Segment> {
+    fun resolve(uri: String): String {
+        if (uri.startsWith("http://") || uri.startsWith("https://")) return uri
+        return runCatching { URI.create(baseUrl).resolve(uri).toString() }.getOrDefault(uri)
+    }
+    val segments = mutableListOf<Segment>()
+    var currentKey: HlsKey? = null
+    var mediaSequence = 0L
+    for (rawLine in text.lineSequence()) {
+        val line = rawLine.trim()
+        when {
+            line.startsWith("#EXT-X-MEDIA-SEQUENCE") -> mediaSequence = line.substringAfter(":").toLongOrNull() ?: 0L
+            line.startsWith("#EXT-X-KEY") -> currentKey = parseKeyLine(line, { resolve(it) }, headers)
+            line.startsWith("#") || line.isBlank() -> { /* other tags dont matter for a plain download */ }
+            else -> {
+                val key = currentKey
+                val iv = key?.explicitIv ?: key?.let { sequenceIv(mediaSequence) }
+                segments.add(Segment(resolve(line), key, iv))
+                mediaSequence++
+            }
+        }
+    }
+    return segments
+}
+
+private fun fetchSegmentsToFile(job: DownloadJob, segments: List<Segment>, headers: Map<String, String>?, outFile: File) {
+    java.io.FileOutputStream(outFile).buffered().use { out ->
+        segments.forEachIndexed { index, segment ->
+            checkPauseAndCancel(job)
+            val raw = fetchBytes(segment.url, headers) ?: error("failed to fetch segment ${index + 1}/${segments.size}")
+            val bytes = if (segment.key != null) decryptAes128(raw, segment.key.key, segment.iv!!) else raw
+            out.write(bytes)
+            // these all tend to come off one single cdn host, a small gap keeps us under its rate limit
+            if (index < segments.lastIndex) Thread.sleep(60)
+        }
+    }
+}
+
 // each ts segment is its own full aes block, decrypt em one by one and just append the plaintext
 private fun fetchAndConcatSegments(job: DownloadJob, video: Video, workDir: File, meta: DownloadMeta, onProgress: (Double) -> Unit) {
     val outFile = File(workDir, "segments.ts")
@@ -360,45 +419,54 @@ private fun fetchAndConcatSegments(job: DownloadJob, video: Video, workDir: File
     }
 
     var fetch = manifestTextFor(video.source, headers) ?: error("could not fetch manifest")
+    var audioSegments: List<Segment> = emptyList()
 
-    // master playlist -> grab the lowest bandwidth variant, we transcode down anyway
+    // master playlist -> grab the highest bandwidth variant, some sources ship its audio as a separate track instead of muxed in
     if (fetch.text.lineSequence().any { it.startsWith("#EXT-X-STREAM-INF") }) {
-        val lines = fetch.text.lines()
+        val masterLines = fetch.text.lines()
+        val masterUrl = fetch.url
         var bestUri: String? = null
-        var bestBandwidth = Long.MAX_VALUE
-        for (i in lines.indices) {
-            val line = lines[i]
+        var bestBandwidth = -1L
+        var audioGroupId: String? = null
+        for (i in masterLines.indices) {
+            val line = masterLines[i]
             if (!line.startsWith("#EXT-X-STREAM-INF")) continue
-            val bandwidth = Regex("""BANDWIDTH=(\d+)""").find(line)?.groupValues?.get(1)?.toLongOrNull() ?: Long.MAX_VALUE
-            val uri = lines.getOrNull(i + 1)?.trim()?.takeIf { it.isNotBlank() && !it.startsWith("#") } ?: continue
-            if (bandwidth < bestBandwidth) {
+            val bandwidth = Regex("""BANDWIDTH=(\d+)""").find(line)?.groupValues?.get(1)?.toLongOrNull() ?: -1L
+            val uri = masterLines.getOrNull(i + 1)?.trim()?.takeIf { it.isNotBlank() && !it.startsWith("#") } ?: continue
+            if (bandwidth > bestBandwidth) {
                 bestBandwidth = bandwidth
                 bestUri = uri
+                audioGroupId = Regex("""AUDIO="([^"]+)"""").find(line)?.groupValues?.get(1)
             }
         }
-        val variantUrl = bestUri?.let { resolve(fetch.url, it) } ?: error("no playable variant in master playlist")
+        val variantUrl = bestUri?.let { resolve(masterUrl, it) } ?: error("no playable variant in master playlist")
         fetch = manifestTextFor(variantUrl, headers) ?: error("could not fetch variant playlist")
-    }
 
-    data class Segment(val url: String, val key: HlsKey?, val iv: ByteArray?)
-
-    val segments = mutableListOf<Segment>()
-    var currentKey: HlsKey? = null
-    var mediaSequence = 0L
-    for (rawLine in fetch.text.lineSequence()) {
-        val line = rawLine.trim()
-        when {
-            line.startsWith("#EXT-X-MEDIA-SEQUENCE") -> mediaSequence = line.substringAfter(":").toLongOrNull() ?: 0L
-            line.startsWith("#EXT-X-KEY") -> currentKey = parseKeyLine(line, { u -> resolve(fetch.url, u) }, headers)
-            line.startsWith("#") || line.isBlank() -> { /* other tags dont matter for a plain download */ }
-            else -> {
-                val key = currentKey
-                val iv = key?.explicitIv ?: key?.let { sequenceIv(mediaSequence) }
-                segments.add(Segment(resolve(fetch.url, line), key, iv))
-                mediaSequence++
-            }
+        // GROUP-ID ties the chosen variant to one of possibly several #EXT-X-MEDIA audio tracks (dub languages etc)
+        if (audioGroupId != null) {
+            val audioUri = masterLines
+                .filter { it.startsWith("#EXT-X-MEDIA:TYPE=AUDIO") && it.contains("""GROUP-ID="$audioGroupId"""") }
+                .let { candidates -> candidates.firstOrNull { it.contains("DEFAULT=YES", ignoreCase = true) } ?: candidates.firstOrNull() }
+                ?.let { Regex("""URI="([^"]+)"""").find(it)?.groupValues?.get(1) }
+            val audioFetch = audioUri?.let { manifestTextFor(resolve(masterUrl, it), headers) }
+            if (audioFetch != null) audioSegments = parsePlaylistSegments(audioFetch.text, audioFetch.url, headers)
         }
     }
+
+    // fetched early since some hosts sign these urls short-lived, and best effort since a dead audio link shouldnt kill a good video
+    if (audioSegments.isNotEmpty()) {
+        val audioFile = File(workDir, "segments_audio.ts")
+        if (!audioFile.exists() || audioFile.length() == 0L) {
+            runCatching { fetchSegmentsToFile(job, audioSegments, headers, audioFile) }
+                .onFailure {
+                    if (it is DownloadCancelledException) throw it
+                    audioFile.delete()
+                    DebugLog.warn("download", "couldn't fetch the audio track, continuing video-only: ${it.message}")
+                }
+        }
+    }
+
+    val segments = parsePlaylistSegments(fetch.text, fetch.url, headers)
     if (segments.isEmpty()) error("no segments found in playlist")
 
     // only resume if the segment count still matches, a different count means the source changed and old bytes wont line up
@@ -422,10 +490,12 @@ private fun fetchAndConcatSegments(job: DownloadJob, video: Video, workDir: File
 }
 
 // software x264 so every machine gets the same result, pause isnt supported here but cancel is
-private fun transcodeToMp4(job: DownloadJob, input: File, output: File) {
+private fun transcodeToMp4(job: DownloadJob, input: File, audioInput: File?, output: File) {
     if (job.cancelled) throw DownloadCancelledException()
-    val cmd = listOf(
-        ffmpegPath(), "-y", "-i", input.absolutePath,
+    val cmd = mutableListOf(ffmpegPath(), "-y", "-i", input.absolutePath)
+    // audio came from a separate playlist, need an explicit map or ffmpeg just grabs input 0's own streams
+    if (audioInput != null) cmd += listOf("-i", audioInput.absolutePath, "-map", "0:v:0", "-map", "1:a:0")
+    cmd += listOf(
         "-c:v", "libx264", "-preset", "medium", "-crf", "23",
         // re-encoding audio instead of copying, ts audio needs a bitstream filter to go into mp4 as-is
         "-c:a", "aac", "-b:a", "160k",
