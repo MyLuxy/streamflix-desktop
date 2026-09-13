@@ -74,6 +74,8 @@ interface Provider {
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeHeavenProvider to ProviderSupport(movies = false, tvShows = true),
             AnimeXProvider to ProviderSupport(movies = true, tvShows = true),
+            // movies mostly link out to mirrors (some of them the already-broken megaplay/animepahe), tv episodes are direct and reliable
+            AnimoTvSlashProvider to ProviderSupport(movies = false, tvShows = true),
             MkissaProvider to ProviderSupport(movies = true, tvShows = true),
             AniWorldProvider to ProviderSupport(movies = false, tvShows = true),
             RidomoviesProvider to ProviderSupport(movies = true, tvShows = true),
