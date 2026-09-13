@@ -111,7 +111,8 @@ interface Provider {
             FrenchStreamProvider to ProviderSupport(movies = true, tvShows = true),
             GuardaSerieProvider to ProviderSupport(movies = true, tvShows = true),
             EinschaltenProvider to ProviderSupport(movies = true, tvShows = false),
-            HDFilmeProvider to ProviderSupport(movies = true, tvShows = true),
+            // tv episodes only ever link to dropload, which now sits behind a captcha wall
+            HDFilmeProvider to ProviderSupport(movies = true, tvShows = false),
             MEGAKinoProvider to ProviderSupport(movies = true, tvShows = true),
             FilmyOnlineCcProvider to ProviderSupport(movies = true, tvShows = true),
             ZaluknijProvider to ProviderSupport(movies = true, tvShows = true),

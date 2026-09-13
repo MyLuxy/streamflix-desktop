@@ -37,12 +37,13 @@ class DroploadExtractor : Extractor() {
         val finalUrl = response.raw().request.url.toString()
         val referer = URI(finalUrl).let { "${it.scheme}://${it.host}" }
 
+        // substringAfter falls back to the whole string when the marker is missing, so check for it directly first
+        if (!html.contains("eval(function(p,a,c,k,e,d)")) throw Exception("Packed JS not found")
+
         val scriptData = html
             .substringAfter("eval(function(p,a,c,k,e,d)")
             .substringBefore("</script>")
             .let { "eval(function(p,a,c,k,e,d)$it" }
-
-        if (!scriptData.startsWith("eval")) throw Exception("Packed JS not found")
 
         val unpacked = JsUnpacker(scriptData).unpack() ?: throw Exception("Unpack failed")
 
