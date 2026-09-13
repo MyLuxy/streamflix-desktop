@@ -274,4 +274,26 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Soprannaturale", genreId: "soprannaturale" },
     { label: "Slice of Life", genreId: "slice-of-life" },
   ],
+  // genreId here is a real AniList genre name (its own getGenre() filters catalogAnime by it directly),
+  // not a tag like "Isekai" - those return zero results. Picked to not repeat the 5 genres already on its own home
+  AnimeX: [
+    { label: "Adventure", genreId: "Adventure" },
+    { label: "Drama", genreId: "Drama" },
+    { label: "Sci-Fi", genreId: "Sci-Fi" },
+    { label: "Slice of Life", genreId: "Slice of Life" },
+    { label: "Mecha", genreId: "Mecha" },
+    { label: "Mystery", genreId: "Mystery" },
+    { label: "Horror", genreId: "Horror" },
+    { label: "Thriller", genreId: "Thriller" },
+  ],
+  AnimoTVSlash: [
+    { label: "Action", genreId: "action" },
+    { label: "Adventure", genreId: "adventure" },
+    { label: "Comedy", genreId: "comedy" },
+    { label: "Romance", genreId: "romance" },
+    { label: "Fantasy", genreId: "fantasy" },
+    { label: "Shounen", genreId: "shounen" },
+    { label: "Seinen", genreId: "seinen" },
+    { label: "Supernatural", genreId: "supernatural" },
+  ],
 };
