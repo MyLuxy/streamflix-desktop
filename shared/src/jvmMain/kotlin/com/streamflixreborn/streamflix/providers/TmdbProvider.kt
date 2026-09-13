@@ -39,6 +39,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -794,31 +795,36 @@ class TmdbProvider(override val language: String) : Provider {
                     val providers = listOf(CuevanaEuProvider, PelisplustoProvider, SoloLatinoProvider, CineCalidadProvider, PoseidonHD2Provider)
                     val deferred = providers.map { provider ->
                         async {
-                            try {
-                                val searchResults = provider.search(targetTitle, 1)
-                                val bestMatch = searchResults.firstOrNull { isMatch(it, targetTitle) }
-                                val id = if (bestMatch is Movie) bestMatch.id else (bestMatch as? TvShow)?.id
-                                
-                                if (id != null) {
-                                    val matchTitle = if (bestMatch is Movie) bestMatch.title else (bestMatch as? TvShow)?.title
-                                    Log.i("StreamFlixES", "[MATCH FOUND] -> Provider: ${provider.name}, Matched: '$matchTitle', ID: $id")
-                                    
-                                    val allServers = provider.getServers(id, videoType)
-                                    val filtered = allServers.filter { s ->
-                                        val n = s.name.uppercase()
-                                        n.contains("[LAT]") || n.contains("[CAST]") || n.contains("[CAS]") || n.contains("[ES]") ||
-                                        n.contains("(LAT)") || n.contains("(ESP)") || n.contains("LATINO") || n.contains("CASTELLANO")
+                            // runs on its own thread so a dead mirror's blocking call can genuinely be abandoned, not just raced
+                            val work = async(Dispatchers.IO) {
+                                try {
+                                    val searchResults = provider.search(targetTitle, 1)
+                                    val bestMatch = searchResults.firstOrNull { isMatch(it, targetTitle) }
+                                    val id = if (bestMatch is Movie) bestMatch.id else (bestMatch as? TvShow)?.id
+
+                                    if (id != null) {
+                                        val matchTitle = if (bestMatch is Movie) bestMatch.title else (bestMatch as? TvShow)?.title
+                                        Log.i("StreamFlixES", "[MATCH FOUND] -> Provider: ${provider.name}, Matched: '$matchTitle', ID: $id")
+
+                                        val allServers = provider.getServers(id, videoType)
+                                        val filtered = allServers.filter { s ->
+                                            val n = s.name.uppercase()
+                                            n.contains("[LAT]") || n.contains("[CAST]") || n.contains("[CAS]") || n.contains("[ES]") ||
+                                            n.contains("(LAT)") || n.contains("(ESP)") || n.contains("LATINO") || n.contains("CASTELLANO")
+                                        }
+                                        Log.i("StreamFlixES", "[SERVERS OK] -> ${provider.name}: ${filtered.size}/${allServers.size} servers kept")
+                                        filtered
+                                    } else {
+                                        Log.d("StreamFlixES", "[NO MATCH] -> ${provider.name} did not find a valid match for '$targetTitle'")
+                                        emptyList()
                                     }
-                                    Log.i("StreamFlixES", "[SERVERS OK] -> ${provider.name}: ${filtered.size}/${allServers.size} servers kept")
-                                    filtered
-                                } else {
-                                    Log.d("StreamFlixES", "[NO MATCH] -> ${provider.name} did not find a valid match for '$targetTitle'")
+                                } catch (e: Exception) {
+                                    Log.e("StreamFlixES", "[PROVIDER ERROR] -> ${provider.name}: ${e.message}")
                                     emptyList()
                                 }
-                            } catch (e: Exception) { 
-                                Log.e("StreamFlixES", "[PROVIDER ERROR] -> ${provider.name}: ${e.message}")
-                                emptyList() 
                             }
+                            // a couple of these mirrors are already known to be dead, one hanging shouldnt hold up the rest
+                            withTimeoutOrNull(12_000L) { work.await() } ?: run { work.cancel(); emptyList() }
                         }
                     }
                     servers.addAll(deferred.awaitAll().flatten())

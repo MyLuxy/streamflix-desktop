@@ -31,6 +31,7 @@ import okhttp3.ResponseBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.util.concurrent.TimeUnit
 import java.net.URLDecoder
+import java.util.Base64
 import java.nio.charset.StandardCharsets
 import retrofit2.http.GET
 import retrofit2.http.Headers
@@ -997,13 +998,17 @@ object HDFilmeProvider : Provider {
         val embedUrl = normalizeUrl(iframeSrc)
         val embedDoc = service.getPage(embedUrl)
 
-        return embedDoc.select("ul._player-mirrors li[data-link]")
+        // the mirror <li>s sit directly under the player div, not inside a wrapping list
+        return embedDoc.select("div._player li[data-link]")
             .filterNot { li ->
                 li.hasClass("fullhd") || li.text().contains("4K Server", ignoreCase = true)
             }
             .mapNotNull { li ->
-                val dataLink = li.attr("data-link").trim()
-                if (dataLink.isBlank()) return@mapNotNull null
+                val rawLink = li.attr("data-link").trim()
+                if (rawLink.isBlank()) return@mapNotNull null
+
+                // data-link is base64-encoded, not a plain url
+                val dataLink = runCatching { String(Base64.getDecoder().decode(rawLink)) }.getOrDefault(rawLink)
 
                 val normalized = when {
                     dataLink.startsWith("//") -> "https:$dataLink"
