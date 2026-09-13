@@ -81,15 +81,32 @@ object Anime123HubProvider : Provider {
 
     private fun slugOf(url: String): String = url.trim().trimEnd('/').substringAfterLast('/')
 
+    // every poster on this site is served from a relative path, the browser only gets away with
+    // that because it's requesting from the same origin - we aren't, so it has to be made absolute
+    private fun normalizePoster(url: String?): String? {
+        val trimmed = url?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return if (trimmed.startsWith("http")) trimmed else "$baseUrl/${trimmed.trimStart('/')}"
+    }
+
+    // listing cards only carry a slug-derived title (naive title-case of the url, no colons, roman
+    // numerals lowercased) - the real one only exists on the show's own page. this at least undoes
+    // the roman numeral mangling, which otherwise tanks the tmdb/anilist artwork lookup for sequels
+    private val ROMAN_NUMERAL_WORDS = setOf("ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x")
+
+    private fun fixSlugTitle(title: String): String =
+        title.split(" ").joinToString(" ") { word -> if (word.lowercase() in ROMAN_NUMERAL_WORDS) word.uppercase() else word }
+
     private fun parseCard(el: Element): Show? {
         val a = el.selectFirst("a.poster") ?: return null
         val href = a.attr("href").takeIf { it.isNotBlank() } ?: return null
         val id = slugOf(href)
         val img = a.selectFirst("img")
-        val poster = img?.attr("data-src")?.takeIf { it.isNotBlank() }
-            ?: img?.attr("src")?.takeIf { it.isNotBlank() && !it.contains("no_poster") }
-        val title = el.selectFirst("a.name")?.attr("data-jtitle")?.trim()?.takeIf { it.isNotBlank() }
-            ?: img?.attr("alt")?.trim().orEmpty()
+        val poster = normalizePoster(
+            img?.attr("data-src")?.takeIf { it.isNotBlank() }
+                ?: img?.attr("src")?.takeIf { it.isNotBlank() && !it.contains("no_poster") }
+        )
+        val title = (el.selectFirst("a.name")?.attr("data-jtitle")?.trim()?.takeIf { it.isNotBlank() }
+            ?: img?.attr("alt")?.trim().orEmpty()).let { fixSlugTitle(it) }
         val isMovie = a.attr("data-tip").contains("/movie/", ignoreCase = true) ||
             el.selectFirst("span.dub, span.sub")?.parent()?.text()?.contains("Movie", ignoreCase = true) == true
         if (title.isBlank() || id.isBlank()) return null
@@ -154,9 +171,7 @@ object Anime123HubProvider : Provider {
         val doc = service.getPage("$baseUrl/anime/$id")
         val title = doc.selectFirst("div.widget.info h2.title")?.text()?.trim()
             ?: doc.selectFirst("h1.title")?.text()?.trim() ?: ""
-        val poster = doc.selectFirst("div.widget.info div.thumb img")?.attr("src")?.let {
-            if (it.startsWith("http")) it else "$baseUrl$it"
-        }
+        val poster = normalizePoster(doc.selectFirst("div.widget.info div.thumb img")?.attr("src"))
 
         return Movie(
             id = id,
@@ -172,9 +187,7 @@ object Anime123HubProvider : Provider {
         val doc = service.getPage("$baseUrl/anime/$id")
         val title = doc.selectFirst("div.widget.info h2.title")?.text()?.trim()
             ?: doc.selectFirst("h1.title")?.text()?.trim() ?: ""
-        val poster = doc.selectFirst("div.widget.info div.thumb img")?.attr("src")?.let {
-            if (it.startsWith("http")) it else "$baseUrl$it"
-        }
+        val poster = normalizePoster(doc.selectFirst("div.widget.info div.thumb img")?.attr("src"))
 
         val episodes = fetchEpisodes(id)
 
