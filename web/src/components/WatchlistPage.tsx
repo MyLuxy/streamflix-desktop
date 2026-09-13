@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Play, MoreVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -31,7 +31,15 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
   const { data: providers } = useProviders();
   const [skipEntrance] = useState(() => isBackNav());
 
-  // a title from a hidden/removed provider falls back to the generic icon instead of a broken image
+  // a provider dropped from /api/providers (hidden or removed) is treated as gone, its saved items cant be opened anymore
+  useEffect(() => {
+    if (!providers) return;
+    const validNames = new Set(providers.map((p) => p.name));
+    watchlist
+      .filter((item) => item.provider && !validNames.has(item.provider))
+      .forEach((item) => removeFromWatchlist(item.id, item.mediaType));
+  }, [providers, watchlist, removeFromWatchlist]);
+
   const providerLogo = (name: string | undefined) =>
     providers?.find((p) => p.name === name)?.logo;
 
