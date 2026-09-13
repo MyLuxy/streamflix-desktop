@@ -1,6 +1,6 @@
 // providers whose catalog is anime-only, shown together in the settings provider list
 export const ANIME_PROVIDERS = new Set([
-  "Anikoto",
+  "AnimeHeaven",
   "AnimeFLV",
   "Animefenix",
   "AnimeBum",

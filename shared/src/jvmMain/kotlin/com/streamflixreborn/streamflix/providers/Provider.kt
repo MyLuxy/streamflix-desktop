@@ -72,6 +72,7 @@ interface Provider {
             TmdbProvider("de") to ProviderSupport(movies = true, tvShows = true),
             TmdbProvider("es") to ProviderSupport(movies = true, tvShows = true),
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
+            AnimeHeavenProvider to ProviderSupport(movies = false, tvShows = true),
             MkissaProvider to ProviderSupport(movies = true, tvShows = true),
             AniWorldProvider to ProviderSupport(movies = false, tvShows = true),
             RidomoviesProvider to ProviderSupport(movies = true, tvShows = true),
