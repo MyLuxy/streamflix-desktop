@@ -205,12 +205,10 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
   const downloading = download?.status === "downloading";
 
   const handleStartDownload = () => {
-    // already tracked, the Downloads page shows its real status
-    if (download) {
-      router.push(`/${locale}/downloads`);
-      return;
+    if (!download) {
+      startDownload({ mediaType: "movie", title, posterPath: data.poster_path, provider, realId });
     }
-    startDownload({ mediaType: "movie", title, posterPath: data.poster_path, provider, realId });
+    router.push(`/${locale}/downloads`);
   };
 
   const beginPlayback = (season?: number, episode?: number, episodeId?: string) => {
@@ -564,6 +562,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
           currentEpisode={startEpisode}
           getEpisodeProgress={(season, episode) => getEpisodeProgress(provider, realId, season, episode)}
           backdropUrl={effectiveBackdropUrl}
+          posterPath={data.poster_path}
         />
       )}
     </div>

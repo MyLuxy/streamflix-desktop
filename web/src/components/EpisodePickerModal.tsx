@@ -28,6 +28,8 @@ interface EpisodePickerModalProps {
   currentEpisode?: number;
   getEpisodeProgress?: (season: number, episode: number) => EpisodeProgress | undefined;
   backdropUrl?: string | null;
+  // the show's own poster, used for downloads instead of the episode thumbnail so it matches the movie cards
+  posterPath?: string | null;
   // "download" reuses this same picker but toggles the episode instead of playing it, and stays open
   mode?: "watch" | "download";
 }
@@ -44,6 +46,7 @@ export function EpisodePickerModal({
   currentEpisode,
   getEpisodeProgress,
   backdropUrl,
+  posterPath,
   mode = "watch",
 }: EpisodePickerModalProps) {
   const { t } = useTranslation();
@@ -191,7 +194,7 @@ export function EpisodePickerModal({
                           startDownload({
                             mediaType: "tv",
                             title,
-                            posterPath: ep.poster,
+                            posterPath: posterPath ?? ep.poster,
                             provider,
                             realId: tvId,
                             season: selectedSeason,
