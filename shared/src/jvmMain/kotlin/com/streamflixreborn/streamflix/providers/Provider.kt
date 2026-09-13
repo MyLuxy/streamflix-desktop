@@ -74,6 +74,7 @@ interface Provider {
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeHeavenProvider to ProviderSupport(movies = false, tvShows = true),
             AnimeXProvider to ProviderSupport(movies = true, tvShows = true),
+            Anime123HubProvider to ProviderSupport(movies = true, tvShows = true),
             MkissaProvider to ProviderSupport(movies = true, tvShows = true),
             AniWorldProvider to ProviderSupport(movies = false, tvShows = true),
             RidomoviesProvider to ProviderSupport(movies = true, tvShows = true),

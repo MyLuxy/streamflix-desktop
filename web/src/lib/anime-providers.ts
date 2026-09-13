@@ -2,6 +2,7 @@
 export const ANIME_PROVIDERS = new Set([
   "AnimeHeaven",
   "AnimeX",
+  "123AnimeHub",
   "AnimeFLV",
   "Animefenix",
   "AnimeBum",
