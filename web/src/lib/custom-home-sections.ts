@@ -286,14 +286,4 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Horror", genreId: "Horror" },
     { label: "Thriller", genreId: "Thriller" },
   ],
-  AnimoTVSlash: [
-    { label: "Action", genreId: "action" },
-    { label: "Adventure", genreId: "adventure" },
-    { label: "Comedy", genreId: "comedy" },
-    { label: "Romance", genreId: "romance" },
-    { label: "Fantasy", genreId: "fantasy" },
-    { label: "Shounen", genreId: "shounen" },
-    { label: "Seinen", genreId: "seinen" },
-    { label: "Supernatural", genreId: "supernatural" },
-  ],
 };
