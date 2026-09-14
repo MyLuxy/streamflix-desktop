@@ -14,6 +14,7 @@ import com.streamflixreborn.streamflix.utils.TMDb3
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
@@ -372,7 +373,8 @@ private val streamCache = ConcurrentHashMap<String, Video>()
 // shared by handleStream and the download pipeline, races every server and returns whichever comes back usable first
 fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video, List<Video.Server>> {
     DebugLog.info("stream", "resolving ${request.type} on ${provider.name} (${request.itemId})")
-    return runBlocking {
+    // IO dispatcher, else the race below runs fully serialized on runBlocking's single thread
+    return runBlocking(Dispatchers.IO) {
         // covers the metadata/server-list calls too, not just the race below, neither has its own timeout
         withTimeoutOrNull(45_000L) {
             val videoType = if (request.type == "movie") {
