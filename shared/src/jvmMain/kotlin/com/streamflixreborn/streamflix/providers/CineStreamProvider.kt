@@ -12,7 +12,6 @@ import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.streamflixreborn.streamflix.utils.TmdbUtils
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
-import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.nodes.Document
@@ -33,9 +32,6 @@ object CineStreamProvider : Provider {
 
     private const val USER_AGENT = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-    // site chokes and every request balloons to 30-70s if we hit it with all servers at once like the app's racing does
-    private fun throttledDispatcher() = Dispatcher().apply { maxRequestsPerHost = 2 }
-
     private interface CineStreamService {
         companion object {
             fun build(): CineStreamService {
@@ -43,7 +39,6 @@ object CineStreamProvider : Provider {
                     .readTimeout(30, TimeUnit.SECONDS)
                     .connectTimeout(30, TimeUnit.SECONDS)
                     .dns(DnsResolver.doh)
-                    .dispatcher(throttledDispatcher())
                     .build()
 
                 return Retrofit.Builder()
@@ -70,7 +65,6 @@ object CineStreamProvider : Provider {
         .readTimeout(30, TimeUnit.SECONDS)
         .connectTimeout(30, TimeUnit.SECONDS)
         .dns(DnsResolver.doh)
-        .dispatcher(throttledDispatcher())
         .build()
 
     // the player endpoint checks the referer against the film page it was requested from
