@@ -18,6 +18,7 @@ export const ANIME_PROVIDERS = new Set([
   "TioAnime",
   "FrenchAnime",
   "FrenchManga",
+  "VostFree",
   "Latanime",
   "Otakufr",
 ]);
