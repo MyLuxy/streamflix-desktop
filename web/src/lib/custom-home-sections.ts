@@ -308,4 +308,15 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Aventure", genreId: "Aventure" },
     { label: "Romance", genreId: "Romance" },
   ],
+  // genreId maps to /genre/{name}/, straight off the site's own "Anime par genre" menu
+  VostFree: [
+    { label: "Action", genreId: "Action" },
+    { label: "Aventure", genreId: "Aventure" },
+    { label: "Comédie", genreId: "Comédie" },
+    { label: "Drame", genreId: "Drame" },
+    { label: "Fantasy", genreId: "Fantasy" },
+    { label: "Surnaturel", genreId: "Surnaturel" },
+    { label: "Shonen", genreId: "Shonen" },
+    { label: "Romance", genreId: "Romance" },
+  ],
 };

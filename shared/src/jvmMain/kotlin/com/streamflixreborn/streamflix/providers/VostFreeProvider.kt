@@ -15,6 +15,7 @@ import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
@@ -252,5 +253,12 @@ object VostFreeProvider : Provider {
         }
     }
 
-    override suspend fun getVideo(server: Video.Server): Video = Extractor.extract(server.src, server)
+    // sibnet is a flat, single-quality mp4 (often 360p) and resolves faster than every other
+    // host here, so it wins the app's race almost every time even when a better mirror also
+    // works. give the others a head start instead of dropping sibnet, plenty of titles have
+    // no working alternative at all and rely on it as their only real server
+    override suspend fun getVideo(server: Video.Server): Video {
+        if (server.name == "Sibnet") delay(1200)
+        return Extractor.extract(server.src, server)
+    }
 }
