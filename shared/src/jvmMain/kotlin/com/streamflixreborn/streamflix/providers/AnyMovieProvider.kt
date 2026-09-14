@@ -78,8 +78,7 @@ object AnyMovieProvider : Provider {
         return if (url.startsWith("http")) url else "$baseUrl$url"
     }
 
-    // home-section swiper cards use a sr-only "Title (Year)" heading, grid listing cards
-    // (movies/tv-shows/search/category/actor pages) show title and year as separate divs instead
+    // swiper cards use a sr-only "Title (Year)" heading, grid listing cards show them as separate divs
     private fun parseCard(a: Element): ListItem? {
         val href = a.attr("href")
         val poster = getAbsoluteUrl(a.selectFirst("img")?.attr("src"))
@@ -230,9 +229,7 @@ object AnyMovieProvider : Provider {
         )
     }
 
-    // this site is a thin wrapper around TMDB metadata (posters/backdrops all come straight from
-    // image.tmdb.org) whose own player just proxies a vidsrc-clone by tmdb id, so skip that proxy
-    // entirely and hit the same tmdb-id servers already used elsewhere in this codebase
+    // its own player just proxies a vidsrc-clone by tmdb id, skip it and hit those servers directly
     private fun extractTmdbId(document: Document): String? {
         val dataSrc = document.selectFirst("iframe[data-src]")?.attr("data-src") ?: return null
         return dataSrc.trim('/').split("/").getOrNull(2)

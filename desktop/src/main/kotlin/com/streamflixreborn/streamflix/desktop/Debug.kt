@@ -133,7 +133,7 @@ private fun checkOneProvider(provider: Provider): Boolean {
         if (result.getOrNull()?.first?.source?.isNotBlank() == true) return true
         lastError = result.exceptionOrNull()?.let { if (it is StreamResolutionLoggedException) it.cause else it }
     }
-    // the count matters as much as the last error - "5/5 titles failed" reads very differently from "1/5"
+    // the tried count matters as much as the error itself, "5/5 failed" vs "1/5" reads very differently
     val detail = lastError?.describe() ?: "no source returned"
     throw Exception("$tried/${items.size} title(s) tried, last failure: $detail")
 }

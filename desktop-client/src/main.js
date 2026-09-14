@@ -37,7 +37,7 @@ ipcMain.handle("streamflix:show-in-folder", (_event, filePath) => {
 });
 
 // its own real window, not a modal, so it survives being moved to another monitor or kept open alongside the app.
-// only one at a time - repeat clicks just refocus it instead of stacking up more windows
+// only one at a time, repeat clicks just refocus it instead of stacking up more windows
 ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {
   if (!frontendPort) return;
   if (debugWindow && !debugWindow.isDestroyed()) {
@@ -124,9 +124,7 @@ async function boot() {
 
   const win = createMainWindow();
   mainWindow = win;
-  // closing the main window should feel like closing the app - an orphaned debug window left open
-  // would keep window-all-closed from firing, so the backend (and its in-memory debug log) never
-  // actually restarts next launch
+  // an orphaned debug window would keep window-all-closed from ever firing on its own
   win.on("closed", () => {
     if (debugWindow && !debugWindow.isDestroyed()) debugWindow.close();
   });

@@ -812,6 +812,29 @@ a {
   background-color: rgba(255, 255, 255, 0.4);
 }
 
+/* debug terminal's "a check is running" indicator, dots pre-offset via negative delay, no JS needed */
+@keyframes dot-spinner-fade {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+.dot-spinner {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+}
+.dot-spinner-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.5px;
+  height: 2.5px;
+  margin: -1.25px 0 0 -1.25px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: dot-spinner-fade 1.2s linear infinite;
+}
+
 /* masks progressive card loading on category hero */
 @keyframes hero-fade-in {
   from { opacity: 0; }

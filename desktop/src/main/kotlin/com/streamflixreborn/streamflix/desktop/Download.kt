@@ -288,8 +288,7 @@ private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadS
         // an explicit cancel means give up entirely, unlike a crash/timeout theres no reason to keep the partial around
         workDir.deleteRecursively()
     } catch (e: Exception) {
-        // resolveVideoBlocking already logged its own detailed breakdown for a "no server worked" failure,
-        // unwrap it here so this line names the actual cause instead of the generic wrapper type
+        // unwrap so this line names the actual cause instead of the generic logging wrapper type
         val cause = if (e is StreamResolutionLoggedException) e.cause else e
         job.error = cause.message ?: "download failed"
         job.phase = DownloadPhase.FAILED

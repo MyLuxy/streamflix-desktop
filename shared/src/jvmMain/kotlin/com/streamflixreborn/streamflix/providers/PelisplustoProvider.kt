@@ -187,8 +187,7 @@ object PelisplustoProvider : Provider {
         }.sortedBy { it.number }
     }
 
-    // voe mirrors sometimes gate behind an altcha challenge that falls back to a headless browser wait
-    // with no real cancellation, can stall the whole race for minutes, not worth it with 2 other hosts around
+    // voe's altcha challenge fallback can stall the whole race for minutes, not worth it with 2 other hosts around
     private fun isBlockedHost(url: String) = url.contains("voe.sx", ignoreCase = true)
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {

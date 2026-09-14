@@ -173,8 +173,7 @@ private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (
 fun providerByName(name: String?): Provider? =
     Provider.providers.keys.firstOrNull { it.name == name }
 
-// fire on every segment/manifest fetch or status poll during normal playback - logging every hit
-// would bury anything actually worth reading, so only their failures make it into the terminal
+// these fire nonstop during normal playback, only their failures are worth a terminal line
 private val NOISY_PATHS = setOf("/manifest.m3u8", "/segment", "/direct", "/image", "/assets", "/api/download/status", "/api/debug/stream")
 
 private fun httpActionCategory(path: String): String = when {
@@ -191,7 +190,7 @@ private val CATALOG_PATHS = setOf(
     "/api/genre", "/api/movies", "/api/tvshows", "/api/episodes", "/api/people",
 )
 
-// always "ExceptionClass: message", never a bare null - a category tag alone doesn't say what broke
+// always "ExceptionClass: message", never a bare null (a category tag alone doesnt say what broke)
 fun Throwable.describe(): String {
     val msg = message?.takeIf { it.isNotBlank() }
     val cls = this::class.simpleName ?: "Exception"
@@ -209,8 +208,7 @@ private fun withCors(exchange: HttpExchange, handle: () -> Unit) {
     }
     val path = exchange.requestURI.path
     val category = httpActionCategory(path)
-    // query-string endpoints carry their provider there; POST bodies (stream/download) log their
-    // own provider-qualified detail further down the call chain instead
+    // POST bodies (stream/download) log their own provider-qualified detail further down instead
     val provider = queryParams(exchange)["provider"]
     val actionLabel = if (provider != null) "${exchange.requestMethod} $path ($provider)" else "${exchange.requestMethod} $path"
     if (path !in NOISY_PATHS) DebugLog.info(category, actionLabel)
@@ -399,8 +397,7 @@ private fun handleGenre(exchange: HttpExchange) {
 // random token cause urls rotate on re-resolve, cant key by item id
 private val streamCache = ConcurrentHashMap<String, Video>()
 
-// marks a failure resolveVideoBlocking already logged in detail (per-server breakdown, or the racing
-// stage a timeout hit), so callers dont log a second, less informative line for the same failure
+// marks a failure resolveVideoBlocking already logged in detail, so callers dont log a duplicate line
 class StreamResolutionLoggedException(override val cause: Throwable) : Exception(cause.message, cause)
 
 // shared by handleStream and the download pipeline, races every server and returns whichever comes back usable first
@@ -485,8 +482,7 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
                 val anyNotFound = errors.any { it.second is ContentNotFoundException }
                 val failure = if (anyNotFound) ContentNotFoundException("Not available on ${provider.name}")
                 else (errors.firstOrNull()?.second ?: Exception("no server available"))
-                // per-server breakdown, not just whichever error happened to land first - "3/3 failed: streamwish
-                // timed out, vidhide NPE, voesx HTTP 403" tells you a lot more than one arbitrary message would
+                // per-server breakdown beats whichever error happened to land first in the list
                 val breakdown = errors.joinToString(", ") { (server, error) -> "${server.name}: ${error.describe()}" }
                 DebugLog.error("stream", "no working server on ${provider.name}: ${errors.size}/${servers.size} failed${if (breakdown.isNotBlank()) " - $breakdown" else ""}")
                 throw StreamResolutionLoggedException(failure)
@@ -509,9 +505,7 @@ private fun handleStream(exchange: HttpExchange) {
         ?: return sendJson(exchange, 404, json.encodeToString(StreamResponse(false, error = "unknown provider")))
 
     val result = runCatching { resolveVideoBlocking(provider, request) }.getOrElse {
-        // resolveVideoBlocking already logs its own "no working server"/timeout cases in detail; this
-        // catches everything else (a metadata fetch throwing before servers even get listed) so no
-        // failure here goes to the terminal only as a swallowed 200 response the frontend sees but no one else does
+        // covers whatever resolveVideoBlocking didnt already log itself, e.g. a metadata fetch throwing
         val original = if (it is StreamResolutionLoggedException) it.cause else it
         if (it !is StreamResolutionLoggedException) DebugLog.error("stream", "resolving ${request.type} on ${provider.name} (${request.itemId}) failed: ${it.describe()}")
         return sendJson(exchange, 200, json.encodeToString(

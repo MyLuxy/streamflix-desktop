@@ -55,6 +55,26 @@ const MAX_LINES = 500;
 // how close to the bottom (in px) still counts as "following" the live output
 const STICKY_THRESHOLD = 80;
 
+const SPINNER_DOTS = Array.from({ length: 8 });
+
+// negative animation-delay per dot fakes rotation without any JS driving it
+function DotSpinner() {
+  return (
+    <span className="dot-spinner text-amber-400" role="status" aria-label="loading">
+      {SPINNER_DOTS.map((_, i) => (
+        <span
+          key={i}
+          className="dot-spinner-dot"
+          style={{
+            transform: `rotate(${i * 45}deg) translate(5px)`,
+            animationDelay: `${i * -0.15}s`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 export function DebugTerminal({ onClose }: DebugTerminalProps) {
   const { t } = useTranslation();
   const [events, setEvents] = useState<DebugEvent[]>([]);
@@ -290,7 +310,7 @@ export function DebugTerminal({ onClose }: DebugTerminalProps) {
 
         {checkingProviders && (
           <div className="px-4 sm:px-6 py-1.5 text-xs text-amber-400 border-t border-zinc-800 bg-zinc-900/60 flex-shrink-0 flex items-center gap-2">
-            <span className="inline-block w-2 h-3.5 bg-amber-400 animate-pulse flex-shrink-0" aria-hidden="true" />
+            <DotSpinner />
             {t("debugTerminal.runningHint")}
           </div>
         )}
