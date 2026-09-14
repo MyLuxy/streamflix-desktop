@@ -32,12 +32,6 @@ object TioAnimeProvider : Provider {
         val document = service.page(baseUrl)
         return buildList {
             parseHomeEpisodes(document).takeIf { it.isNotEmpty() }?.let { add(Category("Últimos episodios", it)) }
-            parseHomeSection(document, "Últimas Peliculas", movie = true)
-                .takeIf { it.isNotEmpty() }?.let { add(Category("Últimas Peliculas", it)) }
-            parseHomeSection(document, "Últimos Ovas")
-                .takeIf { it.isNotEmpty() }?.let { add(Category("Últimos Ovas", it)) }
-            parseHomeSection(document, "Últimos Especiales")
-                .takeIf { it.isNotEmpty() }?.let { add(Category("Últimos Especiales", it)) }
             parseHomeSection(document, "Últimos Animes")
                 .takeIf { it.isNotEmpty() }?.let { add(Category("Últimos Animes", it)) }
         }
