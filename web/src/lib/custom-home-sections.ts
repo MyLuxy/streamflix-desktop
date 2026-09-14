@@ -341,4 +341,15 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Crime", genreId: "80" },
     { label: "Animation", genreId: "16" },
   ],
+  // getGenre maps to /tag/{slug}/, straight off the site's own tag cloud
+  AnimeToast: [
+    { label: "Action", genreId: "action" },
+    { label: "Comedy", genreId: "comedy" },
+    { label: "Drama", genreId: "drama" },
+    { label: "Fantasy", genreId: "fantasy" },
+    { label: "Romance", genreId: "romance" },
+    { label: "Harem", genreId: "harem" },
+    { label: "Mecha", genreId: "mecha" },
+    { label: "Supernatural", genreId: "supernatural" },
+  ],
 };
