@@ -4,6 +4,6 @@ export const POPULAR_PROVIDERS_BY_LANGUAGE: Record<string, string[]> = {
   it: ["StreamingCommunity", "TMDB (ITA)", "Altadefinizione01", "CB01"],
   en: ["StreamingCommunity (EN)", "Cinemove", "Ridomovies", "Vuflix"],
   es: ["Cuevana 3", "Fanpelis", "PelisflixHD", "SeriesFlix"],
-  fr: ["Wiflix", "Kidraz"],
+  fr: ["Wiflix", "Kidraz", "CineStream"],
   de: ["HDFilme", "MEGAKino", "Filmo"],
 };

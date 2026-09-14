@@ -364,7 +364,21 @@ object FrenchMangaProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     }
 
     override suspend fun getGenre(id: String, page: Int): Genre {
-        return Genre("","",emptyList())
+        initializeService()
+        val document = service.loadPage("${baseUrl}xfsearch/manga_genre/$id/page/$page/")
+
+        // no mli-type badge on this listing template, unlike getHome/getMovies, same title-suffix trick as search()
+        val shows = document.select("div.short > div.short-in").mapNotNull { item ->
+            val title = item.selectFirst("div.short-title")?.text() ?: "Item"
+            val href = item.selectFirst("a.short-poster")
+            val poster = href?.selectFirst("> img")?.attr("src")
+            val itemId = href?.attr("href")?.substringAfterLast("=")?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+
+            if (title.contains(" - Saison ") || title.contains(" - Intégrale ")) TvShow(title = title, poster = poster, id = itemId)
+            else Movie(title = title, poster = poster, id = itemId)
+        }
+
+        return Genre(id = id, name = id, shows = shows)
     }
 
     override suspend fun getPeople(id: String, page: Int): People {

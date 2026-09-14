@@ -286,4 +286,26 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Horror", genreId: "Horror" },
     { label: "Thriller", genreId: "Thriller" },
   ],
+  // getGenre delegates to /films/{genre}/{page}, genreId is the site's own genre name, title-case with accents
+  CineStream: [
+    { label: "Action", genreId: "Action" },
+    { label: "Comédie", genreId: "Comédie" },
+    { label: "Drame", genreId: "Drame" },
+    { label: "Thriller", genreId: "Thriller" },
+    { label: "Horreur", genreId: "Horreur" },
+    { label: "Animation", genreId: "Animation" },
+    { label: "Aventure", genreId: "Aventure" },
+    { label: "Science-Fiction", genreId: "Science-Fiction" },
+  ],
+  // genreId maps to /xfsearch/manga_genre/{name}/, straight off the site's own "Par Genre" menu
+  FrenchManga: [
+    { label: "Action", genreId: "Action" },
+    { label: "Comédie", genreId: "Comédie" },
+    { label: "Drame", genreId: "Drame" },
+    { label: "Mystère", genreId: "Mystère" },
+    { label: "Fantastique", genreId: "Fantastique" },
+    { label: "Science-Fiction", genreId: "Science-Fiction" },
+    { label: "Aventure", genreId: "Aventure" },
+    { label: "Romance", genreId: "Romance" },
+  ],
 };
