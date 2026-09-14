@@ -1,1039 +1,280 @@
 package com.streamflixreborn.streamflix.providers
 
 import com.streamflixreborn.streamflix.models.ListItem
-
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.extractors.Extractor
+import com.streamflixreborn.streamflix.extractors.MoviesapiExtractor
+import com.streamflixreborn.streamflix.extractors.PrimeSrcExtractor
+import com.streamflixreborn.streamflix.extractors.TwoEmbedExtractor
+import com.streamflixreborn.streamflix.extractors.VidLinkExtractor
+import com.streamflixreborn.streamflix.extractors.VidflixExtractor
+import com.streamflixreborn.streamflix.extractors.VidrockExtractor
+import com.streamflixreborn.streamflix.extractors.VidsrcNetExtractor
+import com.streamflixreborn.streamflix.extractors.VidsrcRuExtractor
+import com.streamflixreborn.streamflix.extractors.VidzeeExtractor
+import com.streamflixreborn.streamflix.extractors.VixSrcExtractor
 import com.streamflixreborn.streamflix.models.Category
 import com.streamflixreborn.streamflix.models.Episode
 import com.streamflixreborn.streamflix.models.Genre
 import com.streamflixreborn.streamflix.models.Movie
 import com.streamflixreborn.streamflix.models.People
 import com.streamflixreborn.streamflix.models.Season
+import com.streamflixreborn.streamflix.models.Show
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
 import okhttp3.OkHttpClient
-import org.json.JSONObject
-import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import retrofit2.HttpException
+import org.jsoup.nodes.Element
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Field
-import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
 import retrofit2.http.Url
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 object AnyMovieProvider : Provider {
 
-    private const val URL = "https://anymovie.cc/"
-    override val baseUrl = URL
     override val name = "AnyMovie"
-    override val logo = "$URL/wp-content/uploads/2023/08/AM-LOGO-1.png"
+    override val baseUrl = "https://anymovie.site"
     override val language = "en"
+    override val logo = ""
 
-    private var _wpsearch = ""
+    private val GENRES = listOf(
+        "action" to "Action", "action-&-adventure" to "Action & Adventure", "adventure" to "Adventure",
+        "animation" to "Animation", "comedy" to "Comedy", "crime" to "Crime", "documentary" to "Documentary",
+        "drama" to "Drama", "family" to "Family", "fantasy" to "Fantasy", "history" to "History",
+        "horror" to "Horror", "kids" to "Kids", "music" to "Music", "mystery" to "Mystery", "news" to "News",
+        "reality" to "Reality", "romance" to "Romance", "sci-fi-&-fantasy" to "Sci-Fi & Fantasy",
+        "science-fiction" to "Science Fiction", "soap" to "Soap", "talk" to "Talk", "thriller" to "Thriller",
+        "tv-movie" to "TV Movie", "war" to "War", "war-&-politics" to "War & Politics", "western" to "Western",
+    )
 
-    private val service = AllMoviesForYouService.build()
+    private val client = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+                .build()
+            chain.proceed(request)
+        }
+        .readTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .dns(DnsResolver.doh)
+        .build()
 
+    private val service = Retrofit.Builder()
+        .baseUrl("$baseUrl/")
+        .addConverterFactory(JsoupConverterFactory.create())
+        .client(client)
+        .build()
+        .create(AnyMovieService::class.java)
+
+    private interface AnyMovieService {
+        @GET
+        suspend fun getPage(@Url url: String): Document
+    }
+
+    private fun getAbsoluteUrl(url: String?): String? {
+        if (url.isNullOrEmpty()) return null
+        return if (url.startsWith("http")) url else "$baseUrl$url"
+    }
+
+    // home-section swiper cards use a sr-only "Title (Year)" heading, grid listing cards
+    // (movies/tv-shows/search/category/actor pages) show title and year as separate divs instead
+    private fun parseCard(a: Element): ListItem? {
+        val href = a.attr("href")
+        val poster = getAbsoluteUrl(a.selectFirst("img")?.attr("src"))
+        val rating = a.selectFirst(".cf-radial-progress span")?.text()?.toDoubleOrNull()
+
+        val gridTitle = a.selectFirst(".cf-film-title")?.text()?.trim()
+        val (title, released) = if (gridTitle != null) {
+            gridTitle to a.selectFirst(".cf-film-year")?.text()?.trim()
+        } else {
+            val srOnly = a.selectFirst("h3.sr-only")?.text()?.trim().orEmpty()
+            val match = Regex("""^(.*)\s\((\d{4})\)$""").find(srOnly)
+            if (match != null) match.groupValues[1] to match.groupValues[2] else srOnly to null
+        }
+        if (title.isBlank()) return null
+
+        return when {
+            href.contains("/movie/") -> Movie(id = href.substringAfter("/movie/").removeSuffix("/"), title = title, poster = poster, released = released, rating = rating)
+            href.contains("/tv/") -> TvShow(id = href.substringAfter("/tv/").removeSuffix("/"), title = title, poster = poster, released = released, rating = rating)
+            else -> null
+        }
+    }
+
+    private fun parseCards(root: Element, selector: String = "a.cf-film-card") =
+        root.select(selector).mapNotNull { parseCard(it) }
 
     override suspend fun getHome(): List<Category> {
-        val document = service.getHome()
+        val document = service.getPage("$baseUrl/home")
 
-        Regex("\"nonce\":\"(.*?)\"").find(document.toString())
-            ?.groupValues?.get(1)
-            ?.let {
-                _wpsearch = it
-            }
-
-        val categories = mutableListOf<Category>()
-
-        categories.add(
-            Category(
-                name = Category.FEATURED,
-                list = document.select("div#home-slider div.swiper-slide").mapNotNull {
-                    val id = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                    val title = it.selectFirst("h2.entry-title")
-                        ?.text() ?: ""
-                    val overview = it.selectFirst("div.entry-content")
-                        ?.text()
-                    val released = it.selectFirst("span.year")
-                        ?.text()
-                    val runtime = it.selectFirst("span.duration")
-                        ?.text()?.toMinutes()
-                    val rating = it.selectFirst("span.rating.fa-star")
-                        ?.text()?.toDoubleOrNull()
-                    val banner = it.selectFirst("div.bg")
-                        ?.attr("style")
-                        ?.substringAfter("url(")?.substringBefore(");")
-                        ?.toSafeUrl()
-
-                    val genres = it.select("span.categories").map { element ->
-                        Genre(
-                            id = element.selectFirst("a")
-                                ?.attr("href")
-                                ?.substringBeforeLast("/")?.substringAfterLast("/")
-                                ?: "",
-                            name = element.text(),
-                        )
-                    }
-
-                    val href = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?: ""
-                    when {
-                        href.contains("/movies/") -> {
-                            Movie(
-                                id = id,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                rating = rating,
-                                banner = banner,
-
-                                genres = genres,
-                            )
-                        }
-                        href.contains("/series/") -> {
-                            TvShow(
-                                id = id,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                rating = rating,
-                                banner = banner,
-
-                                genres = genres,
-                            )
-                        }
-                        else -> null
-                    }
-                },
-            )
-        )
-
-        document.select("section.section").forEach { section ->
-            val category = Category(
-                name = section.selectFirst("h2.section-title")?.text()?.trim() ?: "",
-                list = section.select("div.swiper-slide").mapNotNull {
-                    val id = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                    val title = it.selectFirst("h2.entry-title")
-                        ?.text() ?: ""
-                    val overview = it.selectFirst("div.entry-content")
-                        ?.text()
-                    val released = it.selectFirst("span.year")
-                        ?.text()
-                    val runtime = it.selectFirst("span.duration")
-                        ?.text()?.toMinutes()
-                    val quality = it.selectFirst("span.quality")
-                        ?.text()
-                    val rating = it.selectFirst("span.rating.fa-star")
-                        ?.text()?.toDoubleOrNull()
-                    val poster = it.selectFirst("div.post-thumbnail img")
-                        ?.attr("src")
-                        ?.toSafeUrl()
-
-                    val genres = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                        ?.select("a")?.map { element ->
-                            Genre(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-                    val directors = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Director" }
-                        ?.select("a")?.map { element ->
-                            People(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-                    val cast = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                        ?.select("a")?.map { element ->
-                            People(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-
-                    val href = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?: ""
-                    when {
-                        href.contains("/movies/") -> {
-                            Movie(
-                                id = id,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                quality = quality,
-                                rating = rating,
-                                poster = poster,
-
-                                genres = genres,
-                                directors = directors,
-                                cast = cast,
-                            )
-                        }
-                        href.contains("/series/") -> {
-                            TvShow(
-                                id = id,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                quality = quality,
-                                rating = rating,
-                                poster = poster,
-
-                                genres = genres,
-                            )
-                        }
-                        else -> null
-                    }
-                },
-            )
-
-            categories.add(category)
+        return document.select("section:has(.cf-row-swiper)").mapNotNull { section ->
+            val name = section.selectFirst(".cf-section-title")?.text()?.trim() ?: return@mapNotNull null
+            val items = parseCards(section)
+            if (items.isEmpty()) null else Category(name = name, list = items)
         }
-
-        return categories
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
-        if (query.isEmpty()) {
-            val document = service.search("")
-
-            val genres = document.selectFirst("ul.fg1 li")
-                ?.select("li")?.map {
-                    Genre(
-                        id = it.attr("data-genre"),
-                        name = it.text(),
-                    )
-                }
-                ?.distinctBy { it.id }
-                ?.sortedBy { it.name }
-                ?: emptyList()
-
-            return genres
+        if (query.isBlank()) {
+            if (page > 1) return emptyList()
+            return GENRES.map { (id, label) -> Genre(id, label) }
         }
+        if (page > 1) return emptyList()
 
-        val response = service.api(JSONObject(mapOf(
-            "_wpsearch" to _wpsearch,
-            "taxonomy" to "none",
-            "search" to query,
-            "term" to "none",
-            "type" to "mixed",
-            "genres" to emptyList<String>(),
-            "years" to emptyList<String>(),
-            "sort" to "1",
-            "page" to page
-        )).toString())
-
-        val results = Jsoup.parse(response.html).select("article.movies").mapNotNull {
-            val id = it.selectFirst("ul.rw a")
-                ?.attr("href")
-                ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-            val title = it.selectFirst("h2.entry-title")
-                ?.text() ?: ""
-            val overview = it.selectFirst("div.entry-content")
-                ?.text()
-            val released = it.selectFirst("span.year")
-                ?.text()
-            val runtime = it.selectFirst("span.duration")
-                ?.text()?.toMinutes()
-            val quality = it.selectFirst("span.quality")
-                ?.text()
-            val rating = it.selectFirst("span.rating.fa-star")
-                ?.text()?.toDoubleOrNull()
-            val poster = it.selectFirst("div.post-thumbnail img")
-                ?.attr("src")
-                ?.toSafeUrl()
-
-            val genres = it.select("li.rw.sm")
-                .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                ?.select("a")?.map { element ->
-                    Genre(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf()
-            val directors = it.select("li.rw.sm")
-                .find { element -> element.selectFirst("span")?.text() == "Director" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf()
-            val cast = it.select("li.rw.sm")
-                .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf()
-
-            val href = it.selectFirst("ul.rw a")
-                ?.attr("href")
-                ?: ""
-            when {
-                href.contains("/movies/") -> {
-                    Movie(
-                        id = id,
-                        title = title,
-                        overview = overview,
-                        released = released,
-                        runtime = runtime,
-                        quality = quality,
-                        rating = rating,
-                        poster = poster,
-
-                        genres = genres,
-                        directors = directors,
-                        cast = cast,
-                    )
-                }
-                href.contains("/series/") -> {
-                    TvShow(
-                        id = id,
-                        title = title,
-                        overview = overview,
-                        released = released,
-                        runtime = runtime,
-                        quality = quality,
-                        rating = rating,
-                        poster = poster,
-
-                        genres = genres,
-                    )
-                }
-                else -> null
-            }
-        }
-
-        return results
+        val document = service.getPage("$baseUrl/search?q=${URLEncoder.encode(query, "UTF-8")}")
+        return parseCards(document)
     }
 
-    override suspend fun getMovies(page: Int): List<Movie> {
-        val response = service.api(JSONObject(mapOf(
-            "_wpsearch" to _wpsearch,
-            "taxonomy" to "none",
-            "search" to "",
-            "term" to "none",
-            "type" to "movies",
-            "genres" to emptyList<String>(),
-            "years" to emptyList<String>(),
-            "sort" to "1",
-            "page" to page
-        )).toString())
+    override suspend fun getMovies(page: Int): List<Movie> =
+        parseCards(service.getPage("$baseUrl/movies?page=$page")).filterIsInstance<Movie>()
 
-        val movies = Jsoup.parse(response.html).select("article.movies").map {
-            Movie(
-                id = it.selectFirst("ul.rw a")
-                    ?.attr("href")
-                    ?.substringBeforeLast("/")?.substringAfterLast("/") ?: "",
-                title = it.selectFirst("h2.entry-title")
-                    ?.text() ?: "",
-                overview = it.selectFirst("div.entry-content")
-                    ?.text(),
-                released = it.selectFirst("span.year")
-                    ?.text(),
-                runtime = it.selectFirst("span.duration")
-                    ?.text()?.toMinutes(),
-                quality = it.selectFirst("span.quality")
-                    ?.text(),
-                rating = it.selectFirst("span.rating.fa-star")
-                    ?.text()?.toDoubleOrNull(),
-                poster = it.selectFirst("div.post-thumbnail img")
-                    ?.attr("src")
-                    ?.toSafeUrl(),
+    override suspend fun getTvShows(page: Int): List<TvShow> =
+        parseCards(service.getPage("$baseUrl/tv-shows?page=$page")).filterIsInstance<TvShow>()
 
-                genres = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                    ?.select("a")?.map { element ->
-                        Genre(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf(),
-                directors = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Director" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf(),
-                cast = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf()
+    override suspend fun getGenre(id: String, page: Int): Genre {
+        val document = service.getPage("$baseUrl/category/$id?page=$page")
+        val name = GENRES.find { it.first == id }?.second ?: document.selectFirst(".cf-page-title")?.text()?.trim() ?: id
+        return Genre(id = id, name = name, shows = parseCards(document).filterIsInstance<Show>())
+    }
+
+    private data class DetailInfo(
+        val title: String, val overview: String?, val poster: String?, val banner: String?,
+        val released: String?, val runtime: Int?, val genres: List<Genre>, val cast: List<People>,
+        val recommendations: List<Show>,
+    )
+
+    private fun parseDetail(document: Document): DetailInfo {
+        val title = document.selectFirst("h1.sr-only")?.text()?.trim() ?: ""
+        val banner = getAbsoluteUrl(document.selectFirst("figure.cf-detail-backdrop img")?.attr("src"))
+        val poster = getAbsoluteUrl(document.selectFirst("figure.cf-detail-poster-fig img")?.attr("src"))
+        val overview = document.selectFirst("p.cf-overview-text")?.text()?.trim()
+
+        val headingText = document.selectFirst(".cf-detail-info-col h2")?.text().orEmpty()
+        val released = Regex("""\((\d{4})\)""").find(headingText)?.groupValues?.get(1)
+
+        val runtime = document.select("div.cf-detail-meta-row span")
+            .firstNotNullOfOrNull { it.text().toMinutesOrNull() }
+
+        val genres = document.select("div.cf-detail-genres a.cf-genre-pill").map {
+            Genre(id = it.attr("href").substringAfter("/category/"), name = it.text().trim())
+        }
+        val cast = document.select("ul.cf-cast-list a.cf-cast-item").map {
+            People(
+                id = it.attr("href").substringAfter("/actor/"),
+                name = it.selectFirst(".cf-cast-name")?.text()?.trim() ?: "",
+                image = getAbsoluteUrl(it.selectFirst("img")?.attr("src")),
             )
         }
+        val recommendations = parseCards(document).filterIsInstance<Show>()
 
-        return movies
+        return DetailInfo(title, overview, poster, banner, released, runtime, genres, cast, recommendations)
     }
-
-    override suspend fun getTvShows(page: Int): List<TvShow> {
-        val response = service.api(JSONObject(mapOf(
-            "_wpsearch" to _wpsearch,
-            "taxonomy" to "none",
-            "search" to "",
-            "term" to "none",
-            "type" to "series",
-            "genres" to emptyList<String>(),
-            "years" to emptyList<String>(),
-            "sort" to "1",
-            "page" to page
-        )).toString())
-
-        val tvShows = Jsoup.parse(response.html).select("article.movies").map {
-            TvShow(
-                id = it.selectFirst("ul.rw a")
-                    ?.attr("href")
-                    ?.substringBeforeLast("/")?.substringAfterLast("/") ?: "",
-                title = it.selectFirst("h2.entry-title")
-                    ?.text() ?: "",
-                overview = it.selectFirst("div.entry-content")
-                    ?.text(),
-                released = it.selectFirst("span.year")
-                    ?.text(),
-                runtime = it.selectFirst("span.duration")
-                    ?.text()?.toMinutes(),
-                quality = it.selectFirst("span.quality")
-                    ?.text(),
-                rating = it.selectFirst("span.rating.fa-star")
-                    ?.text()?.toDoubleOrNull(),
-                poster = it.selectFirst("div.post-thumbnail img")
-                    ?.attr("src")
-                    ?.toSafeUrl(),
-
-                genres = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                    ?.select("a")?.map { element ->
-                        Genre(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf(),
-                directors = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Director" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf(),
-                cast = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf()
-            )
-        }
-
-        return tvShows
-    }
-
 
     override suspend fun getMovie(id: String): Movie {
-        val document = service.getMovie(id)
-
-        val movie = Movie(
-            id = id,
-            title = document.selectFirst("h1.entry-title")
-                ?.text() ?: "",
-            overview = document.selectFirst("div.entry-content")
-                ?.text(),
-            released = document.selectFirst("span.year")
-                ?.text(),
-            runtime = document.selectFirst("span.duration")
-                ?.text()?.toMinutes(),
-            trailer = Regex("src=\"https://www.youtube.com/embed/(.*)\"").find(document.toString())
-                ?.groupValues?.get(1)
-                ?.let { "https://www.youtube.com/watch?v=${it}" },
-            quality = document.selectFirst("span.quality")
-                ?.text(),
-            rating = document.selectFirst("span.rating")
-                ?.text()?.toDoubleOrNull(),
-            poster = document.selectFirst("div.post-thumbnail img")
-                ?.attr("src"),
-
-            genres = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Genres" }
-                ?.select("a")?.map { element ->
-                    Genre(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            directors = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Director" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            cast = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Cast" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            recommendations = document.select("article.movies").mapNotNull {
-                val showId = it.selectFirst("a")
-                    ?.attr("href")
-                    ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                val showTitle = it.selectFirst("h2.entry-title")
-                    ?.text() ?: ""
-                val showReleased = it.selectFirst("span.year")
-                    ?.text()
-                val showPoster = it.selectFirst("div.post-thumbnail img")
-                    ?.attr("src")
-                    ?.toSafeUrl()
-
-                val href = it.selectFirst("a")
-                    ?.attr("href")
-                    ?: ""
-                when {
-                    href.contains("/movies/") -> {
-                        Movie(
-                            id = showId,
-                            title = showTitle,
-                            released = showReleased,
-                            poster = showPoster,
-                        )
-                    }
-                    href.contains("/series/") -> {
-                        TvShow(
-                            id = showId,
-                            title = showTitle,
-                            released = showReleased,
-                            poster = showPoster,
-                        )
-                    }
-                    else -> null
-                }
-            },
+        val info = parseDetail(service.getPage("$baseUrl/movie/$id"))
+        return Movie(
+            id = id, title = info.title, overview = info.overview,
+            poster = info.poster, banner = info.banner,
+            released = info.released, runtime = info.runtime,
+            genres = info.genres, cast = info.cast, recommendations = info.recommendations,
         )
-
-        return movie
     }
 
-
     override suspend fun getTvShow(id: String): TvShow {
-        val document = service.getTvShow(id)
+        val document = service.getPage("$baseUrl/tv/$id")
+        val info = parseDetail(document)
 
-        val tvShow = TvShow(
-            id = id,
-            title = document.selectFirst("h1.entry-title")
-                ?.text() ?: "",
-            overview = document.selectFirst("div.entry-content")
-                ?.text(),
-            released = document.selectFirst("span.year")
-                ?.text(),
-            runtime = document.selectFirst("span.duration")
-                ?.text()?.toMinutes(),
-            trailer = Regex("src=\"https://www.youtube.com/embed/(.*)\"").find(document.toString())
-                ?.groupValues?.get(1)
-                ?.let { "https://www.youtube.com/watch?v=${it}" },
-            quality = document.selectFirst("span.quality")
-                ?.text(),
-            rating = document.selectFirst("span.rating")
-                ?.text()?.toDoubleOrNull(),
-            poster = document.selectFirst("div.post-thumbnail img")
-                ?.attr("src"),
+        val seasonNumbers = document.select("a.cf-episode-item").mapNotNull {
+            Regex("""/season/(\d+)/episode/\d+""").find(it.attr("href"))?.groupValues?.get(1)?.toIntOrNull()
+        }.distinct().sorted()
 
-            seasons = document.select("div.seasons div.seasons-bx").mapIndexed { index, it ->
-                Season(
-                    id = "$id/$index",
-                    number = it.selectFirst("div p span")
-                        ?.text()?.toIntOrNull() ?: 0,
-                    title = it.selectFirst("div p")
-                        ?.text(),
-                    poster = it.selectFirst("img")
-                        ?.attr("src")?.replace("w92", "w500"),
-                )
-            },
-            genres = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Genres" }
-                ?.select("a")?.map { element ->
-                    Genre(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            directors = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Director" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            cast = document.select("article.single ul.details-lst li.rw.sm")
-                .find { it.selectFirst("span")?.text() == "Cast" }
-                ?.select("a")?.map { element ->
-                    People(
-                        id = element.attr("href")
-                            .substringBeforeLast("/").substringAfterLast("/"),
-                        name = element.text(),
-                    )
-                } ?: listOf(),
-            recommendations = document.select("article.movies").mapNotNull {
-                val showId = it.selectFirst("a")
-                    ?.attr("href")
-                    ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                val showTitle = it.selectFirst("h2.entry-title")
-                    ?.text() ?: ""
-                val showReleased = it.selectFirst("span.year")
-                    ?.text()
-                val showPoster = it.selectFirst("div.post-thumbnail img")
-                    ?.attr("src")
-                    ?.toSafeUrl()
-
-                val href = it.selectFirst("a")
-                    ?.attr("href")
-                    ?: ""
-                when {
-                    href.contains("/movies/") -> {
-                        Movie(
-                            id = showId,
-                            title = showTitle,
-                            released = showReleased,
-                            poster = showPoster,
-                        )
-                    }
-                    href.contains("/series/") -> {
-                        TvShow(
-                            id = showId,
-                            title = showTitle,
-                            released = showReleased,
-                            poster = showPoster,
-                        )
-                    }
-                    else -> null
-                }
-            },
+        return TvShow(
+            id = id, title = info.title, overview = info.overview,
+            poster = info.poster, banner = info.banner,
+            released = info.released, runtime = info.runtime,
+            genres = info.genres, cast = info.cast, recommendations = info.recommendations,
+            seasons = seasonNumbers.map { Season(id = "$id/$it", number = it, title = "Season $it") },
         )
-
-        return tvShow
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        val (tvShowId, seasonIndex) = seasonId.split("/")
+        val showId = seasonId.substringBeforeLast("/")
+        val seasonNumber = seasonId.substringAfterLast("/").toIntOrNull() ?: return emptyList()
 
-        val document = service.getTvShow(tvShowId)
-
-        val episodes = document.select("div.seasons div.seasons-bx").getOrNull(seasonIndex.toInt())
-            ?.select("ul.seasons-lst li")?.map {
-                Episode(
-                    id = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?.substringBeforeLast("/")?.substringAfterLast("/") ?: "",
-                    number = it.selectFirst("h3.title > span")
-                        ?.text()?.substringAfter("-E")?.toIntOrNull() ?: 0,
-                    title = it.selectFirst("h3.title")
-                        ?.ownText(),
-                    released = it.selectFirst("span.date")
-                        ?.text(),
-                    poster = it.selectFirst("img")
-                        ?.attr("src")?.toSafeUrl()?.replace("w185", "w500"),
-                )
-            } ?: emptyList()
-
-        return episodes
-    }
-
-
-    override suspend fun getGenre(id: String, page: Int): Genre {
-        val response = service.api(JSONObject(mapOf(
-            "_wpsearch" to _wpsearch,
-            "taxonomy" to "none",
-            "search" to "",
-            "term" to "none",
-            "type" to "mixed",
-            "genres" to listOf(id),
-            "years" to emptyList<String>(),
-            "sort" to "1",
-            "page" to page
-        )).toString())
-
-        val genre = Genre(
-            id = id,
-            name = "",
-
-            shows = Jsoup.parse(response.html).select("article.movies").mapNotNull {
-                val showId = it.selectFirst("ul.rw a")
-                    ?.attr("href")
-                    ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                val title = it.selectFirst("h2.entry-title")
-                    ?.text() ?: ""
-                val overview = it.selectFirst("div.entry-content")
-                    ?.text()
-                val released = it.selectFirst("span.year")
-                    ?.text()
-                val runtime = it.selectFirst("span.duration")
-                    ?.text()?.toMinutes()
-                val rating = it.selectFirst("span.rating.fa-star")
-                    ?.text()?.toDoubleOrNull()
-                val poster = it.selectFirst("div.post-thumbnail img")
-                    ?.attr("src")
-                    ?.toSafeUrl()
-
-                val genres = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                    ?.select("a")?.map { element ->
-                        Genre(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf()
-                val directors = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Director" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf()
-                val cast = it.select("li.rw.sm")
-                    .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                    ?.select("a")?.map { element ->
-                        People(
-                            id = element.attr("href")
-                                .substringBeforeLast("/").substringAfterLast("/"),
-                            name = element.text(),
-                        )
-                    } ?: listOf()
-
-                val href = it.selectFirst("ul.rw a")
-                    ?.attr("href")
-                    ?: ""
-                when {
-                    href.contains("/movies/") -> {
-                        Movie(
-                            id = showId,
-                            title = title,
-                            overview = overview,
-                            released = released,
-                            runtime = runtime,
-                            rating = rating,
-                            poster = poster,
-
-                            genres = genres,
-                            directors = directors,
-                            cast = cast,
-                        )
-                    }
-                    href.contains("/series/") -> {
-                        TvShow(
-                            id = showId,
-                            title = title,
-                            overview = overview,
-                            released = released,
-                            runtime = runtime,
-                            rating = rating,
-                            poster = poster,
-
-                            genres = genres,
-                        )
-                    }
-                    else -> null
-                }
-            },
-        )
-
-        return genre
-    }
-
-
-    override suspend fun getPeople(id: String, page: Int): People {
-        if (page > 1) {
-            // TODO: Not implemented yet
-            return People(id, "")
-        }
-
-        val castDocument = try {
-            service.getCast(id)
-        } catch (e: HttpException) {
-            when (e.code()) {
-                404 -> null
-                else -> throw e
-            }
-        }
-        val castTvDocument = try {
-            service.getCastTv(id)
-        } catch (e: HttpException) {
-            when (e.code()) {
-                404 -> null
-                else -> throw e
-            }
-        }
-
-        val people = People(
-            id = id,
-            name = castDocument?.selectFirst("h1.section-title > span")
-                ?.text() ?: "",
-
-            filmography = listOfNotNull(
-                castDocument?.select("article.movies"),
-                castTvDocument?.select("article.movies"),
-            ).flatten()
-                .mapNotNull {
-                    val showId = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?.substringBeforeLast("/")?.substringAfterLast("/") ?: ""
-                    val title = it.selectFirst("h2.entry-title")
-                        ?.text() ?: ""
-                    val overview = it.selectFirst("div.entry-content")
-                        ?.text()
-                    val released = it.selectFirst("span.year")
-                        ?.text()
-                    val runtime = it.selectFirst("span.duration")
-                        ?.text()?.toMinutes()
-                    val quality = it.selectFirst("span.quality")
-                        ?.text()
-                    val rating = it.selectFirst("span.rating.fa-star")
-                        ?.text()?.toDoubleOrNull()
-                    val poster = it.selectFirst("div.post-thumbnail img")
-                        ?.attr("src")
-                        ?.toSafeUrl()
-
-                    val genres = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Genres" }
-                        ?.select("a")?.map { element ->
-                            Genre(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-                    val directors = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Director" }
-                        ?.select("a")?.map { element ->
-                            People(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-                    val cast = it.select("li.rw.sm")
-                        .find { element -> element.selectFirst("span")?.text() == "Cast" }
-                        ?.select("a")?.map { element ->
-                            People(
-                                id = element.attr("href")
-                                    .substringBeforeLast("/").substringAfterLast("/"),
-                                name = element.text(),
-                            )
-                        } ?: listOf()
-
-                    val href = it.selectFirst("ul.rw a")
-                        ?.attr("href")
-                        ?: ""
-                    when {
-                        href.contains("/movies/") -> {
-                            Movie(
-                                id = showId,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                quality = quality,
-                                rating = rating,
-                                poster = poster,
-
-                                genres = genres,
-                                directors = directors,
-                                cast = cast,
-                            )
-                        }
-                        href.contains("/series/") -> {
-                            TvShow(
-                                id = showId,
-                                title = title,
-                                overview = overview,
-                                released = released,
-                                runtime = runtime,
-                                quality = quality,
-                                rating = rating,
-                                poster = poster,
-
-                                genres = genres,
-                            )
-                        }
-                        else -> null
-                    }
-                }
-                .sortedByDescending {
-                    when (it) {
-                        is Movie -> it.released
-                        is TvShow -> it.released
-                    }
-                },
-        )
-
-        return people
-    }
-
-
-    override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
-        val document = when (videoType) {
-            is Video.Type.Movie -> service.getMovie(id)
-            is Video.Type.Episode -> service.getEpisode(id)
-        }
-
-        val servers = document.select("aside.options li").mapIndexed { index, it ->
-            Video.Server(
-                id = it.attr("data-id"),
-                name = it.selectFirst("span.option")?.text() ?: "",
-                src = document.selectFirst("div.player div.fg${index + 1}")
-                    ?.selectFirst("iframe")
-                    ?.attr("src")
-                    ?: "",
+        val document = service.getPage("$baseUrl/tv/$showId")
+        return document.select("a.cf-episode-item").mapNotNull { a ->
+            val match = Regex("""/season/(\d+)/episode/(\d+)""").find(a.attr("href")) ?: return@mapNotNull null
+            val (season, episode) = match.groupValues[1].toInt() to match.groupValues[2].toInt()
+            if (season != seasonNumber) return@mapNotNull null
+            Episode(
+                id = "$showId/$season/$episode",
+                number = episode,
+                title = a.selectFirst(".cf-ep-title")?.text()?.trim(),
+                overview = a.selectFirst(".cf-ep-desc")?.text()?.trim(),
+                released = a.selectFirst(".cf-ep-meta-pill")?.text()?.trim(),
+                poster = getAbsoluteUrl(a.selectFirst(".cf-ep-thumb img")?.attr("src")),
             )
         }
+    }
+
+    override suspend fun getPeople(id: String, page: Int): People {
+        if (page > 1) return People(id, "")
+
+        val document = service.getPage("$baseUrl/actor/$id")
+        return People(
+            id = id,
+            name = document.selectFirst(".cf-actor-name")?.text()?.trim() ?: "",
+            image = getAbsoluteUrl(document.selectFirst(".cf-actor-photo img")?.attr("src")),
+            filmography = parseCards(document).filterIsInstance<Show>(),
+        )
+    }
+
+    // this site is a thin wrapper around TMDB metadata (posters/backdrops all come straight from
+    // image.tmdb.org) whose own player just proxies a vidsrc-clone by tmdb id, so skip that proxy
+    // entirely and hit the same tmdb-id servers already used elsewhere in this codebase
+    private fun extractTmdbId(document: Document): String? {
+        val dataSrc = document.selectFirst("iframe[data-src]")?.attr("data-src") ?: return null
+        return dataSrc.trim('/').split("/").getOrNull(2)
+    }
+
+    override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
+        val tmdbId = when (videoType) {
+            is Video.Type.Movie -> extractTmdbId(service.getPage("$baseUrl/movie/$id"))
+            is Video.Type.Episode -> extractTmdbId(
+                service.getPage("$baseUrl/tv/${videoType.tvShow.id}/season/${videoType.season.number}/episode/${videoType.number}")
+            )
+        } ?: return emptyList()
+
+        val tmdbVideoType = when (videoType) {
+            is Video.Type.Movie -> videoType.copy(id = tmdbId)
+            is Video.Type.Episode -> videoType.copy(tvShow = videoType.tvShow.copy(id = tmdbId))
+        }
+
+        val servers = mutableListOf(
+            VixSrcExtractor().server(tmdbVideoType),
+            TwoEmbedExtractor().server(tmdbVideoType),
+            VidsrcNetExtractor().server(tmdbVideoType),
+            VidLinkExtractor().server(tmdbVideoType),
+            VidsrcRuExtractor().server(tmdbVideoType),
+            VidflixExtractor().server(tmdbVideoType),
+        )
+        if (tmdbVideoType is Video.Type.Movie) {
+            servers.add(2, MoviesapiExtractor().server(tmdbVideoType))
+        }
+        servers.addAll(VidrockExtractor().servers(tmdbVideoType))
+        servers.addAll(VidzeeExtractor().servers(tmdbVideoType))
+        servers.addAll(PrimeSrcExtractor().servers(tmdbVideoType))
 
         return servers
     }
 
-    override suspend fun getVideo(server: Video.Server): Video {
-        val link = if (server.src.contains("trembed")) {
-            service.getLink(server.src)
-                .selectFirst("body iframe")
-                ?.attr("src")
-                ?: ""
-        } else {
-            server.src
-        }
+    override suspend fun getVideo(server: Video.Server): Video = Extractor.extract(server.src, server)
 
-        return Extractor.extract(link)
-    }
-
-
-    private fun String.toMinutes(): Int {
-        val result = Regex("(\\d+)h (\\d+)m|(\\d+) min").find(this)?.groupValues.let {
-            object {
-                val hours = it?.getOrNull(1)?.toIntOrNull() ?: 0
-                val minutes = it?.getOrNull(2)?.toIntOrNull()
-                    ?: it?.getOrNull(3)?.toIntOrNull() ?: 0
-            }
-        }
-        return result.hours * 60 + result.minutes
-    }
-
-    private fun String.toSafeUrl(): String = when {
-        this.startsWith("https:") -> this
-        else -> "https:$this"
-    }.substringBefore("?")
-
-
-    private interface AllMoviesForYouService {
-
-        companion object {
-            fun build(): AllMoviesForYouService {
-                val client = OkHttpClient.Builder()
-                    .dns(DnsResolver.doh)
-                    .readTimeout(30, TimeUnit.SECONDS)
-                    .connectTimeout(30, TimeUnit.SECONDS)
-                    .build()
-
-                val retrofit = Retrofit.Builder()
-                    .baseUrl(URL)
-                    .addConverterFactory(JsoupConverterFactory.create())
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .client(client)
-                    .build()
-
-                return retrofit.create(AllMoviesForYouService::class.java)
-            }
-        }
-
-
-        @GET(".")
-        suspend fun getHome(): Document
-
-        @GET(".")
-        suspend fun search(@Query("s") s: String): Document
-
-        @POST("https://anymovie.cc/wp-admin/admin-ajax.php")
-        @FormUrlEncoded
-        suspend fun api(
-            @Field("vars") vars: String,
-            @Field("action") action: String = "action_search",
-        ): SearchResponse
-
-
-        @GET("movies/{slug}")
-        suspend fun getMovie(@Path("slug") slug: String): Document
-
-
-        @GET("series/{slug}")
-        suspend fun getTvShow(@Path("slug") slug: String): Document
-
-        @GET("episode/{id}")
-        suspend fun getEpisode(@Path("id") id: String): Document
-
-
-        @GET("cast/{slug}")
-        suspend fun getCast(@Path("slug") slug: String): Document
-
-        @GET("cast_tv/{slug}")
-        suspend fun getCastTv(@Path("slug") slug: String): Document
-
-
-        @GET
-        suspend fun getLink(@Url url: String): Document
-
-
-        data class SearchResponse(
-            val next: Boolean,
-            val html: String,
-        )
+    private fun String.toMinutesOrNull(): Int? {
+        val match = Regex("""(\d+)h\s*(\d+)m|(\d+)\s*min""").find(this) ?: return null
+        val hours = match.groupValues[1].toIntOrNull() ?: 0
+        val minutes = match.groupValues[2].toIntOrNull() ?: match.groupValues[3].toIntOrNull() ?: 0
+        return hours * 60 + minutes
     }
 }
