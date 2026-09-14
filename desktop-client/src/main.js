@@ -11,6 +11,7 @@ const { initAutoUpdate } = require("./auto-update");
 
 let children = [];
 let mainWindow = null;
+let debugWindow = null;
 let frontendPort = null;
 
 // only one copy should ever run, two would fight over the same ports and progress files
@@ -35,9 +36,15 @@ ipcMain.handle("streamflix:show-in-folder", (_event, filePath) => {
   shell.showItemInFolder(filePath);
 });
 
-// its own real window, not a modal, so it survives being moved to another monitor or kept open alongside the app
+// its own real window, not a modal, so it survives being moved to another monitor or kept open alongside the app.
+// only one at a time - repeat clicks just refocus it instead of stacking up more windows
 ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {
   if (!frontendPort) return;
+  if (debugWindow && !debugWindow.isDestroyed()) {
+    if (debugWindow.isMinimized()) debugWindow.restore();
+    debugWindow.focus();
+    return;
+  }
   const win = new BrowserWindow({
     width: 900,
     height: 640,
@@ -55,6 +62,10 @@ ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {
   win.on("page-title-updated", (event) => event.preventDefault());
   win.setTitle("StreamFlix Debug");
   win.loadURL(`http://127.0.0.1:${frontendPort}/${locale || "en"}/debug`);
+  debugWindow = win;
+  win.on("closed", () => {
+    if (debugWindow === win) debugWindow = null;
+  });
 });
 
 ipcMain.handle("streamflix:save-debug-log", async (event, content) => {
@@ -113,6 +124,12 @@ async function boot() {
 
   const win = createMainWindow();
   mainWindow = win;
+  // closing the main window should feel like closing the app - an orphaned debug window left open
+  // would keep window-all-closed from firing, so the backend (and its in-memory debug log) never
+  // actually restarts next launch
+  win.on("closed", () => {
+    if (debugWindow && !debugWindow.isDestroyed()) debugWindow.close();
+  });
 
   try {
     const resDir = resourcesDir();
