@@ -10,7 +10,7 @@ export function DownloadsView() {
   const [playing, setPlaying] = useState<DownloadItem | null>(null);
 
   return (
-    <SimplePageShell>
+    <SimplePageShell hideMobileBar={!!playing}>
       <DownloadsPage onPlay={setPlaying} />
       {playing && <DownloadedPlayer item={playing} onClose={() => setPlaying(null)} />}
     </SimplePageShell>

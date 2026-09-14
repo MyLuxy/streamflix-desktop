@@ -11,7 +11,8 @@ interface DownloadedPlayerProps {
 // same custom player as every other title, just pointed at the local file instead of the provider
 export function DownloadedPlayer({ item, onClose }: DownloadedPlayerProps) {
   return (
-    <div className="fixed inset-0 z-[95] bg-black">
+    // z-60, same as the normal streaming player, so the navbar (z-65) stays visible above it
+    <div className="fixed inset-0 z-[60] bg-black">
       <HlsPlayer
         provider={item.provider}
         itemId={item.realId}
