@@ -157,17 +157,10 @@ object TvLibrefutbolProvider : IptvProvider {
                 categories.addAll(contentCategories)
             }
 
-            categories.add(
-                Category(
-                    name = "Soporte y Ayuda",
-                    list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))
-                )
-            )
-
             categories
         } catch (e: Exception) {
             Log.e(TAG, "❌ ERROR CRÍTICO: ${e.message}")
-            listOf(Category(name = "Soporte y Ayuda", list = listOf(getInfoItem("creador-info"), getInfoItem("apoyo-info"))))
+            emptyList()
         }
     }
 
