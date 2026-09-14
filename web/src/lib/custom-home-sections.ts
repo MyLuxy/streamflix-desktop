@@ -330,4 +330,15 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Fantastique", genreId: "fantastique" },
     { label: "Science Fiction", genreId: "science-fiction" },
   ],
+  // getGenre passes id straight through as with_genres[], these are plain TMDB genre ids
+  Vuflix: [
+    { label: "Action", genreId: "28" },
+    { label: "Comedy", genreId: "35" },
+    { label: "Horror", genreId: "27" },
+    { label: "Romance", genreId: "10749" },
+    { label: "Thriller", genreId: "53" },
+    { label: "Sci-Fi", genreId: "878" },
+    { label: "Crime", genreId: "80" },
+    { label: "Animation", genreId: "16" },
+  ],
 };
