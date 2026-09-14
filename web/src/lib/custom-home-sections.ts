@@ -352,4 +352,25 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Mecha", genreId: "mecha" },
     { label: "Supernatural", genreId: "supernatural" },
   ],
+  // getGenre() takes a full url directly, baseUrl is stale so these point at the site's real current domain
+  GuardaFlix: [
+    { label: "Azione", genreId: "https://guardaplay.info/category/azione/" },
+    { label: "Avventura", genreId: "https://guardaplay.info/category/avventura/" },
+    { label: "Commedia", genreId: "https://guardaplay.info/category/commedia/" },
+    { label: "Dramma", genreId: "https://guardaplay.info/category/dramma/" },
+    { label: "Horror", genreId: "https://guardaplay.info/category/horror/" },
+    { label: "Thriller", genreId: "https://guardaplay.info/category/thriller/" },
+    { label: "Fantascienza", genreId: "https://guardaplay.info/category/fantascienza/" },
+    { label: "Fantasy", genreId: "https://guardaplay.info/category/fantasy/" },
+  ],
+  GuardaSerie: [
+    { label: "Commedia", genreId: "https://guardoserie.college/commedia/" },
+    { label: "Dramma", genreId: "https://guardoserie.college/dramma/" },
+    { label: "Crime", genreId: "https://guardoserie.college/crime/" },
+    { label: "Mistero", genreId: "https://guardoserie.college/mistero/" },
+    { label: "Romance", genreId: "https://guardoserie.college/romance/" },
+    { label: "Animazione", genreId: "https://guardoserie.college/animazione/" },
+    { label: "Famiglia", genreId: "https://guardoserie.college/famiglia/" },
+    { label: "Western", genreId: "https://guardoserie.college/western/" },
+  ],
 };
