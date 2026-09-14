@@ -289,7 +289,8 @@ export function DebugTerminal({ onClose }: DebugTerminalProps) {
         </div>
 
         {checkingProviders && (
-          <div className="px-4 sm:px-6 py-1.5 text-xs text-amber-400 border-t border-zinc-800 bg-zinc-900/60 flex-shrink-0">
+          <div className="px-4 sm:px-6 py-1.5 text-xs text-amber-400 border-t border-zinc-800 bg-zinc-900/60 flex-shrink-0 flex items-center gap-2">
+            <span className="inline-block w-2 h-3.5 bg-amber-400 animate-pulse flex-shrink-0" aria-hidden="true" />
             {t("debugTerminal.runningHint")}
           </div>
         )}

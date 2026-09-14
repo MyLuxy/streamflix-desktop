@@ -120,18 +120,22 @@ private fun checkOneProvider(provider: Provider): Boolean {
     if (items.isEmpty()) error("home page has no content to test")
 
     var lastError: Throwable? = null
+    var tried = 0
     for (item in items) {
         // checked between titles too, not just between providers, so a slow one doesnt sit on ctrl+c for long
         if (providerCheckCancelled.get()) throw ProviderCheckCancelledException()
+        tried++
         val type = when (item) {
             is Movie -> "movie"
             is TvShow -> "tv"
         }
         val result = runCatching { resolveVideoBlocking(provider, StreamRequest(provider.name, item.id, type)) }
         if (result.getOrNull()?.first?.source?.isNotBlank() == true) return true
-        lastError = result.exceptionOrNull()
+        lastError = result.exceptionOrNull()?.let { if (it is StreamResolutionLoggedException) it.cause else it }
     }
-    throw lastError ?: Exception("none of ${items.size} home items had a working stream")
+    // the count matters as much as the last error - "5/5 titles failed" reads very differently from "1/5"
+    val detail = lastError?.describe() ?: "no source returned"
+    throw Exception("$tried/${items.size} title(s) tried, last failure: $detail")
 }
 
 private fun runProviderCheck() {
@@ -157,7 +161,7 @@ private fun runProviderCheck() {
             DebugLog.success("providercheck", "${provider.name} works")
         } else {
             failed.add(provider.name)
-            val reason = result.exceptionOrNull()?.let { it.message ?: it::class.simpleName } ?: "no working stream found"
+            val reason = result.exceptionOrNull()?.describe() ?: "no working stream found"
             DebugLog.error("providercheck", "${provider.name}: $reason")
         }
     }

@@ -136,7 +136,7 @@ private fun downloadSubtitles(video: Video, outFile: File): List<SubtitleDto> {
             val path = URLEncoder.encode(subFile.absolutePath, "UTF-8")
             SubtitleDto(label = subtitle.label, url = "/api/download/file?path=$path", default = subtitle.default)
         }.onFailure {
-            DebugLog.warn("download", "couldn't save subtitle \"${subtitle.label}\": ${it.message}")
+            DebugLog.warn("download", "couldn't save subtitle \"${subtitle.label}\": ${it.describe()}")
         }.getOrNull()
     }
 }
@@ -288,9 +288,12 @@ private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadS
         // an explicit cancel means give up entirely, unlike a crash/timeout theres no reason to keep the partial around
         workDir.deleteRecursively()
     } catch (e: Exception) {
-        job.error = e.message ?: "download failed"
+        // resolveVideoBlocking already logged its own detailed breakdown for a "no server worked" failure,
+        // unwrap it here so this line names the actual cause instead of the generic wrapper type
+        val cause = if (e is StreamResolutionLoggedException) e.cause else e
+        job.error = cause.message ?: "download failed"
         job.phase = DownloadPhase.FAILED
-        DebugLog.error("download", "\"${request.title}\" failed: ${job.error}")
+        DebugLog.error("download", "\"${request.title}\" failed: ${cause.describe()}")
         // partial segments stay on disk so retrying resumes instead of starting over
     } finally {
         if (job.phase == DownloadPhase.DONE) workDir.deleteRecursively()
@@ -484,7 +487,7 @@ private fun fetchAndConcatSegments(job: DownloadJob, video: Video, workDir: File
                 .onFailure {
                     if (it is DownloadCancelledException) throw it
                     audioFile.delete()
-                    DebugLog.warn("download", "couldn't fetch the audio track, continuing video-only: ${it.message}")
+                    DebugLog.warn("download", "couldn't fetch the audio track, continuing video-only: ${it.describe()}")
                 }
         }
     }

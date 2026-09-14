@@ -173,6 +173,31 @@ private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (
 fun providerByName(name: String?): Provider? =
     Provider.providers.keys.firstOrNull { it.name == name }
 
+// fire on every segment/manifest fetch or status poll during normal playback - logging every hit
+// would bury anything actually worth reading, so only their failures make it into the terminal
+private val NOISY_PATHS = setOf("/manifest.m3u8", "/segment", "/direct", "/image", "/assets", "/api/download/status", "/api/debug/stream")
+
+private fun httpActionCategory(path: String): String = when {
+    path.startsWith("/api/download/") -> "download"
+    path.startsWith("/api/settings/") -> "settings"
+    path.startsWith("/api/debug/") -> "debug"
+    path == "/api/stream" -> "stream"
+    path in CATALOG_PATHS -> "catalog"
+    else -> "http"
+}
+
+private val CATALOG_PATHS = setOf(
+    "/api/providers", "/api/home", "/api/search", "/api/movie", "/api/tvshow",
+    "/api/genre", "/api/movies", "/api/tvshows", "/api/episodes", "/api/people",
+)
+
+// always "ExceptionClass: message", never a bare null - a category tag alone doesn't say what broke
+fun Throwable.describe(): String {
+    val msg = message?.takeIf { it.isNotBlank() }
+    val cls = this::class.simpleName ?: "Exception"
+    return if (msg != null) "$cls: $msg" else cls
+}
+
 private fun withCors(exchange: HttpExchange, handle: () -> Unit) {
     exchange.responseHeaders.add("Access-Control-Allow-Origin", "*")
     exchange.responseHeaders.add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -183,10 +208,14 @@ private fun withCors(exchange: HttpExchange, handle: () -> Unit) {
         return
     }
     val path = exchange.requestURI.path
-    // skip logging the debug stream itself, watching it open its own connection is just noise
-    if (path != "/api/debug/stream") DebugLog.info("http", "${exchange.requestMethod} $path")
+    val category = httpActionCategory(path)
+    // query-string endpoints carry their provider there; POST bodies (stream/download) log their
+    // own provider-qualified detail further down the call chain instead
+    val provider = queryParams(exchange)["provider"]
+    val actionLabel = if (provider != null) "${exchange.requestMethod} $path ($provider)" else "${exchange.requestMethod} $path"
+    if (path !in NOISY_PATHS) DebugLog.info(category, actionLabel)
     runCatching { handle() }.onFailure {
-        DebugLog.error("http", "${exchange.requestMethod} $path failed: ${it.message ?: it::class.simpleName}")
+        DebugLog.error(category, "$actionLabel failed: ${it.describe()}")
         it.printStackTrace()
         runCatching {
             val bytes = """{"error":"${(it.message ?: "internal error").replace("\"", "'")}"}""".toByteArray()
@@ -370,9 +399,15 @@ private fun handleGenre(exchange: HttpExchange) {
 // random token cause urls rotate on re-resolve, cant key by item id
 private val streamCache = ConcurrentHashMap<String, Video>()
 
+// marks a failure resolveVideoBlocking already logged in detail (per-server breakdown, or the racing
+// stage a timeout hit), so callers dont log a second, less informative line for the same failure
+class StreamResolutionLoggedException(override val cause: Throwable) : Exception(cause.message, cause)
+
 // shared by handleStream and the download pipeline, races every server and returns whichever comes back usable first
 fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video, List<Video.Server>> {
     DebugLog.info("stream", "resolving ${request.type} on ${provider.name} (${request.itemId})")
+    // read from outside the timed-out block below so a timeout can still say how far it got
+    var stage = "fetching metadata"
     // IO dispatcher, else the race below runs fully serialized on runBlocking's single thread
     return runBlocking(Dispatchers.IO) {
         // covers the metadata/server-list calls too, not just the race below, neither has its own timeout
@@ -402,8 +437,10 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
                 is Video.Type.Movie -> videoType.id
                 is Video.Type.Episode -> videoType.id
             }
+            stage = "listing servers"
             val servers = provider.getServers(itemIdForServers, videoType)
             if (servers.isEmpty()) error("no server available")
+            stage = "racing ${servers.size} server(s), 0 reported back"
             DebugLog.info("stream", "racing ${servers.size} server(s) on ${provider.name}")
             // race every server instead of waiting on all of them, some (flixlatam) fall back to a slow headless browser per mirror
             val resultChannel = Channel<Pair<Video.Server, Result<Video>>>(servers.size)
@@ -413,8 +450,8 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
             val working = mutableListOf<Video.Server>()
             var firstSuccess: Pair<Video.Server, Video>? = null
             var requestedMatch: Pair<Video.Server, Video>? = null
-            // collect every failure, only call it "not found" if EVERY server independently confirmed that
-            val errors = mutableListOf<Throwable>()
+            // collect every failure per server, only call it "not found" if EVERY server independently confirmed that
+            val errors = mutableListOf<Pair<Video.Server, Throwable>>()
             var remaining = servers.size
 
             suspend fun drainOne() {
@@ -426,8 +463,9 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
                     if (firstSuccess == null) firstSuccess = server to video
                     if (request.serverId == server.id) requestedMatch = server to video
                 } else {
-                    videoResult.exceptionOrNull()?.let { errors.add(it) }
+                    videoResult.exceptionOrNull()?.let { errors.add(server to it) }
                 }
+                stage = "racing ${servers.size} server(s), ${servers.size - remaining} reported back (${working.size} working)"
             }
 
             // give up on stragglers after this so a doomed title reports fast instead of hanging on the slowest server
@@ -444,17 +482,20 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
             jobs.forEach { it.cancel() }
             val picked = requestedMatch ?: firstSuccess ?: run {
                 // not every extractor can tell "not found" apart from a network hiccup, so one confirmed sighting is enough
-                val anyNotFound = errors.any { it is ContentNotFoundException }
+                val anyNotFound = errors.any { it.second is ContentNotFoundException }
                 val failure = if (anyNotFound) ContentNotFoundException("Not available on ${provider.name}")
-                else (errors.firstOrNull() ?: Exception("no server available"))
-                DebugLog.error("stream", "no working server on ${provider.name}: ${failure.message}")
-                throw failure
+                else (errors.firstOrNull()?.second ?: Exception("no server available"))
+                // per-server breakdown, not just whichever error happened to land first - "3/3 failed: streamwish
+                // timed out, vidhide NPE, voesx HTTP 403" tells you a lot more than one arbitrary message would
+                val breakdown = errors.joinToString(", ") { (server, error) -> "${server.name}: ${error.describe()}" }
+                DebugLog.error("stream", "no working server on ${provider.name}: ${errors.size}/${servers.size} failed${if (breakdown.isNotBlank()) " - $breakdown" else ""}")
+                throw StreamResolutionLoggedException(failure)
             }
             DebugLog.success("stream", "resolved via ${picked.first.name} on ${provider.name}")
             picked.second to working
         } ?: run {
-            DebugLog.error("stream", "timed out resolving on ${provider.name}")
-            throw Exception("Timed out resolving a stream on ${provider.name}")
+            DebugLog.error("stream", "timed out resolving on ${provider.name} after 45s ($stage)")
+            throw StreamResolutionLoggedException(Exception("Timed out resolving a stream on ${provider.name}"))
         }
     }
 }
@@ -468,8 +509,13 @@ private fun handleStream(exchange: HttpExchange) {
         ?: return sendJson(exchange, 404, json.encodeToString(StreamResponse(false, error = "unknown provider")))
 
     val result = runCatching { resolveVideoBlocking(provider, request) }.getOrElse {
+        // resolveVideoBlocking already logs its own "no working server"/timeout cases in detail; this
+        // catches everything else (a metadata fetch throwing before servers even get listed) so no
+        // failure here goes to the terminal only as a swallowed 200 response the frontend sees but no one else does
+        val original = if (it is StreamResolutionLoggedException) it.cause else it
+        if (it !is StreamResolutionLoggedException) DebugLog.error("stream", "resolving ${request.type} on ${provider.name} (${request.itemId}) failed: ${it.describe()}")
         return sendJson(exchange, 200, json.encodeToString(
-            StreamResponse(false, error = it.message ?: "extraction failed", notFound = it is ContentNotFoundException)
+            StreamResponse(false, error = original.message ?: "extraction failed", notFound = original is ContentNotFoundException)
         ))
     }
     val (video, servers) = result
