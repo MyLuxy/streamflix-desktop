@@ -16,7 +16,7 @@ export interface WatchedItem {
   progress?: number;
   season?: number;
   episode?: number;
-  // audioLabel() output (eg "Japanese"/"English"), lets resume pick the same track back up
+  // audioLabel() output (eg "Original"/"English"), lets resume pick the same track back up
   audioTrack?: string;
   // dismissed via the X button but the resume position is kept, playing again un-hides it naturally
   hidden?: boolean;

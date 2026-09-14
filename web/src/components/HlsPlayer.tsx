@@ -57,12 +57,12 @@ function formatTime(seconds: number): string {
 }
 
 // most servers are just host mirrors, but some providers tag sub/dub in the name instead.
-// "sub" is (almost) always the original japanese audio; "dub" is dubbed into whatever language
-// the provider itself publishes in, which we can't guess, so it's passed in from provider.language
+// "sub" is the original audio, not necessarily japanese, so just say "Original"; "dub" is
+// dubbed into whatever language the provider itself publishes in, passed in from provider.language
 function audioLabel(name: string, dubLanguage?: string): string {
   const tag = name.match(/\b(sub|dub)\b/i);
   if (!tag) return name;
-  return tag[1].toLowerCase() === "sub" ? "Japanese" : dubLanguage ? languageLabel(dubLanguage) : "English";
+  return tag[1].toLowerCase() === "sub" ? "Original" : dubLanguage ? languageLabel(dubLanguage) : "English";
 }
 
 // mirrors of the same file arent audio tracks, only show the tab for real language variants
