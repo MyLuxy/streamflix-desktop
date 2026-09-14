@@ -72,6 +72,9 @@ object FrenchMangaProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
         val poster: String? = null
     )
 
+    // "Vos Demandes" is user request submissions, not actual content, and "Films D'Animation" barely has anything in it
+    private val HIDDEN_HOME_SECTIONS = setOf("Films D'Animation", "Vos Demandes")
+
     override suspend fun getHome(): List<Category> {
         initializeService()
         val document = service.getHome()
@@ -80,7 +83,7 @@ object FrenchMangaProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
 
         document.select("div.sect").mapNotNull { cat_item ->
             val title = cat_item.selectFirst("div.st-left > a")
-            if (title == null) return@mapNotNull null
+            if (title == null || title.text() in HIDDEN_HOME_SECTIONS) return@mapNotNull null
 
             val movies = cat_item.select("div.short > div.short-in").mapNotNull { movie ->
                 val mtype = movie.selectFirst("span.mli-type a")?.text()
