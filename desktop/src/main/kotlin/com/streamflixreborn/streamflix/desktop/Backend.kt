@@ -231,11 +231,11 @@ private fun faviconOverride(providerName: String): String? {
 
 // these are busted rn, still work if queried directly, just dont show em in the picker
 val HIDDEN_PROVIDERS = setOf(
-    "AnyMovie", "SerienStream", "Moflix-stream", "FrenchStream", "CineHax",
+    "AnyMovie", "SerienStream", "Moflix-stream", "CineHax",
     "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
     "Animefenix", "AnimeFLV", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
-    "1Jour1Film", "Cine24h", "FilmyOnline", "GuardaSerie", "Otakufr", "Zaluknij",
-    "SoloLatino", "Poseidonhd2", "Doramasflix", "FlixLatam", "GuardaFlix", "MKissa",
+    "1Jour1Film", "Cine24h", "FilmyOnline", "Otakufr", "Zaluknij",
+    "SoloLatino", "Doramasflix", "FlixLatam", "MKissa",
     "AnimeSuge", "HiAnime", "HDFilme", "Einschalten", "Anikoto",
     // vavoo's shared relay domain has an expired TLS cert, temporary, un-hide once they renew it
     "Vavoo Germany Live TV", "Vavoo Italy Live TV", "Vavoo France Live TV", "Vavoo Spain Live TV", "Vavoo Poland Live TV",
