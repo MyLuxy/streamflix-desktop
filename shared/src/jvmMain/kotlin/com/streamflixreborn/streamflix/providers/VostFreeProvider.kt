@@ -22,6 +22,7 @@ import org.jsoup.nodes.Element
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.Path
 import retrofit2.http.Url
 import java.net.URLEncoder
@@ -38,6 +39,8 @@ object VostFreeProvider : Provider {
         "Action", "Aventure", "Comédie", "Tranche de vie", "Drame", "Fantasy",
         "Surnaturel", "Mystère", "Shonen", "Psychologique", "Romance", "Sci-Fi",
     )
+
+    private const val USER_AGENT = "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     private val service = Service.build()
 
@@ -59,9 +62,11 @@ object VostFreeProvider : Provider {
             }
         }
 
+        @Headers(USER_AGENT)
         @GET
         suspend fun getPage(@Url url: String): Document
 
+        @Headers(USER_AGENT)
         @GET("{id}.html")
         suspend fun getItem(@Path("id") id: String): Document
     }
