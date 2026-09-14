@@ -34,6 +34,8 @@ interface HlsPlayerProps {
   episodeNumber?: number;
   // a downloaded file already on disk, plays this url directly and skips resolveStream entirely
   directSource?: string;
+  // subtitle sidecars saved alongside directSource, resolveStream normally supplies these instead
+  directSubtitles?: { label: string; url: string; default: boolean }[];
   title: string;
   seasonEpisodeLabel?: string;
   // ignored if too close to zero, not worth resuming from
@@ -83,6 +85,7 @@ export function HlsPlayer({
   episodeId,
   episodeNumber,
   directSource,
+  directSubtitles,
   title,
   seasonEpisodeLabel,
   startTime,
@@ -381,7 +384,7 @@ export function HlsPlayer({
     };
 
     if (directSource) {
-      handleResult({ success: true, manifestUrl: directSource, type: "direct", subtitles: [], servers: [] });
+      handleResult({ success: true, manifestUrl: directSource, type: "direct", subtitles: directSubtitles ?? [], servers: [] });
     } else {
       resolveStream(provider, itemId, mediaType, seasonNumber, episodeId, episodeNumber, selectedServerId).then(handleResult);
     }

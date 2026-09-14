@@ -8,6 +8,7 @@ import kotlinx.serialization.encodeToString
 import java.io.File
 import java.io.RandomAccessFile
 import java.net.URI
+import java.net.URLEncoder
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.security.MessageDigest
@@ -41,6 +42,7 @@ data class DownloadStatusResponse(
     val paused: Boolean = false,
     val error: String? = null,
     val filePath: String? = null,
+    val subtitles: List<SubtitleDto> = emptyList(),
 )
 
 @Serializable
@@ -64,6 +66,7 @@ private class DownloadJob {
     @Volatile var cancelled: Boolean = false
     @Volatile var error: String? = null
     @Volatile var filePath: String? = null
+    @Volatile var subtitles: List<SubtitleDto> = emptyList()
 }
 
 // tracks progress across restarts, keyed by stableDownloadKey since jobId is random per launch
@@ -122,6 +125,22 @@ private fun ffmpegPath(): String =
 private fun sanitizeFileName(name: String): String =
     name.replace(Regex("""[\\/:*?"<>|]"""), "_").trim().ifBlank { "download" }
 
+// saved as sidecar files next to the video, not muxed in, mp4 subtitle tracks arent selectable
+// in an html5 <video> and the player already knows how to render <track> elements from a url
+private fun downloadSubtitles(video: Video, outFile: File): List<SubtitleDto> {
+    return video.subtitles.mapNotNull { subtitle ->
+        runCatching {
+            val bytes = fetchBytes(subtitle.file, video.headers) ?: return@mapNotNull null
+            val subFile = File(outFile.parentFile, "${outFile.nameWithoutExtension}.${sanitizeFileName(subtitle.label)}.vtt")
+            subFile.writeBytes(bytes)
+            val path = URLEncoder.encode(subFile.absolutePath, "UTF-8")
+            SubtitleDto(label = subtitle.label, url = "/api/download/file?path=$path", default = subtitle.default)
+        }.onFailure {
+            DebugLog.warn("download", "couldn't save subtitle \"${subtitle.label}\": ${it.message}")
+        }.getOrNull()
+    }
+}
+
 fun handleDownloadStart(exchange: HttpExchange) {
     if (exchange.requestMethod != "POST") return sendJson(exchange, 405, """{"error":"POST required"}""")
     val body = exchange.requestBody.use { it.readBytes().decodeToString() }
@@ -143,7 +162,7 @@ fun handleDownloadStatus(exchange: HttpExchange) {
     val job = downloadJobs[jobId] ?: return sendJson(exchange, 404, """{"error":"unknown job"}""")
     sendJson(exchange, 200, json.encodeToString(DownloadStatusResponse(
         phase = job.phase.name.lowercase(), progress = job.progress, paused = job.paused,
-        error = job.error, filePath = job.filePath,
+        error = job.error, filePath = job.filePath, subtitles = job.subtitles,
     )))
 }
 
@@ -183,7 +202,7 @@ fun handleDownloadFile(exchange: HttpExchange) {
     val length = file.length()
     val range = exchange.requestHeaders.getFirst("Range")
     exchange.responseHeaders.add("Accept-Ranges", "bytes")
-    exchange.responseHeaders.add("Content-Type", "video/mp4")
+    exchange.responseHeaders.add("Content-Type", if (file.extension.equals("vtt", ignoreCase = true)) "text/vtt" else "video/mp4")
 
     val (start, end) = if (range != null && range.startsWith("bytes=")) {
         val parts = range.removePrefix("bytes=").split("-", limit = 2)
@@ -215,6 +234,9 @@ fun handleDownloadDelete(exchange: HttpExchange) {
     val file = File(request.path)
     if (!isInDownloadsDir(file)) return sendJson(exchange, 400, json.encodeToString(DownloadDeleteResponse(false, error = "invalid path")))
     val deleted = !file.exists() || file.delete()
+    // subtitle sidecars are named "<video base name>.<label>.vtt", sweep up whatever matches
+    file.parentFile?.listFiles { f -> f.name.startsWith("${file.nameWithoutExtension}.") && f.extension.equals("vtt", ignoreCase = true) }
+        ?.forEach { it.delete() }
     sendJson(exchange, 200, json.encodeToString(DownloadDeleteResponse(deleted, error = if (deleted) null else "could not delete file")))
 }
 
@@ -255,6 +277,7 @@ private fun runDownloadJob(jobId: String, provider: Provider, request: DownloadS
             java.nio.file.StandardCopyOption.REPLACE_EXISTING,
         )
 
+        job.subtitles = downloadSubtitles(video, outFile)
         job.filePath = outFile.absolutePath
         job.progress = 1.0
         job.phase = DownloadPhase.DONE

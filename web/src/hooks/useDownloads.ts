@@ -73,7 +73,7 @@ function pollStatus(key: string, jobId: string) {
       if (data.phase === "done") {
         clearInterval(interval);
         activePolls.delete(key);
-        update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath });
+        update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath, subtitles: data.subtitles });
       } else if (data.phase === "failed" || data.phase === "cancelled") {
         clearInterval(interval);
         activePolls.delete(key);
@@ -101,7 +101,7 @@ function resumePolling() {
       })
       .then((data) => {
         if (data.phase === "done") {
-          update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath });
+          update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath, subtitles: data.subtitles });
         } else if (data.phase === "failed" || data.phase === "cancelled") {
           remove(key);
         } else {

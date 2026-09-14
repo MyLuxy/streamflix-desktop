@@ -17,6 +17,7 @@ export function DownloadedPlayer({ item, onClose }: DownloadedPlayerProps) {
         itemId={item.realId}
         mediaType={item.mediaType}
         directSource={`/api/download/file?path=${encodeURIComponent(item.filePath ?? "")}`}
+        directSubtitles={item.subtitles}
         title={item.title}
         seasonEpisodeLabel={item.mediaType === "tv" ? `S${item.season}:Ep${item.episode}` : undefined}
         onBack={onClose}

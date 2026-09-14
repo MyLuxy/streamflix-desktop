@@ -160,6 +160,7 @@ export interface DownloadItem {
   paused?: boolean;
   filePath?: string;
   error?: string;
+  subtitles?: { label: string; url: string; default: boolean }[];
 }
 
 export interface WatchProgressItem {
