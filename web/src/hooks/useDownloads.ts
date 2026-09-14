@@ -74,10 +74,15 @@ function pollStatus(key: string, jobId: string) {
         clearInterval(interval);
         activePolls.delete(key);
         update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath, subtitles: data.subtitles });
-      } else if (data.phase === "failed" || data.phase === "cancelled") {
+      } else if (data.phase === "cancelled") {
         clearInterval(interval);
         activePolls.delete(key);
         remove(key);
+      } else if (data.phase === "failed") {
+        clearInterval(interval);
+        activePolls.delete(key);
+        // keep it in the list as failed, silently dropping it hid the error and orphaned the partial segments
+        update(key, { status: "failed", error: data.error ?? "download failed" });
       } else {
         update(key, { phase: data.phase, progress: data.progress, paused: data.paused });
       }
@@ -102,8 +107,10 @@ function resumePolling() {
       .then((data) => {
         if (data.phase === "done") {
           update(key, { status: "done", phase: data.phase, progress: 1, filePath: data.filePath, subtitles: data.subtitles });
-        } else if (data.phase === "failed" || data.phase === "cancelled") {
+        } else if (data.phase === "cancelled") {
           remove(key);
+        } else if (data.phase === "failed") {
+          update(key, { status: "failed", error: data.error ?? "download failed" });
         } else {
           update(key, { phase: data.phase, progress: data.progress, paused: data.paused });
           pollStatus(key, jobId);
