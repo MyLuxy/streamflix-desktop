@@ -232,7 +232,7 @@ private fun faviconOverride(providerName: String): String? {
 // these are busted rn, still work if queried directly, just dont show em in the picker
 val HIDDEN_PROVIDERS = setOf(
     "AnyMovie", "SerienStream", "Moflix-stream", "CineHax",
-    "FrenchAnime", "SuperStream", "Pelisplusto", "Anime Online Ninja", "SFlix",
+    "FrenchAnime", "SuperStream", "Anime Online Ninja", "SFlix",
     "Animefenix", "AnimeFLV", "AnimeBum", "AfterDark", "CineCalidad", "Frembed", "StreamingIta",
     "1Jour1Film", "Cine24h", "FilmyOnline", "Otakufr", "Zaluknij",
     "SoloLatino", "Doramasflix", "FlixLatam", "MKissa",
