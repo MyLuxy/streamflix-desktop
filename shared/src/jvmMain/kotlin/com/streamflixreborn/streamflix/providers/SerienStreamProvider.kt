@@ -103,7 +103,9 @@ object SerienStreamProvider : Provider {
             if (synced != null && serviceBaseUrl == currentBase) {
                 return synced
             }
-            return SerienStreamService.build(currentBase).also {
+            // serienstream.to's cert chain fails PKIX validation on the JVM's trust store even though
+            // browsers accept it fine, same workaround already used for the episode-list fallback below
+            return SerienStreamService.buildUnsafe(currentBase).also {
                 service = it
                 serviceBaseUrl = currentBase
             }
