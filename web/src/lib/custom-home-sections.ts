@@ -72,6 +72,17 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Crimen", genreId: "crimen" },
     { label: "Animación", genreId: "animacion" },
   ],
+  // getGenre maps to /generos/{slug}, straight off the site's own genre menu
+  Pelisplusto: [
+    { label: "Acción", genreId: "generos/accion" },
+    { label: "Comedia", genreId: "generos/comedia" },
+    { label: "Terror", genreId: "generos/terror" },
+    { label: "Romance", genreId: "generos/romance" },
+    { label: "Suspense", genreId: "generos/suspense" },
+    { label: "Ciencia Ficción", genreId: "generos/ciencia-ficcion" },
+    { label: "Crimen", genreId: "generos/crimen" },
+    { label: "Animación", genreId: "generos/animacion" },
+  ],
   HDFilme: [
     { label: "Action", genreId: "https://hdfilme.win/action/" },
     { label: "Komödie", genreId: "https://hdfilme.win/komodie/" },
