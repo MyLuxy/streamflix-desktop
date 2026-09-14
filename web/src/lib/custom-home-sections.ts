@@ -319,4 +319,15 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Shonen", genreId: "Shonen" },
     { label: "Romance", genreId: "Romance" },
   ],
+  // genreId maps to /film-en-streaming/{slug}/, straight off the site's own genre menu
+  Wiflix: [
+    { label: "Action", genreId: "action" },
+    { label: "Comédie", genreId: "comedie" },
+    { label: "Horreur", genreId: "horreur" },
+    { label: "Thriller", genreId: "thriller" },
+    { label: "Aventure", genreId: "aventure" },
+    { label: "Drame", genreId: "drame" },
+    { label: "Fantastique", genreId: "fantastique" },
+    { label: "Science Fiction", genreId: "science-fiction" },
+  ],
 };
