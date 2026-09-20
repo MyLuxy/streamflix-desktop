@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Play, MoreVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isBackNav } from "@/lib/scroll-history";
 import { useWatchlist } from "@/hooks/useWatchlist";
-import { useProviders } from "@/hooks/useStreamflix";
+import { useProviders, fetchFreshPoster } from "@/hooks/useStreamflix";
 import { IMAGE_SIZES, imageUrl, proxyImage, GENERIC_PROVIDER_LOGO } from "@/lib/constants";
 import { WatchlistItem } from "@/lib/types";
 import { ImageWithSpinner } from "@/components/ImageWithSpinner";
@@ -23,6 +23,51 @@ interface WatchlistPageProps {
 // imageUrl() already passes an absolute URL through unchanged, no per-mediaType branching needed
 function posterSrc(item: WatchlistItem): string | null {
   return imageUrl(item.posterPath, IMAGE_SIZES.poster.medium);
+}
+
+// provider CDN domains rotate over time, so a posterPath cached at add-time can 404 later, refetch once and patch it in place
+function WatchlistPoster({ item }: { item: WatchlistItem }) {
+  const { updateWatchlistPoster } = useWatchlist();
+  const [src, setSrc] = useState(() => posterSrc(item));
+  const [gaveUp, setGaveUp] = useState(false);
+  const retried = useRef(false);
+
+  useEffect(() => {
+    setSrc(posterSrc(item));
+    retried.current = false;
+    setGaveUp(false);
+  }, [item.posterPath]);
+
+  const handleError = async () => {
+    if (retried.current || !item.provider || !item.realId) {
+      setGaveUp(true);
+      return;
+    }
+    retried.current = true;
+    try {
+      const fresh = await fetchFreshPoster(item.provider, item.mediaType, item.realId);
+      if (fresh) {
+        updateWatchlistPoster(item.id, item.mediaType, fresh);
+        setSrc(imageUrl(fresh, IMAGE_SIZES.poster.medium));
+        return;
+      }
+    } catch {
+      // provider unreachable, fall through to the placeholder below
+    }
+    setGaveUp(true);
+  };
+
+  if (gaveUp || !src) {
+    return (
+      <div className="w-full h-full bg-muted flex items-center justify-center">
+        <span className="text-muted-foreground text-xs">No Image</span>
+      </div>
+    );
+  }
+
+  return (
+    <ImageWithSpinner src={src} alt={item.title} className="w-full h-full object-cover" onError={handleError} />
+  );
 }
 
 export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
@@ -96,19 +141,7 @@ export function WatchlistPage({ onItemClick }: WatchlistPageProps) {
                   }}
                   className="group relative w-full aspect-[2/3] block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
-                  {posterSrc(item) ? (
-                    <ImageWithSpinner
-                      src={posterSrc(item)!}
-                      alt={item.title}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <span className="text-muted-foreground text-xs">
-                        No Image
-                      </span>
-                    </div>
-                  )}
+                  <WatchlistPoster item={item} />
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 

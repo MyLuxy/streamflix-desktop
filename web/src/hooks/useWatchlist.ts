@@ -53,6 +53,14 @@ function remove(id: number, mediaType: WatchlistItem["mediaType"]) {
   persist();
 }
 
+// provider CDN domains rotate over time, so a poster cached at add-time can go stale, this patches it in place once refetched
+function updatePoster(id: number, mediaType: WatchlistItem["mediaType"], posterPath: string) {
+  const target = items.find((i) => i.id === id && i.mediaType === mediaType);
+  if (!target || target.posterPath === posterPath) return;
+  items = items.map((i) => (i === target ? { ...i, posterPath } : i));
+  persist();
+}
+
 function subscribe(cb: () => void) {
   loadOnce();
   listeners.add(cb);
@@ -92,6 +100,11 @@ export function useWatchlist() {
     if (has(item.id, item.mediaType)) remove(item.id, item.mediaType);
     else add(item);
   }, []);
+  const updateWatchlistPoster = useCallback(
+    (id: number, mediaType: WatchlistItem["mediaType"], posterPath: string) =>
+      updatePoster(id, mediaType, posterPath),
+    []
+  );
 
   return {
     watchlist,
@@ -99,5 +112,6 @@ export function useWatchlist() {
     removeFromWatchlist,
     isInWatchlist,
     toggleWatchlist,
+    updateWatchlistPoster,
   };
 }

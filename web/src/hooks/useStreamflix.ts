@@ -28,6 +28,22 @@ export function useSeasonEpisodes(provider: string, tvId: string, seasonNumber: 
   });
 }
 
+// watchlist posters are cached forever in localStorage, provider CDN domains rotate over time so a stale
+// one can 404; WatchlistPage calls this on image error to pull a current url and patch the stored entry
+export async function fetchFreshPoster(
+  provider: string,
+  mediaType: "movie" | "tv",
+  id: string,
+): Promise<string | null> {
+  const endpoint = mediaType === "tv" ? "tvshow" : "movie";
+  const res = await fetch(
+    `${BACKEND_URL}/api/${endpoint}?provider=${encodeURIComponent(provider)}&id=${encodeURIComponent(id)}`,
+  );
+  if (!res.ok) return null;
+  const data: BackendShow = await res.json();
+  return data.poster ?? data.banner ?? null;
+}
+
 // each custom genre row (custom-home-sections.ts) gets its own query, loads/fails independently
 export function useGenreItems(provider: string, genreId: string, enabled = true) {
   return useQuery({
