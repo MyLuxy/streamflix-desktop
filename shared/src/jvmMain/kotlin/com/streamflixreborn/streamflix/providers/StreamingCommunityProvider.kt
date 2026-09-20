@@ -42,7 +42,6 @@ import org.jsoup.Jsoup
 class StreamingCommunityProvider(private val _language: String? = null) : Provider {
 
     private val mutex = Mutex()
-    private val totalCounts = mutableMapOf<String, Int>()
 
     override val language: String
         get() = _language ?: UserPreferences.providerLanguage ?: "it"
@@ -245,11 +244,14 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         val sliders = res.props?.sliders ?: listOf()
         val categories = mutableListOf<Category>()
 
-        fun mapTitles(titles: List<StreamingCommunityService.Show>) = titles.map {
+        // the site's EN archive occasionally reingests the same title under dozens of different ids, slug's the only stable dedup key
+        fun mapTitles(titles: List<StreamingCommunityService.Show>) = titles.distinctBy { it.slug }.map {
             val logo = getImageLink(it.images.find { img -> img.type == "logo" }?.filename)
             if (it.type == "movie") Movie(id = it.id + "-" + it.slug, title = it.name, released = it.lastAirDate, rating = it.score?.toDoubleOrNull(), poster = getImageLink(it.images.find { img -> img.type == "poster" }?.filename), banner = getImageLink(it.images.find { img -> img.type == "background" }?.filename), logo = logo)
             else TvShow(id = it.id + "-" + it.slug, title = it.name, released = it.lastAirDate, rating = it.score?.toDoubleOrNull(), poster = getImageLink(it.images.find { img -> img.type == "poster" }?.filename), banner = getImageLink(it.images.find { img -> img.type == "background" }?.filename), logo = logo)
         }
+
+        val isEnglish = language == "en"
 
         val heroSlider = sliders.find { it.name == "hero" } ?: sliders.firstOrNull()
         if (heroSlider != null) {
@@ -259,32 +261,39 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         val processedSliderNames = mutableSetOf<String>()
         if (heroSlider != null) processedSliderNames.add(heroSlider.name)
 
+        val trendingName = if (isEnglish) "Trending Now" else "I titoli del momento"
+        val latestMoviesName = if (isEnglish) "Recently Added Movies" else "Film aggiunti di recente"
+        val latestTvShowsName = if (isEnglish) "Recently Added TV Shows" else "Serie TV aggiunte di recente"
+        val top10Name = if (isEnglish) "Today's Top 10" else "Top 10 titoli di oggi"
+        val upcomingName = if (isEnglish) "Coming Soon" else "In arrivo"
+        val newReleasesName = if (isEnglish) "New Releases" else "Nuove uscite"
+
         sliders.forEach { slider ->
             val titles = slider.titles
             if (titles.isEmpty()) return@forEach
-            
-            val italianName = when {
-                slider.name.contains("trending", true) -> "I titoli del momento"
-                slider.name.contains("latest-movies", true) -> "Film aggiunti di recente"
-                slider.name.contains("latest-tv-shows", true) -> "Serie TV aggiunte di recente"
-                slider.name.contains("top-10", true) -> "Top 10 titoli di oggi"
-                slider.name.contains("upcoming", true) -> "In arrivo"
-                slider.name.contains("new-releases", true) -> "Nuove uscite"
+
+            val localizedName = when {
+                slider.name.contains("trending", true) -> trendingName
+                slider.name.contains("latest-movies", true) -> latestMoviesName
+                slider.name.contains("latest-tv-shows", true) -> latestTvShowsName
+                slider.name.contains("top-10", true) -> top10Name
+                slider.name.contains("upcoming", true) -> upcomingName
+                slider.name.contains("new-releases", true) -> newReleasesName
                 else -> null
             }
 
-            if (italianName != null) {
-                categories.add(Category(italianName, mapTitles(titles)))
+            if (localizedName != null) {
+                categories.add(Category(localizedName, mapTitles(titles)))
                 processedSliderNames.add(slider.name)
             }
         }
 
         val propsMapping = listOf(
-            "I titoli del momento" to (res.props?.trendingTitles ?: res.props?.trending),
-            "Film aggiunti di recente" to res.props?.latestMovies,
-            "Serie TV aggiunte di recente" to res.props?.latestTvShows,
-            "Top 10 titoli di oggi" to (res.props?.top10Titles ?: res.props?.top10),
-            "In arrivo" to (res.props?.upcomingTitles ?: res.props?.upcoming)
+            trendingName to (res.props?.trendingTitles ?: res.props?.trending),
+            latestMoviesName to res.props?.latestMovies,
+            latestTvShowsName to res.props?.latestTvShows,
+            top10Name to (res.props?.top10Titles ?: res.props?.top10),
+            upcomingName to (res.props?.upcomingTitles ?: res.props?.upcoming)
         )
         propsMapping.forEach { (name, list) ->
             if (list != null && list.isNotEmpty()) {
@@ -299,11 +308,11 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         }
 
         val archiveSections = listOf(
-            "Film" to res.props?.movies,
-            "Serie TV" to res.props?.tvShows,
-            "Titoli" to res.props?.titles,
+            (if (isEnglish) "Movies" else "Film") to res.props?.movies,
+            (if (isEnglish) "TV Shows" else "Serie TV") to res.props?.tvShows,
+            (if (isEnglish) "Titles" else "Titoli") to res.props?.titles,
             "TV" to res.props?.tv,
-            "Archivio" to res.props?.archive
+            (if (isEnglish) "Archive" else "Archivio") to res.props?.archive
         )
         archiveSections.forEach { (name, page) ->
             page?.data?.let { if (it.isNotEmpty()) categories.add(Category(name, mapTitles(it))) }
@@ -380,9 +389,9 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
             return tmdbFallback.getMovies(page)
         }
 
-        return shows.map { title ->
+        return shows.distinctBy { it.slug }.map { title ->
             Movie(id = title.id + "-" + title.slug, title = title.name, released = title.lastAirDate, rating = title.score?.toDoubleOrNull(), poster = getImageLink(title.images.find { img -> img.type == "poster" }?.filename))
-        }.distinctBy { it.id }
+        }
     }
 
     override suspend fun getTvShows(page: Int): List<TvShow> {
@@ -401,9 +410,9 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
             return tmdbFallback.getTvShows(page)
         }
 
-        return shows.map { title ->
+        return shows.distinctBy { it.slug }.map { title ->
             TvShow(id = title.id + "-" + title.slug, title = title.name, released = title.lastAirDate, rating = title.score?.toDoubleOrNull(), poster = getImageLink(title.images.find { img -> img.type == "poster" }?.filename))
-        }.distinctBy { it.id }
+        }
     }
 
     override suspend fun getMovie(id: String): Movie {
@@ -533,31 +542,33 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     override suspend fun getGenre(id: String, page: Int): Genre {
         if (usingFallback) return tmdbFallback.getGenre(id, page)
         val name = ""
-        val offset = (page - 1) * 60
-        
-        // Skip if we already know there's no more data
-        totalCounts[id]?.let { total ->
-            if (offset >= total) return Genre(id = id, name = name, shows = emptyList())
-        }
+        val pageSize = 60
 
-        val shows = try {
-            if (page == 1) {
-                val json = InertiaUtils.parseInertiaData(withSslFallback { it.getArchiveHtml(genreId = id) })
-                val props = json.optJSONObject("props")
-                if (props != null) {
-                    val total = props.optInt("totalCount", 0)
-                    if (total > 0) totalCounts[id] = total
-                }
+        val collected = mutableListOf<StreamingCommunityService.Show>()
+        val seenSlugs = mutableSetOf<String>()
+        var currentPage = page
+        var iterations = 0
+
+        // /api/archive 404s now, site moved load-more to plain ?page= on the archive route itself.
+        // some genre archives on the EN site also flood several consecutive pages with copies of the same title
+        // (see mapTitles), so keep pulling further pages past the dupes to backfill the row instead of leaving it half empty
+        while (collected.size < pageSize && iterations < 10) {
+            val shows = try {
+                val json = InertiaUtils.parseInertiaData(withSslFallback { it.getArchiveHtml(genreId = id, page = currentPage) })
                 getTitlesFromInertiaJson(json)
-            } else {
-                withSslFallback { it.getArchiveApi(lang = language, offset = offset, genreId = id) }.titles
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching genre $id page $currentPage: ${e.message}")
+                listOf()
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching genre $id page $page: ${e.message}")
-            listOf()
+
+            if (shows.isEmpty()) break
+            shows.forEach { if (seenSlugs.add(it.slug)) collected.add(it) }
+
+            currentPage++
+            iterations++
         }
 
-        return Genre(id = id, name = name, shows = shows.map { title ->
+        return Genre(id = id, name = name, shows = collected.take(pageSize).map { title ->
             val poster = getImageLink(title.images.find { img -> img.type == "poster" }?.filename)
             if (title.type == "movie") Movie(id = title.id + "-" + title.slug, title = title.name, released = title.lastAirDate, rating = title.score?.toDoubleOrNull(), poster = poster)
             else TvShow(id = title.id + "-" + title.slug, title = title.name, released = title.lastAirDate, rating = title.score?.toDoubleOrNull(), poster = poster)
@@ -719,7 +730,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         @GET("archive?type=tv") suspend fun getTvShowsHtml(): Document
         @GET("search") suspend fun search(@Query("q", encoded = true) keyword: String, @Query("page") page: Int = 1, @Query("lang") language: String, @Header("Accept") accept: String = "application/json, text/plain, */*"): SearchRes
         @GET("/api/archive") suspend fun getArchiveApi(@Query("lang") lang: String, @Query("offset") offset: Int, @Query("genre[]") genreId: String? = null, @Query("type") type: String? = null): ApiArchiveRes
-        @GET("archive") suspend fun getArchiveHtml(@Query("genre[]") genreId: String): Document
+        @GET("archive") suspend fun getArchiveHtml(@Query("genre[]") genreId: String, @Query("page") page: Int = 1): Document
         @GET("titles/{id}") suspend fun getDetails(@Path("id") id: String, @Header("x-inertia") xInertia: String = "true", @Header("x-inertia-version") version: String, @Query("lang") language: String, @Header("X-Requested-With") xRequestedWith: String = "XMLHttpRequest"): HomeRes
         @GET("titles/{id}/") suspend fun getSeasonDetails(@Path("id") id: String, @Header("x-inertia") xInertia: String = "true", @Header("x-inertia-version") version: String, @Query("lang") language: String, @Header("X-Requested-With") xRequestedWith: String = "XMLHttpRequest"): SeasonRes
 

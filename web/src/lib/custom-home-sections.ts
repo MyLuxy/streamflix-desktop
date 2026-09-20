@@ -16,9 +16,9 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Reality", genreId: "18" },
   ],
   "StreamingCommunity (EN)": [
-    { label: "Azione", genreId: "4" },
+    { label: "Action", genreId: "4" },
     { label: "Romance", genreId: "15" },
-    { label: "Animazione", genreId: "19" },
+    { label: "Animation", genreId: "19" },
     { label: "Sci-Fi & Fantasy", genreId: "3" },
     { label: "Crime", genreId: "2" },
     { label: "Horror", genreId: "7" },
