@@ -442,7 +442,16 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
             // race every server instead of waiting on all of them, some (flixlatam) fall back to a slow headless browser per mirror
             val resultChannel = Channel<Pair<Video.Server, Result<Video>>>(servers.size)
             val jobs = servers.map { server ->
-                async { resultChannel.send(server to runCatching { provider.getVideo(server) }) }
+                async {
+                    val result = runCatching {
+                        val video = provider.getVideo(server)
+                        // an extractor can hand back a url that "resolves" but is dead on arrival (expired token, downed mirror),
+                        // catching that here means it gets treated as a failed server instead of surfacing as a broken player later
+                        if (video.source.isNotBlank() && !isPlayable(video)) error("source unreachable")
+                        video
+                    }
+                    resultChannel.send(server to result)
+                }
             }
             val working = mutableListOf<Video.Server>()
             var firstSuccess: Pair<Video.Server, Video>? = null
@@ -558,6 +567,24 @@ private val RESTRICTED_HEADERS = setOf(
 
 fun applyHeaders(builder: HttpRequest.Builder, headers: Map<String, String>?) {
     headers?.forEach { (k, v) -> if (k.lowercase() !in RESTRICTED_HEADERS) builder.header(k, v) }
+}
+
+// ofInputStream() returns as soon as headers arrive so a huge file that ignores our Range header doesnt get pulled in full,
+// closing the stream right away is what actually aborts the connection instead of just discarding what it downloads
+private fun isPlayable(video: Video): Boolean {
+    if (video.source.startsWith("data:", ignoreCase = true)) return true
+    return try {
+        val builder = HttpRequest.newBuilder(URI.create(video.source))
+            .header("Range", "bytes=0-1")
+            .timeout(java.time.Duration.ofSeconds(8))
+            .GET()
+        applyHeaders(builder, video.headers)
+        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+        response.body().close()
+        response.statusCode() in 200..299
+    } catch (e: Exception) {
+        false
+    }
 }
 
 // caps the buffer so a mislabeled direct video link that slips past isDirectFile cant hang the request
