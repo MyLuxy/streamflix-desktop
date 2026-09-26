@@ -30,6 +30,9 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
 import com.streamflixreborn.streamflix.utils.Keys
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import java.util.concurrent.TimeUnit
@@ -228,7 +231,25 @@ object CB01Provider : Provider {
         )
     }
 
-    override suspend fun getHome(): List<Category> {
+    // sidebar widgets on the homepage, id -> row label
+    private val HOME_WIDGETS = listOf(
+        "rpwe_widget-2" to "Ultimi Film Aggiunti",
+        "rpwe_widget-5" to "Film Popolari",
+    )
+
+    // genre archive pages, same card grid as the homepage - just gives the home more rows to show
+    private val HOME_GENRES = listOf(
+        "Azione" to "azione-hd",
+        "Commedia" to "commedia-hd",
+        "Drammatico" to "drammatico-hd",
+        "Horror" to "horror-hd",
+        "Fantascienza" to "fantascienza-hd",
+        "Thriller" to "thriller-hd",
+        "Avventura" to "avventura-hd",
+        "Animazione" to "animazione-hd",
+    )
+
+    override suspend fun getHome(): List<Category> = coroutineScope {
         val doc = service.getHome()
 
         val categories = mutableListOf<Category>()
@@ -238,12 +259,30 @@ object CB01Provider : Provider {
             categories.add(Category(name = "Film", list = movies))
         }
 
-        val latestMovies = doc.select("#rpwe_widget-2 ul.rpwe-ul li.rpwe-li").mapNotNull { parseLatestMovie(it) }
-        if (latestMovies.isNotEmpty()) {
-            categories.add(Category(name = "Ultimi Film Aggiunti", list = latestMovies))
+        val tvShows = getTvShows(1)
+        if (tvShows.isNotEmpty()) {
+            categories.add(Category(name = "Serie TV", list = tvShows))
         }
 
-        return categories
+        HOME_WIDGETS.forEach { (widgetId, label) ->
+            val items = doc.select("#$widgetId ul.rpwe-ul li.rpwe-li").mapNotNull { parseLatestMovie(it) }
+            if (items.isNotEmpty()) categories.add(Category(name = label, list = items))
+        }
+
+        val genreCategories = HOME_GENRES.map { (label, slug) ->
+            async {
+                val items = try {
+                    service.getPage("$baseUrl/category/film-hd-streaming/$slug/")
+                        .select("div.card.mp-post.horizontal").mapNotNull { parseHomeMovie(it) }
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                if (items.isNotEmpty()) Category(name = label, list = items) else null
+            }
+        }.awaitAll().filterNotNull()
+        categories.addAll(genreCategories)
+
+        categories
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
