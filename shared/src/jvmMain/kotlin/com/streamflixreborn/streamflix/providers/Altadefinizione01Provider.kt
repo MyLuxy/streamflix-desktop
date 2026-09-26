@@ -32,7 +32,7 @@ import retrofit2.http.Header
 object Altadefinizione01Provider : Provider {
 
     override val name: String = "Altadefinizione01"
-    override val baseUrl: String = "https://altadefinizione-01.fun"
+    override val baseUrl: String = "https://altadefinizione-01.surf"
     override val logo: String get() = "$baseUrl/templates/altadefinizione01/images/logo.png"
     override val language: String = "it"
 
