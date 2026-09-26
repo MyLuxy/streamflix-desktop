@@ -417,12 +417,12 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
                 // some titles just have no episodes on the site, dont crash on empty list
                 val season = tvShow.seasons.firstOrNull { it.number == request.seasonNumber }
                     ?: tvShow.seasons.firstOrNull()
-                    ?: error("Nessun episodio disponibile per questo titolo su ${provider.name}")
+                    ?: error("No episode available for this title on ${provider.name}")
                 val episodes = season.episodes.ifEmpty { provider.getEpisodesBySeason(season.id) }
                 val episode = episodes.firstOrNull { it.id == request.episodeId }
                     ?: episodes.firstOrNull { it.number == request.episodeNumber }
                     ?: episodes.firstOrNull()
-                    ?: error("Nessun episodio disponibile per questo titolo su ${provider.name}")
+                    ?: error("No episode available for this title on ${provider.name}")
                 Video.Type.Episode(
                     id = episode.id, number = episode.number, title = episode.title, poster = episode.poster, overview = episode.overview,
                     tvShow = Video.Type.Episode.TvShow(tvShow.id, tvShow.title, tvShow.poster, tvShow.banner, tvShow.released, tvShow.imdbId),
