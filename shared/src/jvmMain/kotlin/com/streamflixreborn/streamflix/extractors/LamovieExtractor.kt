@@ -19,7 +19,9 @@ class LamovieExtractor : Extractor() {
         val service = Service.build(mainUrl)
 
         val document = service.get(link)
-        val packedJS = Regex("(eval\\(function\\(p,a,c,k,e,d\\)(.|\\n)*?)</script>")
+        // (.|\n)*? recurses per character in java.util.regex and blows the stack on a full page body,
+        // DOT_MATCHES_ALL does the same match without the per-char group backtracking
+        val packedJS = Regex("(eval\\(function\\(p,a,c,k,e,d\\).*?)</script>", RegexOption.DOT_MATCHES_ALL)
             .find(document.toString())?.let { it.groupValues[1] }
             ?: throw Exception("Packed JS not found")
         
