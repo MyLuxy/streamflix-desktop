@@ -104,7 +104,6 @@ interface Provider {
             PelisflixHdProvider to ProviderSupport(movies = true, tvShows = true),
             CableVisionHDProvider to ProviderSupport(movies = false, tvShows = true),
             Altadefinizione01Provider to ProviderSupport(movies = true, tvShows = true),
-            GuardaFlixProvider to ProviderSupport(movies = true, tvShows = false),
             CB01Provider to ProviderSupport(movies = true, tvShows = true),
             AnimeUnityProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeSaturnProvider to ProviderSupport(movies = false, tvShows = true),
@@ -112,7 +111,6 @@ interface Provider {
             FshareTvProvider to ProviderSupport(movies = true, tvShows = false),
             FilmoProvider to ProviderSupport(movies = true, tvShows = false),
             FrenchStreamProvider to ProviderSupport(movies = true, tvShows = true),
-            GuardaSerieProvider to ProviderSupport(movies = true, tvShows = true),
             EinschaltenProvider to ProviderSupport(movies = true, tvShows = false),
             // tv episodes only ever link to dropload, which now sits behind a captcha wall
             HDFilmeProvider to ProviderSupport(movies = true, tvShows = false),
