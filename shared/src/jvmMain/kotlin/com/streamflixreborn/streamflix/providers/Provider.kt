@@ -73,7 +73,6 @@ interface Provider {
             AnimeWorldProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeHeavenProvider to ProviderSupport(movies = false, tvShows = true),
             AnimeXProvider to ProviderSupport(movies = true, tvShows = true),
-            Anime123HubProvider to ProviderSupport(movies = true, tvShows = true),
             CineStreamProvider to ProviderSupport(movies = true, tvShows = false),
             VostFreeProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeToastProvider to ProviderSupport(movies = false, tvShows = true),
