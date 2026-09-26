@@ -28,6 +28,7 @@ import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Query
 import retrofit2.http.Url
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 // watch page never embeds a real player, just a window.PLAYER config plus a /api/player/sources endpoint that scrapes each upstream provider and returns a url already proxied through vuflix's own v-relay, so no per-embed extractor is needed
@@ -71,6 +72,21 @@ object VuflixProvider : Provider {
 
         @GET("tv-series")
         suspend fun getTvShows(@Query("page") page: Int): Document
+    }
+
+    // detail pages here regularly take 20-30s to render server-side, and getMovie/getTvShow +
+    // getServers all fetch the exact same url back to back - caching a few seconds is the
+    // difference between finishing inside resolveVideoBlocking's 45s budget and timing out
+    private val pageCache = ConcurrentHashMap<String, Pair<Long, Document>>()
+    private val PAGE_CACHE_TTL_MS = 120_000L
+
+    private suspend fun getCachedPage(url: String): Document {
+        pageCache[url]?.let { (fetchedAt, doc) ->
+            if (System.currentTimeMillis() - fetchedAt < PAGE_CACHE_TTL_MS) return doc
+        }
+        val doc = service.getPage(url)
+        pageCache[url] = System.currentTimeMillis() to doc
+        return doc
     }
 
     // enqueue() + suspendCancellableCoroutine so Backend.kt's race can actually cancel a losing mirror mid request, plain execute() ignores coroutine cancellation
@@ -170,7 +186,7 @@ object VuflixProvider : Provider {
     }
 
     override suspend fun getMovie(id: String): Movie {
-        val document = service.getPage(id)
+        val document = getCachedPage(id)
         val rows = parseDetailRows(document)
 
         return Movie(
@@ -206,7 +222,7 @@ object VuflixProvider : Provider {
     }
 
     override suspend fun getTvShow(id: String): TvShow {
-        val document = service.getPage(id)
+        val document = getCachedPage(id)
         val rows = parseDetailRows(document)
 
         val seasons = document.select("a.season-item").mapNotNull { a ->
@@ -312,7 +328,7 @@ object VuflixProvider : Provider {
         }
         val tmdbId = tvShowId.trimEnd('/').substringAfterLast("/")
 
-        val document = service.getPage(tvShowId)
+        val document = getCachedPage(tvShowId)
         val scriptData = document.select("script").firstOrNull { it.data().contains("window.PLAYER") }?.data()
             ?: throw Exception("Vuflix player config not found")
         val playerJson = Regex("""window\.PLAYER\s*=\s*(\{.*\});""").find(scriptData)
