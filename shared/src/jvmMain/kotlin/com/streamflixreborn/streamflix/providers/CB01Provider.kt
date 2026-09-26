@@ -214,29 +214,6 @@ object CB01Provider : Provider {
         )
     }
 
-    private fun parseLatestMovie(el: Element): Movie? {
-        val titleAnchor = el.selectFirst("h3.rpwe-title a[href]") ?: return null
-        val href = titleAnchor.attr("href").trim()
-        val rawTitle = titleAnchor.text().trim()
-        val title = cleanTitle(rawTitle)
-        val poster = el.selectFirst("img.rpwe-thumb")?.attr("src").orEmpty().replace("-60x90", "")
-        val quality = if (rawTitle.contains("[HD]", ignoreCase = true) || rawTitle.contains("[HD/3D]", ignoreCase = true)) "HD" else null
-
-        if (href.isBlank() || title.isBlank()) return null
-        return Movie(
-            id = href,
-            title = title,
-            poster = poster,
-            quality = quality,
-        )
-    }
-
-    // sidebar widgets on the homepage, id -> row label
-    private val HOME_WIDGETS = listOf(
-        "rpwe_widget-2" to "Ultimi Film Aggiunti",
-        "rpwe_widget-5" to "Film Popolari",
-    )
-
     // genre archive pages, same card grid as the homepage - just gives the home more rows to show
     private val HOME_GENRES = listOf(
         "Azione" to "azione-hd",
@@ -257,16 +234,6 @@ object CB01Provider : Provider {
         val movies = doc.select("div.card.mp-post.horizontal").mapNotNull { parseHomeMovie(it) }
         if (movies.isNotEmpty()) {
             categories.add(Category(name = "Film", list = movies))
-        }
-
-        val tvShows = getTvShows(1)
-        if (tvShows.isNotEmpty()) {
-            categories.add(Category(name = "Serie TV", list = tvShows))
-        }
-
-        HOME_WIDGETS.forEach { (widgetId, label) ->
-            val items = doc.select("#$widgetId ul.rpwe-ul li.rpwe-li").mapNotNull { parseLatestMovie(it) }
-            if (items.isNotEmpty()) categories.add(Category(name = label, list = items))
         }
 
         val genreCategories = HOME_GENRES.map { (label, slug) ->
