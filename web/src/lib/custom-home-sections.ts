@@ -25,12 +25,6 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Korean Drama", genreId: "26" },
     { label: "Reality", genreId: "18" },
   ],
-  Altadefinizione01: [
-    { label: "Azione", genreId: "https://altadefinizione-01.fun/azione/" },
-    { label: "Romance", genreId: "https://altadefinizione-01.fun/romantico/" },
-    { label: "Animazione", genreId: "https://altadefinizione-01.fun/animazione/" },
-    { label: "Horror", genreId: "https://altadefinizione-01.fun/horror/" },
-  ],
   AnimeUnity: [
     { label: "Isekai", genreId: "53" },
     { label: "Shounen", genreId: "34" },

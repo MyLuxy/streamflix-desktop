@@ -104,7 +104,6 @@ interface Provider {
             PelisplustoProvider to ProviderSupport(movies = true, tvShows = true),
             PelisflixHdProvider to ProviderSupport(movies = true, tvShows = true),
             CableVisionHDProvider to ProviderSupport(movies = false, tvShows = true),
-            Altadefinizione01Provider to ProviderSupport(movies = true, tvShows = true),
             CB01Provider to ProviderSupport(movies = true, tvShows = true),
             AnimeUnityProvider to ProviderSupport(movies = true, tvShows = true),
             AnimeSaturnProvider to ProviderSupport(movies = false, tvShows = true),
