@@ -341,6 +341,17 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Fantastique", genreId: "fantastique" },
     { label: "Science Fiction", genreId: "science-fiction" },
   ],
+  // same DLE engine/url scheme as Wiflix, slugs come straight off the site's own "Par Genre" menu
+  FrenchStream: [
+    { label: "Action", genreId: "actions" },
+    { label: "Comédie", genreId: "comedies" },
+    { label: "Horreur", genreId: "epouvante-horreurs" },
+    { label: "Romance", genreId: "romances" },
+    { label: "Thriller", genreId: "thrillers" },
+    { label: "Science Fiction", genreId: "science-fictions" },
+    { label: "Policier", genreId: "policiers" },
+    { label: "Animation", genreId: "animations" },
+  ],
   // getGenre passes id straight through as with_genres[], these are plain TMDB genre ids
   Vuflix: [
     { label: "Action", genreId: "28" },

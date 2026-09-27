@@ -13,6 +13,8 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
@@ -68,16 +70,26 @@ object FrenchStreamProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     private var serviceInitialized = false
     private val initializationMutex = Mutex()
 
+    // real rows here instead of the homepage's own scraped groupings (Nouveautés/Commu/BOX OFFICE),
+    // the actual genre rows live in CUSTOM_HOME_SECTIONS below (site's own /films/{genre}/ menu)
     override suspend fun getHome(): List<Category> {
         initializeService()
         // val isNewInterface = UserPreferences.getProviderCache(this, UserPreferences.PROVIDER_NEW_INTERFACE) != "false"
         val isNewInterface = false // Forced false for now
-        val document = if (isNewInterface) {
-            service.postHome()
-        } else {
-            service.getHome("dle_skin=VFV1")
+
+        if (!isNewInterface) {
+            return coroutineScope {
+                val moviesDeferred = async { getMovies(1) }
+                val tvShowsDeferred = async { getTvShows(1) }
+                listOfNotNull(
+                    moviesDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Films", list = it) },
+                    tvShowsDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Séries", list = it) },
+                )
+            }
         }
-        val cookie = if (isNewInterface) "dle_skin=VFV25" else "dle_skin=VFV1"
+
+        val document = service.postHome()
+        val cookie = "dle_skin=VFV25"
         val categories = mutableListOf<Category>()
         if ( cookie.contains("VFV25")) {
             var first = true
@@ -126,87 +138,6 @@ object FrenchStreamProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                     first = false
                 }
             }
-        } else {
-            categories.add(
-                Category(
-                    name = "Nouveautés Séries",
-                    list = document.select("div.pages.clearfix").getOrNull(1)?.select("div.short")
-                        ?.map {
-                            TvShow(
-                                id = it.selectFirst("a.short-poster")
-                                    ?.attr("href")?.substringAfterLast("/")
-                                    ?: "",
-                                title = listOfNotNull(
-                                    it.selectFirst("div.short-title")?.text(),
-                                    it.selectFirst("span.film-version")?.text(),
-                                ).joinToString(" - "),
-                                poster = it.selectFirst("img")
-                                    ?.attr("src")
-                                    ?: "",
-                            )
-                        } ?: emptyList(),
-                )
-            )
-
-            categories.add(
-                Category(
-                    name = "Nouveautés Films",
-                    list = document.select("div.pages.clearfix").getOrNull(0)?.select("div.short")
-                        ?.map {
-                            Movie(
-                                id = it.selectFirst("a.short-poster")
-                                    ?.attr("href")?.substringAfterLast("/")
-                                    ?: "",
-                                title = it.selectFirst("div.short-title")
-                                    ?.text()
-                                    ?: "",
-                                poster = it.selectFirst("img")
-                                    ?.attr("src")
-                                    ?: "",
-                            )
-                        } ?: emptyList(),
-                )
-            )
-
-            categories.add(
-                Category(
-                    name = "Ajouts de la Commu",
-                    list = document.select("div.pages.clearfix").getOrNull(2)?.select("div.short")
-                        ?.map {
-                            Movie(
-                                id = it.selectFirst("a.short-poster")
-                                    ?.attr("href")?.substringAfterLast("/")
-                                    ?: "",
-                                title = it.selectFirst("div.short-title")
-                                    ?.text()
-                                    ?: "",
-                                poster = it.selectFirst("img")
-                                    ?.attr("src")
-                                    ?: "",
-                            )
-                        } ?: emptyList(),
-                )
-            )
-
-            categories.add(
-                Category(
-                    name = "BOX OFFICE",
-                    list = document.select("div.pages.clearfix").getOrNull(3)?.select("div.short")
-                        ?.map {
-                            Movie(
-                                id = it.selectFirst("a.short-poster")
-                                    ?.attr("href")?.substringAfterLast("/")
-                                    ?: "",
-                                title = it.selectFirst("div.short-title")
-                                    ?.text()
-                                    ?: "",
-                                poster = it.selectFirst("img")
-                                    ?.attr("src")
-                                    ?: "",
-                            )
-                        } ?: emptyList(),
-                )
-            )
         }
 
         return categories
