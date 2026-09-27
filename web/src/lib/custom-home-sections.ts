@@ -108,16 +108,16 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Crimen", genreId: "https://pelisflixhd.win/genero/crimen" },
     { label: "Animación", genreId: "https://pelisflixhd.win/genero/animacion" },
   ],
-  // getGenre delegates straight to TMDb3.Discover with the id as the genre param, so these are plain TMDB genre ids
-  Cinemove: [
-    { label: "Action", genreId: "28" },
-    { label: "Comedy", genreId: "35" },
-    { label: "Horror", genreId: "27" },
-    { label: "Romance", genreId: "10749" },
-    { label: "Thriller", genreId: "53" },
-    { label: "Sci-Fi", genreId: "878" },
-    { label: "Crime", genreId: "80" },
-    { label: "Animation", genreId: "16" },
+  // getGenre maps to /category/{slug}, straight off the site's own genre list
+  AnyMovie: [
+    { label: "Action", genreId: "action" },
+    { label: "Comedy", genreId: "comedy" },
+    { label: "Horror", genreId: "horror" },
+    { label: "Romance", genreId: "romance" },
+    { label: "Thriller", genreId: "thriller" },
+    { label: "Science Fiction", genreId: "science-fiction" },
+    { label: "Crime", genreId: "crime" },
+    { label: "Animation", genreId: "animation" },
   ],
   "Cuevana 3": [
     { label: "Acción", genreId: "accion" },

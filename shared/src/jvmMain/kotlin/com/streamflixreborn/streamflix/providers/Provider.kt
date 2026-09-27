@@ -147,7 +147,6 @@ interface Provider {
             StreamingItaProvider to ProviderSupport(movies = true, tvShows = true),
             SuperStreamProvider to ProviderSupport(movies = true, tvShows = true),
             UnJourUnFilmProvider to ProviderSupport(movies = true, tvShows = true),
-            CinemoveProvider to ProviderSupport(movies = true, tvShows = true),
         )
 
         data class ProviderSupport(

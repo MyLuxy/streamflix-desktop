@@ -23,6 +23,8 @@ import com.streamflixreborn.streamflix.models.Show
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -104,14 +106,15 @@ object AnyMovieProvider : Provider {
     private fun parseCards(root: Element, selector: String = "a.cf-film-card") =
         root.select(selector).mapNotNull { parseCard(it) }
 
-    override suspend fun getHome(): List<Category> {
-        val document = service.getPage("$baseUrl/home")
-
-        return document.select("section:has(.cf-row-swiper)").mapNotNull { section ->
-            val name = section.selectFirst(".cf-section-title")?.text()?.trim() ?: return@mapNotNull null
-            val items = parseCards(section)
-            if (items.isEmpty()) null else Category(name = name, list = items)
-        }
+    // 2 seed rows instead of the homepage's own scraped sections, the real genre rows live in
+    // CUSTOM_HOME_SECTIONS below (site's own /category/{slug} list, same as other providers)
+    override suspend fun getHome(): List<Category> = coroutineScope {
+        val moviesDeferred = async { getMovies(1) }
+        val tvShowsDeferred = async { getTvShows(1) }
+        listOfNotNull(
+            moviesDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Popular Movies", list = it) },
+            tvShowsDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Popular TV Shows", list = it) },
+        )
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
