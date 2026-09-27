@@ -202,12 +202,11 @@ object SoapGoProvider : Provider {
         }
     }
 
-    // site has no real genre browsing (the tags on a detail page are plain text, href="#") - the
-    // custom home rows reuse this as "kind:sort" instead (e.g. "movie:hot"), sort is whatever
-    // /movies?sort= already accepts (hot, imdb, release, update)
+    // real genre browsing lives at /genre/{id}, id is an opaque token off the site's own filter
+    // menu (not slug-able, has to be copied straight from there), mixes movies and tv together
     override suspend fun getGenre(id: String, page: Int): Genre {
-        val (kind, sort) = id.split(":", limit = 2).let { it[0] to it.getOrElse(1) { "hot" } }
-        val items = if (kind == "tv") parseListing(service.getTvShows(page, sort)) else parseListing(service.getMovies(page, sort))
+        val url = "/genre/$id" + if (page > 1) "?page=$page" else ""
+        val items = parseListing(service.getPage(url))
         return Genre(id = id, name = id, shows = items)
     }
 

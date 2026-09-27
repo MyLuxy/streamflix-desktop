@@ -374,14 +374,16 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Fantascienza", genreId: "https://guardaplay.info/category/fantascienza/" },
     { label: "Fantasy", genreId: "https://guardaplay.info/category/fantasy/" },
   ],
-  // no real genre browsing on the site (tags are plain text, href="#") - getGenre() reuses this
-  // slot as "kind:sort" instead, sort matches what /movies and /tv already accept as ?sort=.
-  // "hot" for both kinds is already on the home page itself, not repeated here
+  // genreId is the opaque token from the site's own /genre/{id} filter menu, not a slug
   SoapGo: [
-    { label: "Top Rated Movies", genreId: "movie:imdb" },
-    { label: "New Movies", genreId: "movie:release" },
-    { label: "Top Rated TV Shows", genreId: "tv:imdb" },
-    { label: "New TV Shows", genreId: "tv:release" },
+    { label: "Action", genreId: "do4X78PK26" },
+    { label: "Comedy", genreId: "gWmLlxLzJo" },
+    { label: "Horror", genreId: "N7yLQrYxJE" },
+    { label: "Romance", genreId: "96ZYZlPEo5" },
+    { label: "Thriller", genreId: "5pRYaAYM39" },
+    { label: "Sci-Fi", genreId: "8yNXW3Xg5v" },
+    { label: "Crime", genreId: "jWvLGeXGBk" },
+    { label: "Animation", genreId: "V9KXVxLkwW" },
   ],
   GuardaSerie: [
     { label: "Commedia", genreId: "https://guardoserie.college/commedia/" },
