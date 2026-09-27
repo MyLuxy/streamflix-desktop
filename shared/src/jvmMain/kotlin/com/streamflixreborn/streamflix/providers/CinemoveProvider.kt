@@ -342,7 +342,16 @@ object CinemoveProvider : Provider {
                 if (event.optString("type") != "hit") continue
 
                 val data = event.optJSONObject("data") ?: continue
-                val url = data.optString("playlist").ifBlank { data.optString("url") }
+                // some sources (e.g. vidy) nest per-resolution urls under "qualities" instead of a
+                // flat playlist/url field, pick the highest available resolution when that happens
+                val url = data.optString("playlist").ifBlank { data.optString("url") }.ifBlank {
+                    data.optJSONObject("qualities")?.let { qualities ->
+                        qualities.keys().asSequence()
+                            .sortedByDescending { it.toIntOrNull() ?: -1 }
+                            .map { qualities.optJSONObject(it)?.optString("url").orEmpty() }
+                            .firstOrNull { it.isNotBlank() }
+                    }.orEmpty()
+                }
                 if (url.isNotBlank()) {
                     return@withContext event.optString("sourceId").ifBlank { "cinemove" } to url
                 }
