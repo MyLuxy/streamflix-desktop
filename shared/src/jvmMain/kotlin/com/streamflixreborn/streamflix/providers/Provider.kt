@@ -146,7 +146,6 @@ interface Provider {
             OtakufrProvider to ProviderSupport(movies = true, tvShows = true),
             StreamingItaProvider to ProviderSupport(movies = true, tvShows = true),
             SuperStreamProvider to ProviderSupport(movies = true, tvShows = true),
-            VivariumProvider to ProviderSupport(movies = true, tvShows = true),
             UnJourUnFilmProvider to ProviderSupport(movies = true, tvShows = true),
             CinemoveProvider to ProviderSupport(movies = true, tvShows = true),
         )
