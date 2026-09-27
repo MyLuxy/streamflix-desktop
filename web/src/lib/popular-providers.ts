@@ -1,8 +1,8 @@
 // picked manually per country, shown above the full provider grid in Settings, never IPTV or anime
 export const POPULAR_PROVIDERS_BY_LANGUAGE: Record<string, string[]> = {
-  all: ["StreamingCommunity (EN)", "Cinemove", "Vuflix", "Ridomovies"],
+  all: ["StreamingCommunity (EN)", "Cinemove", "SoapGo", "Ridomovies"],
   it: ["StreamingCommunity", "TMDB (ITA)", "Altadefinizione01", "CB01"],
-  en: ["StreamingCommunity (EN)", "Cinemove", "Ridomovies", "Vuflix"],
+  en: ["StreamingCommunity (EN)", "Cinemove", "Ridomovies", "SoapGo"],
   es: ["Cuevana 3", "Fanpelis", "PelisflixHD", "SeriesFlix"],
   fr: ["Kidraz", "CineStream", "Wiflix"],
   de: ["HDFilme", "MEGAKino", "Filmo", "Filmpalast"],
