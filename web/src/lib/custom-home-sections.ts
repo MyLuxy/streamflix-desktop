@@ -374,6 +374,16 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Fantascienza", genreId: "https://guardaplay.info/category/fantascienza/" },
     { label: "Fantasy", genreId: "https://guardaplay.info/category/fantasy/" },
   ],
+  // no real genre browsing on the site (tags are plain text, href="#") - getGenre() reuses this
+  // slot as "kind:sort" instead, sort matches what /movies and /tv already accept as ?sort=
+  SoapGo: [
+    { label: "Popular Movies", genreId: "movie:hot" },
+    { label: "Top Rated Movies", genreId: "movie:imdb" },
+    { label: "New Movies", genreId: "movie:release" },
+    { label: "Popular TV Shows", genreId: "tv:hot" },
+    { label: "Top Rated TV Shows", genreId: "tv:imdb" },
+    { label: "New TV Shows", genreId: "tv:release" },
+  ],
   GuardaSerie: [
     { label: "Commedia", genreId: "https://guardoserie.college/commedia/" },
     { label: "Dramma", genreId: "https://guardoserie.college/dramma/" },

@@ -44,11 +44,11 @@ object SoapGoProvider : Provider {
 
         @retrofit2.http.Headers(USER_AGENT)
         @GET("movies")
-        suspend fun getMovies(@Query("page") page: Int): Document
+        suspend fun getMovies(@Query("page") page: Int, @Query("sort") sort: String? = null): Document
 
         @retrofit2.http.Headers(USER_AGENT)
         @GET("tv")
-        suspend fun getTvShows(@Query("page") page: Int): Document
+        suspend fun getTvShows(@Query("page") page: Int, @Query("sort") sort: String? = null): Document
 
         @retrofit2.http.Headers(USER_AGENT)
         @GET("search/{query}")
@@ -87,7 +87,8 @@ object SoapGoProvider : Provider {
     private data class ResolveResponse(val code: Int? = null, val video: List<ResolveVideo> = emptyList())
 
     private fun parseCard(el: Element): Show? {
-        val a = el.selectFirst("h4.poster-title a[href]") ?: return null
+        // home/search use h4.poster-title, the /movies and /tv archives use h2 for the same class
+        val a = el.selectFirst("h2.poster-title a[href], h4.poster-title a[href]") ?: return null
         val href = a.attr("href").takeIf { it.isNotBlank() } ?: return null
         val title = a.text().trim().ifBlank { return null }
         val poster = el.selectFirst("img")?.let { it.attr("src").ifBlank { it.attr("data-src") } }?.ifBlank { null }
@@ -103,24 +104,12 @@ object SoapGoProvider : Provider {
     private fun parseListing(doc: Document): List<Show> =
         doc.select("div.thumbnail").mapNotNull(::parseCard).distinctBy { it.id }
 
+    // the site's own home is just "most popular"/"latest" repeated for movies then tv - a single
+    // trending row here is enough to seed the hero banner, the real rows are the sort-based
+    // pseudo-genres below (wired up client-side via CUSTOM_HOME_SECTIONS, same as other providers)
     override suspend fun getHome(): List<Category> {
-        val doc = service.getPage("$baseUrl/home")
-        val categories = mutableListOf<Category>()
-
-        var currentGroup = ""
-        doc.select("h2.panel-title, h3.alert.alert-info-ex").forEach { heading ->
-            if (heading.tagName() == "h2") {
-                currentGroup = heading.text().trim()
-                return@forEach
-            }
-            val panel = heading.closest("div.panel") ?: return@forEach
-            val items = panel.select("div.thumbnail").mapNotNull(::parseCard)
-            if (items.isEmpty()) return@forEach
-            val label = listOf(currentGroup, heading.text().trim()).filter { it.isNotBlank() }.joinToString(" - ")
-            categories.add(Category(name = label, list = items))
-        }
-
-        return categories
+        val items = parseListing(service.getMovies(1, "hot"))
+        return listOfNotNull(items.takeIf { it.isNotEmpty() }?.let { Category(name = "Trending", list = it) })
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
@@ -207,8 +196,13 @@ object SoapGoProvider : Provider {
         }
     }
 
+    // site has no real genre browsing (the tags on a detail page are plain text, href="#") - the
+    // custom home rows reuse this as "kind:sort" instead (e.g. "movie:hot"), sort is whatever
+    // /movies?sort= already accepts (hot, imdb, release, update)
     override suspend fun getGenre(id: String, page: Int): Genre {
-        throw Exception("Genre browsing is not available on SoapGo.")
+        val (kind, sort) = id.split(":", limit = 2).let { it[0] to it.getOrElse(1) { "hot" } }
+        val items = if (kind == "tv") parseListing(service.getTvShows(page, sort)) else parseListing(service.getMovies(page, sort))
+        return Genre(id = id, name = id, shows = items)
     }
 
     override suspend fun getPeople(id: String, page: Int): People {
