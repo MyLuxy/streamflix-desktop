@@ -7,6 +7,8 @@ import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.streamflixreborn.streamflix.utils.MimeTypes
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -104,12 +106,16 @@ object SoapGoProvider : Provider {
     private fun parseListing(doc: Document): List<Show> =
         doc.select("div.thumbnail").mapNotNull(::parseCard).distinctBy { it.id }
 
-    // the site's own home is just "most popular"/"latest" repeated for movies then tv - a single
-    // trending row here is enough to seed the hero banner, the real rows are the sort-based
-    // pseudo-genres below (wired up client-side via CUSTOM_HOME_SECTIONS, same as other providers)
-    override suspend fun getHome(): List<Category> {
-        val items = parseListing(service.getMovies(1, "hot"))
-        return listOfNotNull(items.takeIf { it.isNotEmpty() }?.let { Category(name = "Trending", list = it) })
+    // the site's own home is just "most popular"/"latest" repeated for movies then tv - reuse the
+    // same sort-based pseudo-genres for 2 rows here so the page isnt just a hero banner waiting on
+    // CUSTOM_HOME_SECTIONS to lazy-load, the rest of the sort combos live there instead
+    override suspend fun getHome(): List<Category> = coroutineScope {
+        val moviesDeferred = async { parseListing(service.getMovies(1, "hot")) }
+        val tvDeferred = async { parseListing(service.getTvShows(1, "hot")) }
+        listOfNotNull(
+            moviesDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Popular Movies", list = it) },
+            tvDeferred.await().takeIf { it.isNotEmpty() }?.let { Category(name = "Popular TV Shows", list = it) },
+        )
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
