@@ -4,6 +4,7 @@ import com.streamflixreborn.streamflix.utils.Log
 
 import com.streamflixreborn.streamflix.models.*
 import com.streamflixreborn.streamflix.utils.DnsResolver
+import com.streamflixreborn.streamflix.utils.HeadlessBrowserResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -315,33 +316,30 @@ object VivariumProvider : Provider {
         }
     }
 
+    // /api/es sits behind Cloudflare bot management that blocks plain OkHttp/curl requests
+    // outright (no header combination gets past it, verified) - only a real browser TLS
+    // fingerprint clears it, so this rides the watch page's own fetch instead of calling the
+    // endpoint directly. Single shared instance so concurrent lookups share its mutex.
+    private val browserResolver = HeadlessBrowserResolver()
+
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
-        val params = when (videoType) {
+        val watchUrl = when (videoType) {
             is Video.Type.Movie -> {
                 val (_, tmdbId) = kindAndId(id)
-                mapOf("id" to tmdbId, "type" to "movie")
+                "$baseUrl/m/x-$tmdbId?w=1"
             }
             is Video.Type.Episode -> {
                 val (_, tmdbId) = kindAndId(videoType.tvShow.id)
-                mapOf("id" to tmdbId, "type" to "tv", "season" to videoType.season.number.toString(), "episode" to videoType.number.toString())
+                "$baseUrl/s/x-$tmdbId?w=1&s=${videoType.season.number}&e=${videoType.number}"
             }
         }
 
-        val url = "$baseUrl/api/es".toHttpUrlOrNull()?.newBuilder()
-            ?.apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
-            ?.build() ?: return emptyList()
-
         val body = try {
-            withContext(Dispatchers.IO) {
-                client.newCall(
-                    Request.Builder().url(url)
-                        .header("User-Agent", USER_AGENT)
-                        .header("Accept", "text/event-stream")
-                        .header("Referer", "$baseUrl/")
-                        .header("Origin", baseUrl)
-                        .build()
-                ).execute().use { it.body?.string() }
-            } ?: return emptyList()
+            browserResolver.waitForResponseBody(
+                url = watchUrl,
+                timeoutMs = 30_000L,
+                predicate = { it.contains("/api/es") },
+            ) ?: return emptyList()
         } catch (e: Exception) {
             Log.e(TAG, "getServers error: ${e.message}", e)
             return emptyList()
