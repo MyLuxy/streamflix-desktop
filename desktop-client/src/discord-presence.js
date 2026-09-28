@@ -5,7 +5,8 @@ const { Client } = require("@xhayper/discord-rpc");
 
 // public id of the StreamFlix application in the Discord developer portal, not a secret
 const CLIENT_ID = "1554118394893180988";
-const RELEASES_URL = "https://github.com/MyLuxy/streamflix-desktop/releases/latest";
+const REPO_URL = "https://github.com/MyLuxy/streamflix-desktop";
+const RELEASES_URL = `${REPO_URL}/releases/latest`;
 // discord accepts a public image url in place of an uploaded art asset, so nothing has to be uploaded in the portal
 // padded version of the icon, the raw one fills the whole tile and looks oversized next to the text
 const LOGO_URL = "https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/main/desktop-client/assets/discord-logo.png";
@@ -53,8 +54,11 @@ function buildActivity(payload) {
     type: WATCHING,
     statusDisplayType: STATUS_DISPLAY_DETAILS,
     details,
+    // title and artwork open the repo when clicked on someone's profile
+    detailsUrl: REPO_URL,
     state: text(payload.state),
     largeImageKey: poster ?? LOGO_URL,
+    largeImageUrl: REPO_URL,
     largeImageText: details,
     buttons: [{ label: "Download StreamFlix", url: RELEASES_URL }],
   };
@@ -62,6 +66,7 @@ function buildActivity(payload) {
   // the big image is the poster when there is one, so the logo moves to the corner
   if (poster) {
     activity.smallImageKey = LOGO_URL;
+    activity.smallImageUrl = REPO_URL;
     activity.smallImageText = "StreamFlix";
   }
 
@@ -81,8 +86,10 @@ function buildIdle(state) {
     type: WATCHING,
     statusDisplayType: STATUS_DISPLAY_DETAILS,
     details: "StreamFlix",
+    detailsUrl: REPO_URL,
     state: label,
     largeImageKey: LOGO_URL,
+    largeImageUrl: REPO_URL,
     largeImageText: "StreamFlix",
     startTimestamp: startedAt,
     buttons: [{ label: "Download StreamFlix", url: RELEASES_URL }],
