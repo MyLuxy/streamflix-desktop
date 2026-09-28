@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare, Heart } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -519,10 +519,15 @@ export function SettingsPage() {
           </DialogContent>
         </Dialog>
 
-        <section className="relative overflow-hidden rounded-2xl border border-fuchsia-500/40 bg-[#0d0517] p-5 md:p-8 mt-6 md:mt-8 shadow-[0_0_44px_-12px_rgba(217,70,239,0.55)]">
+        <section className="relative overflow-hidden rounded-2xl border border-fuchsia-500/30 bg-[#12051f] p-5 md:p-8 mt-6 md:mt-8">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_120%_at_0%_0%,rgba(236,72,153,0.38),transparent_60%),radial-gradient(80%_120%_at_100%_0%,rgba(139,92,246,0.5),transparent_60%),radial-gradient(90%_90%_at_50%_130%,rgba(192,38,211,0.4),transparent_65%)]"
+            className="pointer-events-none absolute inset-0 scale-110 bg-cover bg-[position:center_58%] blur-[3px]"
+            style={{ backgroundImage: "url(/credits-bg.webp)" }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-black/10"
           />
           <div
             aria-hidden="true"
@@ -537,22 +542,17 @@ export function SettingsPage() {
               aria-label="MyLuxy"
               className="group relative flex-shrink-0 self-start sm:self-auto"
             >
-              <div className="rounded-full p-[3px] bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 shadow-[0_0_22px_-4px_rgba(217,70,239,0.8)]">
-                <div className="relative overflow-hidden rounded-full">
-                  <img
-                    src="https://github.com/MyLuxy.png?size=160"
-                    alt="MyLuxy"
-                    className="h-16 w-16 md:h-20 md:w-20 object-cover bg-muted"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.visibility = "hidden";
-                    }}
-                  />
-                  <span className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/25" />
-                </div>
+              <div className="relative overflow-hidden rounded-full">
+                <img
+                  src="https://github.com/MyLuxy.png?size=192"
+                  alt="MyLuxy"
+                  className="h-[4.5rem] w-[4.5rem] md:h-24 md:w-24 object-cover bg-muted"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.visibility = "hidden";
+                  }}
+                />
+                <span className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/25" />
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#0d0517] ring-2 ring-fuchsia-500/50">
-                <Heart className="h-4 w-4 fill-pink-400 text-pink-400" />
-              </span>
             </a>
 
             <div className="min-w-0 flex-1">
@@ -575,7 +575,7 @@ export function SettingsPage() {
               target="_blank"
               rel="noreferrer"
               onClick={openCredits}
-              className="inline-flex h-14 items-center justify-center gap-3 self-start sm:self-auto rounded-md border border-white/20 bg-white/5 px-8 text-lg font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 [&_svg]:size-6"
+              className="inline-flex h-14 items-center justify-center gap-3 self-start sm:self-auto rounded-md border border-white/30 bg-white/10 px-8 text-lg font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-md transition-all hover:bg-white/15 [&_svg]:size-6"
             >
               {t('settings.creditsLink')}
               <ExternalLink />
