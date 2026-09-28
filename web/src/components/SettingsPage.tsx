@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare, Radio } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { openExternalLink } from "@/lib/open-external";
 import { Switch } from "@/components/ui/switch";
+import { DiscordIcon } from "@/components/icons/DiscordIcon";
 import { isDiscordPresenceEnabled, setDiscordPresenceEnabled } from "@/lib/discord-presence";
 import { useImagePreload } from "@/hooks/useImagePreload";
 import { allLanguageFlagUrls } from "@/lib/content-languages";
@@ -498,7 +499,7 @@ export function SettingsPage() {
           <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <Radio className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
+                <DiscordIcon className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
                 <div>
                   <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.discord')}</p>
                   <p className="text-sm md:text-base text-muted-foreground">{t('settings.discordDesc')}</p>
