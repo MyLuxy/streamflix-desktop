@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Download, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
+import { Button } from "@/components/ui/button";
 import { HeroBanner } from "@/components/HeroBanner";
 import { ContentRow } from "@/components/ContentRow";
 import { ContinueWatchingRow } from "@/components/ContinueWatchingRow";
@@ -73,23 +74,26 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
         <div className="home-content relative z-10 -mt-8 md:-mt-16 pb-24 space-y-10 md:space-y-12">
           {!isOnline ? (
-            <div className="flex min-h-[70vh] items-center justify-center px-4">
-              <div className="flex max-w-md flex-col items-center gap-7 text-center">
-                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/25">
-                  <span aria-hidden="true" className="absolute inset-0 rounded-full bg-primary/15 blur-xl" />
-                  <WifiOff className="relative h-9 w-9 text-primary" />
+            <div className="flex min-h-screen items-center justify-center px-4 pt-10">
+              <div className="flex max-w-xl flex-col items-center gap-9 text-center">
+                <div className="flex h-28 w-28 items-center justify-center rounded-full bg-secondary ring-1 ring-border">
+                  <WifiOff className="h-12 w-12 text-foreground" />
                 </div>
-                <div className="space-y-2">
-                  <p className="text-2xl font-semibold text-foreground">{t("home.offline.title")}</p>
-                  <p className="text-base text-muted-foreground">{t("home.offline.description")}</p>
+                <div className="space-y-3">
+                  <p className="text-4xl font-semibold text-foreground">{t("home.offline.title")}</p>
+                  <p className="text-xl text-muted-foreground">{t("home.offline.description")}</p>
                 </div>
-                <Link
-                  href={localePath(locale, "/downloads")}
-                  className="inline-flex h-12 items-center gap-2 rounded-md bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 [&_svg]:size-5"
+                <Button
+                  asChild
+                  variant="secondary"
+                  size="lg"
+                  className="h-14 gap-3 px-8 text-xl hover:bg-secondary hover:text-secondary-foreground [&_svg]:size-7"
                 >
-                  <Download />
-                  {t("home.offline.action")}
-                </Link>
+                  <Link href={localePath(locale, "/downloads")}>
+                    <Download />
+                    {t("home.offline.action")}
+                  </Link>
+                </Button>
               </div>
             </div>
           ) : error ? (
