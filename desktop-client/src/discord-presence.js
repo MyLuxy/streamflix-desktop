@@ -7,7 +7,8 @@ const { Client } = require("@xhayper/discord-rpc");
 const CLIENT_ID = "1554118394893180988";
 const RELEASES_URL = "https://github.com/MyLuxy/streamflix-desktop/releases/latest";
 // discord accepts a public image url in place of an uploaded art asset, so nothing has to be uploaded in the portal
-const LOGO_URL = "https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/main/desktop-client/assets/icon.png";
+// padded version of the icon, the raw one fills the whole tile and looks oversized next to the text
+const LOGO_URL = "https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/main/desktop-client/assets/discord-logo.png";
 const WATCHING = 3;
 // status text shows the "details" line (the title) instead of the app name
 const STATUS_DISPLAY_DETAILS = 2;
