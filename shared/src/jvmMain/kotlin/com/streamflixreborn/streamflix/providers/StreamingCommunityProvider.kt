@@ -17,10 +17,21 @@ import com.streamflixreborn.streamflix.utils.InertiaUtils
 import com.streamflixreborn.streamflix.utils.NetworkClient
 import com.streamflixreborn.streamflix.utils.TmdbUtils
 import com.streamflixreborn.streamflix.utils.UserPreferences
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelChildren
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
@@ -59,7 +70,8 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     private val tmdbFallback by lazy { TmdbProvider(LANG) }
     private var usingFallback = false
 
-    private val DEFAULT_DOMAIN: String = "streamingcommunityz.tax"
+    private val RECOVERY_COOLDOWN_MS = 5 * 60 * 1000L
+    private val DEFAULT_DOMAIN: String = "streamingcommunityz.pictures"
     private val BLOCKED_DOMAINS = setOf("streamingcommunityz.green", "streamingunity.club", "streamingunity.bike", "streamingcommunityz.buzz", "streamingunity.cc")
     override val baseUrl = DEFAULT_DOMAIN
     private var _domain: String? = null
@@ -88,6 +100,55 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
                 UserPreferences.streamingcommunityDomain = value
                 invalidateService()
             }
+        }
+
+    // the site moving to a new domain looks exactly like it being down: the old one just 404s or stops resolving, with no
+    // redirect left to follow. so before giving up on the site for the tmdb fallback, look for where it went. same for a
+    // one-off failure, the fallback is for the whole session so the site gets one more chance first. only worth doing
+    // before that switch, once on tmdb ids the real site cant be mixed back into the same session
+    private val recoveryMutex = Mutex()
+    private var lastRecoveryAt = 0L
+
+    // true when a retry is worth it: the domain changed, or the site answers where it always did and the failure was a blip
+    private suspend fun recoverDomain(): Boolean {
+        val before = domain
+        return recoveryMutex.withLock {
+            // another call failed at the same moment and already found it
+            if (domain != before) return@withLock true
+            if (System.currentTimeMillis() - lastRecoveryAt < RECOVERY_COOLDOWN_MS) return@withLock false
+            lastRecoveryAt = System.currentTimeMillis()
+
+            val isBlocked = { host: String -> BLOCKED_DOMAINS.any { host.contains(it) } }
+            val candidates = (
+                listOfNotNull(UserPreferences.streamingcommunityDomain) +
+                    ScDomainHunter.remoteList() +
+                    ScDomainHunter.KNOWN +
+                    before
+                ).filter { it.isNotBlank() }.distinct()
+            val found = ScDomainHunter.firstReachable(candidates, 12_000, isBlocked)
+
+            if (found == null) {
+                Log.w(TAG, "no live domain among ${candidates.size} candidates, sweeping in the background for the next launch")
+                ScDomainHunter.sweepInBackground(isBlocked) { UserPreferences.streamingcommunityDomain = it }
+                return@withLock false
+            }
+            if (found == before) {
+                Log.i(TAG, "$before still answers, retrying once")
+                return@withLock true
+            }
+
+            Log.i(TAG, "domain moved from $before to $found")
+            domain = found
+            true
+        }
+    }
+
+    private suspend fun <T> withDomainRecovery(block: suspend () -> T): T =
+        try {
+            block()
+        } catch (e: Exception) {
+            if (!recoverDomain()) throw e
+            block()
         }
 
     override val name: String
@@ -212,7 +273,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     override suspend fun getHome(): List<Category> {
         if (usingFallback) return tmdbFallback.getHome()
         return try {
-            getHomeReal()
+            withDomainRecovery { getHomeReal() }
         } catch (e: Exception) {
             Log.w(TAG, "getHome failed ($e), switching to TMDB fallback")
             usingFallback = true
@@ -326,7 +387,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     override suspend fun search(query: String, page: Int): List<ListItem> {
         if (usingFallback) return tmdbFallback.search(query, page)
         return try {
-            searchReal(query, page)
+            withDomainRecovery { searchReal(query, page) }
         } catch (e: Exception) {
             Log.w(TAG, "search failed ($e), switching to TMDB fallback")
             usingFallback = true
@@ -377,11 +438,13 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         if (usingFallback) return tmdbFallback.getMovies(page)
         val offset = (page - 1) * 60
         val shows = try {
-            if (page == 1) {
-                val json = InertiaUtils.parseInertiaData(withSslFallback { it.getMoviesHtml() })
-                getTitlesFromInertiaJson(json)
-            } else {
-                withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "movie") }.titles
+            withDomainRecovery {
+                if (page == 1) {
+                    val json = InertiaUtils.parseInertiaData(withSslFallback { it.getMoviesHtml() })
+                    getTitlesFromInertiaJson(json)
+                } else {
+                    withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "movie") }.titles
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error fetching movies page $page ($e), switching to TMDB fallback")
@@ -398,11 +461,13 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         if (usingFallback) return tmdbFallback.getTvShows(page)
         val offset = (page - 1) * 60
         val shows = try {
-            if (page == 1) {
-                val json = InertiaUtils.parseInertiaData(withSslFallback { it.getTvShowsHtml() })
-                getTitlesFromInertiaJson(json)
-            } else {
-                withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "tv") }.titles
+            withDomainRecovery {
+                if (page == 1) {
+                    val json = InertiaUtils.parseInertiaData(withSslFallback { it.getTvShowsHtml() })
+                    getTitlesFromInertiaJson(json)
+                } else {
+                    withSslFallback { it.getArchiveApi(lang = language, offset = offset, type = "tv") }.titles
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error fetching tv shows page $page ($e), switching to TMDB fallback")
@@ -769,5 +834,126 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
         data class ArchiveProps(val archive: ArchivePage?, val titles: ArchivePage?, val movies: ArchivePage?, val tv: ArchivePage?, @SerializedName("tv_shows") val tvShows: ArchivePage?)
         data class ArchiveRes(val version: String, val props: ArchiveProps?)
         data class ApiArchiveRes(val titles: List<Show>)
+    }
+}
+
+// finds where StreamingCommunity currently lives. tried in this order: a list kept in the repo (updating it needs no
+// release), the domains it was on before (they usually still redirect to the current one), and as a last resort a slow
+// sweep of likely name+tld combinations in the background
+private object ScDomainHunter {
+    private const val TAG = "SCDomainHunter"
+    private const val LIST_URL = "https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/main/domains.json"
+
+    val KNOWN = listOf(
+        "streamingcommunityz.pictures",
+        "streamingcommunityz.photos",
+        "streamingcommunityz.boats",
+        "streamingcommunityz.bzh",
+        "streamingcommunityz.tax",
+    )
+
+    private val PREFIXES = listOf("streamingcommunityz", "streamingunity", "streamingcommunity")
+    private val TLDS = (
+        "to tv cc co me biz info xyz top site online club bike buzz green tax photos pictures boats bzh one live pro wtf " +
+            "cool lol art red blue mom run sbs cfd cyou icu vip fun life world click link help zone works today space store " +
+            "tech agency work bar cam rest fit kim ink day date love ltd care cash city media news chat page plus team tips " +
+            "wiki baby beer boo bond ceo cloud com net org it eu us uk de fr es nl pl ru cz lat pw ws mx guru ninja monster " +
+            "quest hair yachts makeup autos motorcycles homes hosting best rocks"
+        ).split(" ").distinct()
+
+    // dead domains keep answering with parked pages and 404s, and clones copy the look. the real site is an inertia app
+    // titled "StreamingCommunity", so that is what a hit has to look like
+    private val TITLE = Regex("""<title inertia>\s*StreamingCommunity""", RegexOption.IGNORE_CASE)
+
+    private val sweepStarted = AtomicBoolean(false)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // returns the host it ended up on after redirects, null if it isnt the site
+    fun probe(host: String, isBlocked: (String) -> Boolean): String? {
+        for (base in listOf(NetworkClient.default, NetworkClient.trustAll)) {
+            try {
+                val client = base.newBuilder()
+                    .followRedirects(true)
+                    .followSslRedirects(true)
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(8, TimeUnit.SECONDS)
+                    .build()
+                val request = okhttp3.Request.Builder()
+                    .url("https://$host/it")
+                    .header("User-Agent", NetworkClient.USER_AGENT)
+                    .get()
+                    .build()
+                client.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) return null
+                    val finalHost = resp.request.url.host
+                    val body = resp.body?.string().orEmpty()
+                    return if (TITLE.containsMatchIn(body) && !isBlocked(finalHost)) finalHost else null
+                }
+            } catch (e: javax.net.ssl.SSLException) {
+                // an isp block often shows up as a bad certificate, the trust-all pass gets past it
+                continue
+            } catch (e: Exception) {
+                return null
+            }
+        }
+        return null
+    }
+
+    suspend fun firstReachable(hosts: List<String>, timeoutMs: Long, isBlocked: (String) -> Boolean): String? =
+        withTimeoutOrNull(timeoutMs) {
+            coroutineScope {
+                val results = Channel<String?>(hosts.size)
+                hosts.forEach { host -> launch(Dispatchers.IO) { results.send(probe(host, isBlocked)) } }
+                repeat(hosts.size) {
+                    results.receive()?.let { found ->
+                        coroutineContext.cancelChildren()
+                        return@coroutineScope found
+                    }
+                }
+                null
+            }
+        }
+
+    suspend fun remoteList(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = okhttp3.Request.Builder().url(LIST_URL).header("Cache-Control", "no-cache").get().build()
+            NetworkClient.default.newBuilder().callTimeout(4, TimeUnit.SECONDS).build().newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) return@use emptyList()
+                val array = JSONObject(resp.body?.string().orEmpty()).optJSONArray("streamingcommunity") ?: return@use emptyList()
+                (0 until array.length()).map { array.getString(it) }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "domain list unavailable: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // once per launch, this many lookups is not something to repeat. finds nothing for the current session (it already
+    // switched to tmdb ids) but the next launch starts from the domain it saved
+    fun sweepInBackground(isBlocked: (String) -> Boolean, onFound: (String) -> Unit) {
+        if (!sweepStarted.compareAndSet(false, true)) return
+        scope.launch {
+            val hosts = PREFIXES.flatMap { prefix -> TLDS.map { "$prefix.$it" } }
+            val found = withTimeoutOrNull(90_000) {
+                val gate = Semaphore(24)
+                coroutineScope {
+                    val results = Channel<String?>(hosts.size)
+                    hosts.forEach { host -> launch { gate.withPermit { results.send(probe(host, isBlocked)) } } }
+                    repeat(hosts.size) {
+                        results.receive()?.let { hit ->
+                            coroutineContext.cancelChildren()
+                            return@coroutineScope hit
+                        }
+                    }
+                    null
+                }
+            }
+            if (found != null) {
+                Log.i(TAG, "sweep found $found")
+                onFound(found)
+            } else {
+                Log.w(TAG, "sweep found nothing")
+            }
+        }
     }
 }
