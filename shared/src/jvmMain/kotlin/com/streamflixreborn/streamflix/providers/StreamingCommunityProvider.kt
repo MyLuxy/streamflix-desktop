@@ -119,10 +119,10 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
             lastRecoveryAt = System.currentTimeMillis()
 
             val isBlocked = { host: String -> BLOCKED_DOMAINS.any { host.contains(it) } }
+            // the list in the repo is the real one, the built-in fallback only covers github being unreachable
             val candidates = (
                 listOfNotNull(UserPreferences.streamingcommunityDomain) +
-                    ScDomainHunter.remoteList() +
-                    ScDomainHunter.KNOWN +
+                    ScDomainHunter.remoteList().ifEmpty { ScDomainHunter.FALLBACK } +
                     before
                 ).filter { it.isNotBlank() }.distinct()
             val found = ScDomainHunter.firstReachable(candidates, 12_000, isBlocked)
@@ -837,20 +837,15 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 }
 
-// finds where StreamingCommunity currently lives. tried in this order: a list kept in the repo (updating it needs no
-// release), the domains it was on before (they usually still redirect to the current one), and as a last resort a slow
-// sweep of likely name+tld combinations in the background
+// finds where StreamingCommunity currently lives. tried in this order: the list kept in the repo (domains.json, editing it
+// needs no release, put the newest first and drop the ones that are long dead), and as a last resort a slow sweep of
+// likely name+tld combinations in the background
 private object ScDomainHunter {
     private const val TAG = "SCDomainHunter"
     private const val LIST_URL = "https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/main/domains.json"
 
-    val KNOWN = listOf(
-        "streamingcommunityz.pictures",
-        "streamingcommunityz.photos",
-        "streamingcommunityz.boats",
-        "streamingcommunityz.bzh",
-        "streamingcommunityz.tax",
-    )
+    // only used when the list above cant be fetched
+    val FALLBACK = listOf("streamingcommunityz.pictures")
 
     private val PREFIXES = listOf("streamingcommunityz", "streamingunity", "streamingcommunity")
     private val TLDS = (
