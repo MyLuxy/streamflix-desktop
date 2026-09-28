@@ -13,6 +13,7 @@ import { proxyImage, PROVIDER_LOGO_FALLBACK, GENERIC_PROVIDER_LOGO } from "@/lib
 import { LanguageFilterDropdown } from "@/components/LanguageFilterDropdown";
 import { BACKEND_URL } from "@/lib/backend";
 import { setCustomTmdbKeyClient } from "@/lib/tmdb-key";
+import { openExternalLink } from "@/lib/open-external";
 
 const WELCOME_STORAGE_KEY = "streamflix_welcome_accepted";
 
@@ -314,6 +315,7 @@ export function WelcomeModal() {
                     href="https://www.themoviedb.org/settings/api"
                     target="_blank"
                     rel="noreferrer"
+                    onClick={openExternalLink}
                     className="inline-flex items-center gap-1.5 mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]"
                   >
                     {t("setup.tmdb.getKeyLink")}

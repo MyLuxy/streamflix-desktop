@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { languages } from "@/i18n";
-import { useEffect, useMemo, useState, useTransition, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "@/hooks/useLocale";
 import { useProviders, type StreamflixProvider } from "@/hooks/useStreamflix";
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { openExternalLink } from "@/lib/open-external";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function SettingsPage() {
@@ -40,11 +41,6 @@ export function SettingsPage() {
   const router = useRouter();
   const currentLocale = useLocale();
   const [debugOpen, setDebugOpen] = useState(false);
-  const openCredits = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (!window.streamflixDesktop) return;
-    e.preventDefault();
-    window.streamflixDesktop.openExternal(e.currentTarget.href);
-  };
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const { isDesktop, state: updateState, download: downloadUpdate, restart: restartToInstall } = useDesktopUpdate();
   const appVersion = useAppVersion();
@@ -348,6 +344,7 @@ export function SettingsPage() {
               href="https://www.themoviedb.org/settings/api"
               target="_blank"
               rel="noreferrer"
+              onClick={openExternalLink}
               className="inline-flex items-center gap-1.5 mt-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               {t('setup.tmdb.getKeyLink')}
@@ -538,7 +535,7 @@ export function SettingsPage() {
               href="https://github.com/MyLuxy"
               target="_blank"
               rel="noreferrer"
-              onClick={openCredits}
+              onClick={openExternalLink}
               aria-label="MyLuxy"
               className="group relative flex-shrink-0 self-start sm:self-auto"
             >
@@ -563,7 +560,7 @@ export function SettingsPage() {
                 href="https://github.com/MyLuxy"
                 target="_blank"
                 rel="noreferrer"
-                onClick={openCredits}
+                onClick={openExternalLink}
                 className="mt-1 inline-block font-semibold text-2xl md:text-3xl text-white transition-colors hover:text-fuchsia-200"
               >
                 MyLuxy
@@ -574,7 +571,7 @@ export function SettingsPage() {
               href="https://github.com/MyLuxy"
               target="_blank"
               rel="noreferrer"
-              onClick={openCredits}
+              onClick={openExternalLink}
               className="inline-flex h-14 items-center justify-center gap-3 self-start sm:self-auto rounded-md border border-white/30 bg-white/10 px-8 text-lg font-medium text-white shadow-[0_4px_14px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] backdrop-blur-md transition-all hover:bg-white/15 [&_svg]:size-6"
             >
               {t('settings.creditsLink')}
