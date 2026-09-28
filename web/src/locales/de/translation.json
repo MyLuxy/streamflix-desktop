@@ -113,8 +113,9 @@
       "thriller": "Thriller",
       "categories": "Kategorien",
       "offline": {
-        "title": "Keine Internetverbindung",
-        "description": "Dieses Gerät scheint offline zu sein. Überprüfe deine Verbindung und versuche es erneut."
+        "title": "Du bist offline",
+        "description": "Heruntergeladene Filme und Episoden sind weiterhin verfügbar.",
+        "action": "Zu den Downloads"
       }
     },
     "anime": {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, WifiOff } from "lucide-react";
+import { AlertTriangle, Download, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
 import { HeroBanner } from "@/components/HeroBanner";
@@ -13,7 +14,7 @@ import { LiveTVRow } from "@/components/LiveTVRow";
 import { useContinueWatching, type WatchedItem } from "@/hooks/useContinueWatching";
 import { useLocale } from "@/hooks/useLocale";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { hrefForItem, typeSegment } from "@/lib/links";
+import { hrefForItem, localePath, typeSegment } from "@/lib/links";
 import { buildProviderSlug } from "@/lib/slug";
 import type { Movie, TVShow, MediaItem } from "@/lib/types";
 import type { HomeRow } from "@/lib/streamflix";
@@ -72,11 +73,23 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
         <div className="home-content relative z-10 -mt-8 md:-mt-16 pb-24 space-y-10 md:space-y-12">
           {!isOnline ? (
-            <div className="flex items-center justify-center min-h-screen px-4">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <WifiOff className="w-10 h-10 text-destructive" />
-                <p className="text-lg font-semibold text-foreground">{t("home.offline.title")}</p>
-                <p className="text-sm text-muted-foreground max-w-md">{t("home.offline.description")}</p>
+            <div className="flex min-h-[70vh] items-center justify-center px-4">
+              <div className="flex max-w-md flex-col items-center gap-7 text-center">
+                <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 ring-1 ring-primary/25">
+                  <span aria-hidden="true" className="absolute inset-0 rounded-full bg-primary/15 blur-xl" />
+                  <WifiOff className="relative h-9 w-9 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-2xl font-semibold text-foreground">{t("home.offline.title")}</p>
+                  <p className="text-base text-muted-foreground">{t("home.offline.description")}</p>
+                </div>
+                <Link
+                  href={localePath(locale, "/downloads")}
+                  className="inline-flex h-12 items-center gap-2 rounded-md bg-primary px-6 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/90 [&_svg]:size-5"
+                >
+                  <Download />
+                  {t("home.offline.action")}
+                </Link>
               </div>
             </div>
           ) : error ? (

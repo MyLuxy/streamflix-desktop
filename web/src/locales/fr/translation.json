@@ -113,8 +113,9 @@
       "thriller": "Thriller",
       "categories": "Catégories",
       "offline": {
-        "title": "Aucune connexion internet",
-        "description": "Il semble que cet appareil soit hors ligne. Vérifiez votre connexion et réessayez."
+        "title": "Vous êtes hors ligne",
+        "description": "Les films et épisodes téléchargés restent disponibles.",
+        "action": "Aller aux téléchargements"
       }
     },
     "anime": {

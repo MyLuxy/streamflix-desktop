@@ -113,8 +113,9 @@
       "thriller": "Thriller",
       "categories": "Categories",
       "offline": {
-        "title": "No internet connection",
-        "description": "It looks like this device is offline. Check your connection and try again."
+        "title": "You're offline",
+        "description": "Movies and episodes you downloaded are still available.",
+        "action": "Go to downloads"
       }
     },
     "anime": {
