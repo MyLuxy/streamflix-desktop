@@ -79,6 +79,27 @@ function buildActivity(payload) {
   return activity;
 }
 
+// discord fetches the poster itself, from its own servers and with no referer, so a hotlink-protected one comes out blank.
+// checked the same way here first, and the logo is used instead when it doesnt answer as an image
+const posterChecks = new Map();
+
+function posterReachable(url) {
+  if (url.startsWith("https://image.tmdb.org/")) return Promise.resolve(true);
+  if (!posterChecks.has(url)) {
+    if (posterChecks.size > 100) posterChecks.clear();
+    posterChecks.set(
+      url,
+      fetch(url, { headers: { "User-Agent": "Mozilla/5.0", Range: "bytes=0-1" }, signal: AbortSignal.timeout(4000) })
+        .then((res) => {
+          res.body?.cancel().catch(() => {});
+          return res.ok && (res.headers.get("content-type") ?? "").startsWith("image/");
+        })
+        .catch(() => false),
+    );
+  }
+  return posterChecks.get(url);
+}
+
 function buildIdle(state) {
   const label = text(state);
   if (!label) return null;
@@ -165,12 +186,20 @@ function refresh() {
 }
 
 // module scope so the handlers exist for the whole app lifetime, main.js just requires this file
-ipcMain.handle("streamflix:presence-set", (_event, payload) => {
-  watching = buildActivity(payload);
+// the poster check is async, so a newer set/clear must win over one still waiting on it
+let setSeq = 0;
+
+ipcMain.handle("streamflix:presence-set", async (_event, payload) => {
+  const seq = ++setSeq;
+  const poster = typeof payload?.posterUrl === "string" ? payload.posterUrl : null;
+  const usable = poster ? await posterReachable(poster) : false;
+  if (seq !== setSeq) return;
+  watching = buildActivity({ ...payload, posterUrl: usable ? poster : null });
   refresh();
 });
 // back to the idle one if it is on, otherwise nothing is shown
 ipcMain.handle("streamflix:presence-clear", () => {
+  setSeq++;
   watching = null;
   refresh();
 });

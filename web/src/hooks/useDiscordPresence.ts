@@ -8,10 +8,11 @@ import { isDiscordPresenceEnabled } from "@/lib/discord-presence";
 // titles from these never go on someone's public profile, only that the app is in use
 const PRIVATE_PROVIDERS = new Set(["AfterDark"]);
 
-// only tmdb posters, other sites can block discord's image fetch and leave a blank picture
+// discord needs a public https url. relative paths are tmdb ones, other hosts get checked in the main process
+// (hotlink-protected ones would come out blank) and fall back to the logo there
 function publicPoster(path?: string | null): string | undefined {
   if (!path) return undefined;
-  if (path.startsWith("https://image.tmdb.org/")) return path;
+  if (path.startsWith("https://")) return path;
   if (path.startsWith("/")) return `${TMDB_IMAGE_BASE}/w500${path}`;
   return undefined;
 }
