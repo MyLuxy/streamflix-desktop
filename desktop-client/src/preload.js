@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("streamflixDesktop", {
   quitAndInstall: () => ipcRenderer.invoke("streamflix:quit-and-install"),
   getVersion: () => ipcRenderer.invoke("streamflix:get-version"),
   showInFolder: (filePath) => ipcRenderer.invoke("streamflix:show-in-folder", filePath),
+  openExternal: (url) => ipcRenderer.invoke("streamflix:open-external", url),
   openDebugTerminal: (locale) => ipcRenderer.invoke("streamflix:open-debug-terminal", locale),
   saveDebugLog: (content) => ipcRenderer.invoke("streamflix:save-debug-log", content),
   onUpdateEvent: (callback) => {

@@ -36,6 +36,12 @@ ipcMain.handle("streamflix:show-in-folder", (_event, filePath) => {
   shell.showItemInFolder(filePath);
 });
 
+// https only so the renderer cant make us launch arbitrary protocols/files through the os
+ipcMain.handle("streamflix:open-external", (_event, url) => {
+  if (typeof url !== "string" || !url.startsWith("https://")) return;
+  shell.openExternal(url);
+});
+
 // its own real window, not a modal, so it survives being moved to another monitor or kept open alongside the app.
 // only one at a time, repeat clicks just refocus it instead of stacking up more windows
 ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { languages } from "@/i18n";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "@/hooks/useLocale";
 import { useProviders, type StreamflixProvider } from "@/hooks/useStreamflix";
@@ -40,6 +40,11 @@ export function SettingsPage() {
   const router = useRouter();
   const currentLocale = useLocale();
   const [debugOpen, setDebugOpen] = useState(false);
+  const openCredits = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!window.streamflixDesktop) return;
+    e.preventDefault();
+    window.streamflixDesktop.openExternal(e.currentTarget.href);
+  };
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const { isDesktop, state: updateState, download: downloadUpdate, restart: restartToInstall } = useDesktopUpdate();
   const appVersion = useAppVersion();
@@ -467,12 +472,12 @@ export function SettingsPage() {
         </section>
 
         <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
-          <DialogContent className="max-w-3xl px-8 pt-10 pb-14 md:px-12 md:pt-12 md:pb-16 [&>button:last-child]:right-3 [&>button:last-child]:top-3 [&>button:last-child]:p-2 [&>button:last-child]:opacity-100 [&>button:last-child_svg]:h-8 [&>button:last-child_svg]:w-8">
+          <DialogContent className="max-w-3xl p-10 md:p-12 [&>button:last-child]:hidden">
             <DialogHeader className="sr-only">
               <DialogTitle>{t('settings.debug')}</DialogTitle>
             </DialogHeader>
-            <div className="divide-y divide-border">
-              <div className="flex items-center justify-between gap-4 flex-wrap py-7">
+            <div className="divide-y divide-border [&>div:first-child]:pt-0 [&>div:last-child]:pb-0">
+              <div className="flex items-center justify-between gap-6 flex-wrap py-8">
                 <div className="flex items-center gap-4">
                   <TerminalSquare className="w-10 h-10 text-primary flex-shrink-0" />
                   <div>
@@ -493,7 +498,7 @@ export function SettingsPage() {
                 </Button>
               </div>
               {isDesktop && appVersion && (
-                <div className="flex items-center justify-between gap-4 pt-7">
+                <div className="flex items-center justify-between gap-6 py-8">
                   <div className="flex items-center gap-4">
                     <Info className="w-10 h-10 text-primary flex-shrink-0" />
                     <p className="font-semibold text-xl md:text-2xl text-foreground">{t('settings.version')}</p>
@@ -514,44 +519,66 @@ export function SettingsPage() {
           </DialogContent>
         </Dialog>
 
-        <section className="relative overflow-hidden bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
+        <section className="relative overflow-hidden rounded-2xl border border-fuchsia-500/40 bg-[#0d0517] p-5 md:p-8 mt-6 md:mt-8 shadow-[0_0_44px_-12px_rgba(217,70,239,0.55)]">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_120%_at_0%_0%,rgba(236,72,153,0.38),transparent_60%),radial-gradient(80%_120%_at_100%_0%,rgba(139,92,246,0.5),transparent_60%),radial-gradient(90%_90%_at_50%_130%,rgba(192,38,211,0.4),transparent_65%)]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10"
           />
           <div className="relative flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
-            <div className="relative flex-shrink-0 self-start sm:self-auto">
-              <div className="rounded-full p-[3px] bg-gradient-to-br from-primary via-primary/40 to-transparent">
-                <img
-                  src="https://github.com/MyLuxy.png?size=160"
-                  alt="MyLuxy"
-                  className="h-16 w-16 md:h-20 md:w-20 rounded-full object-cover bg-muted"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.visibility = "hidden";
-                  }}
-                />
+            <a
+              href="https://github.com/MyLuxy"
+              target="_blank"
+              rel="noreferrer"
+              onClick={openCredits}
+              aria-label="MyLuxy"
+              className="group relative flex-shrink-0 self-start sm:self-auto"
+            >
+              <div className="rounded-full p-[3px] bg-gradient-to-br from-pink-400 via-fuchsia-500 to-violet-500 shadow-[0_0_22px_-4px_rgba(217,70,239,0.8)]">
+                <div className="relative overflow-hidden rounded-full">
+                  <img
+                    src="https://github.com/MyLuxy.png?size=160"
+                    alt="MyLuxy"
+                    className="h-16 w-16 md:h-20 md:w-20 object-cover bg-muted"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.visibility = "hidden";
+                    }}
+                  />
+                  <span className="absolute inset-0 bg-black/0 transition-colors duration-200 group-hover:bg-black/25" />
+                </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-background ring-2 ring-card">
-                <Heart className="h-4 w-4 fill-primary text-primary" />
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#0d0517] ring-2 ring-fuchsia-500/50">
+                <Heart className="h-4 w-4 fill-pink-400 text-pink-400" />
               </span>
-            </div>
+            </a>
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs md:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              <p className="text-xs md:text-sm font-medium uppercase tracking-[0.18em] text-fuchsia-200/70">
                 {t('settings.credits')}
               </p>
-              <p className="mt-1 font-semibold text-2xl md:text-3xl text-foreground">MyLuxy</p>
-              <p className="mt-1 text-base md:text-lg text-muted-foreground">{t('settings.creditsDesc')}</p>
+              <a
+                href="https://github.com/MyLuxy"
+                target="_blank"
+                rel="noreferrer"
+                onClick={openCredits}
+                className="mt-1 inline-block font-semibold text-2xl md:text-3xl text-white transition-colors hover:text-fuchsia-200"
+              >
+                MyLuxy
+              </a>
             </div>
 
             <a
               href="https://github.com/MyLuxy"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 self-start sm:self-auto rounded-lg border border-border px-4 py-2.5 text-sm md:text-base font-medium text-foreground transition-colors hover:border-primary/60 hover:bg-primary/10"
+              onClick={openCredits}
+              className="inline-flex h-14 items-center justify-center gap-3 self-start sm:self-auto rounded-md border border-white/20 bg-white/5 px-8 text-lg font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 [&_svg]:size-6"
             >
               {t('settings.creditsLink')}
-              <ExternalLink className="h-4 w-4" />
+              <ExternalLink />
             </a>
           </div>
         </section>
