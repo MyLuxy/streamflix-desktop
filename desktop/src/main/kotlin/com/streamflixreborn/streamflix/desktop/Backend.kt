@@ -273,7 +273,10 @@ private fun handleProviders(exchange: HttpExchange) {
     val dtos = Provider.providers.entries
         .filter { (provider, _) -> provider.name !in HIDDEN_PROVIDERS }
         .map { (provider, support) ->
-            val favicon = faviconOverride(provider.name) ?: faviconUrl(provider.baseUrl)
+            // the favicon service cant read every domain this one moves to and hands back a generic globe, the site's
+            // own icon follows whichever domain it is on now
+            val favicon = if (provider.name.startsWith("StreamingCommunity")) provider.logo
+                else faviconOverride(provider.name) ?: faviconUrl(provider.baseUrl)
             ProviderDto(provider.name, provider.language, support.movies, support.tvShows, favicon, iptv = provider is IptvProvider)
         }.sortedBy { it.name.lowercase() }
     sendJson(exchange, 200, json.encodeToString(dtos))
