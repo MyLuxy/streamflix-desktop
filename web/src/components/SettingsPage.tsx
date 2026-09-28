@@ -33,7 +33,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { openExternalLink } from "@/lib/open-external";
+import { useImagePreload } from "@/hooks/useImagePreload";
+import { allLanguageFlagUrls } from "@/lib/content-languages";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const CREDITS_AVATAR_URL = "https://github.com/MyLuxy.png?size=192";
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -172,11 +176,43 @@ export function SettingsPage() {
     );
   }, [providers, providerLangFilter, providerSearch]);
 
+  // flags and provider logos load before the page shows, otherwise they pop in a beat late (the language dropdown's
+  // flags only start loading once it opens)
+  const preloadUrls = useMemo(
+    () => [
+      ...Object.values(languages).map((l) => l.flagUrl),
+      ...allLanguageFlagUrls(),
+      PROVIDER_LOGO_FALLBACK,
+      GENERIC_PROVIDER_LOGO,
+      CREDITS_AVATAR_URL,
+      ...(providers ?? []).map((p) => proxyImage(p.logo)),
+    ],
+    [providers],
+  );
+  const imagesReady = useImagePreload(preloadUrls, !loadingProviders);
+  // only show the spinner if it actually takes a moment, a warm cache resolves fast enough to never need it
+  const [showLoader, setShowLoader] = useState(false);
+  useEffect(() => {
+    if (imagesReady) return;
+    const timer = setTimeout(() => setShowLoader(true), 150);
+    return () => clearTimeout(timer);
+  }, [imagesReady]);
+
   return (
     <div className="max-w-6xl mx-auto px-1 md:px-0 -mt-6 md:mt-0">
+      {!imagesReady && showLoader && (
+        <div className="flex items-center justify-center min-h-[70vh]">
+          <div className="page-loader">
+            <span className="page-loader-bar" />
+            <span className="page-loader-bar" />
+            <span className="page-loader-bar" />
+          </div>
+        </div>
+      )}
       <motion.div
+        className={imagesReady ? undefined : "hidden"}
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        animate={imagesReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
       >
         <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-8 md:mb-12">
           {t('settings.title')}
@@ -541,7 +577,7 @@ export function SettingsPage() {
             >
               <div className="relative overflow-hidden rounded-full">
                 <img
-                  src="https://github.com/MyLuxy.png?size=192"
+                  src={CREDITS_AVATAR_URL}
                   alt="MyLuxy"
                   className="h-[4.5rem] w-[4.5rem] md:h-24 md:w-24 object-cover bg-muted"
                   onError={(e) => {

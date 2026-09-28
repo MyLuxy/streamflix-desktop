@@ -8,5 +8,6 @@ const LANGUAGE_META: Record<string, { label: string; flagUrl: string }> = {
   pl: { label: "Polski", flagUrl: "/flags/pl.svg" },
 };
 
+export const allLanguageFlagUrls = () => Object.values(LANGUAGE_META).map((l) => l.flagUrl);
 export const languageLabel = (code: string) => LANGUAGE_META[code]?.label ?? code.toUpperCase();
 export const languageFlagUrl = (code: string) => LANGUAGE_META[code]?.flagUrl;
