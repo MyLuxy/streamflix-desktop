@@ -23,6 +23,11 @@ let hasPending = false;
 // latest activity waiting to go out, null means "clear"
 let pending = null;
 let lastSentAt = 0;
+// what is on screen right now wins, the idle "browsing" one is what shows when nothing is playing
+let watching = null;
+let idle = null;
+// measured here, not in the page, so the elapsed time survives the page reloading on a language change
+const startedAt = Date.now();
 let flushTimer = null;
 let retryTimer = null;
 
@@ -66,6 +71,21 @@ function buildActivity(payload) {
     }
   }
   return activity;
+}
+
+function buildIdle(state) {
+  const label = text(state);
+  if (!label) return null;
+  return {
+    type: WATCHING,
+    statusDisplayType: STATUS_DISPLAY_DETAILS,
+    details: "StreamFlix",
+    state: label,
+    largeImageKey: LOGO_URL,
+    largeImageText: "StreamFlix",
+    startTimestamp: startedAt,
+    buttons: [{ label: "Download StreamFlix", url: RELEASES_URL }],
+  };
 }
 
 function scheduleRetry() {
@@ -129,16 +149,27 @@ function flush() {
   Promise.resolve(send).catch(() => {});
 }
 
-function setPresence(payload) {
-  pending = buildActivity(payload);
+function refresh() {
+  pending = watching ?? idle;
   hasPending = true;
   if (pending) connect();
   flush();
 }
 
 // module scope so the handlers exist for the whole app lifetime, main.js just requires this file
-ipcMain.handle("streamflix:presence-set", (_event, payload) => setPresence(payload));
-ipcMain.handle("streamflix:presence-clear", () => setPresence(null));
+ipcMain.handle("streamflix:presence-set", (_event, payload) => {
+  watching = buildActivity(payload);
+  refresh();
+});
+// back to the idle one if it is on, otherwise nothing is shown
+ipcMain.handle("streamflix:presence-clear", () => {
+  watching = null;
+  refresh();
+});
+ipcMain.handle("streamflix:presence-idle", (_event, state) => {
+  idle = buildIdle(state);
+  refresh();
+});
 
 app.on("before-quit", () => {
   clearTimeout(flushTimer);

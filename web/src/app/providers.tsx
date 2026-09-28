@@ -11,6 +11,7 @@ import { WelcomeModal } from "@/components/WelcomeModal";
 import { UpdateNotifyModal } from "@/components/UpdateNotifyModal";
 import { UpdateProvider } from "@/hooks/useDesktopUpdate";
 import { DesktopTitleLock } from "@/components/DesktopTitleLock";
+import { DiscordIdlePresence } from "@/components/DiscordIdlePresence";
 import { ScrollRestorer } from "@/components/ScrollRestorer";
 import { createI18n } from "@/i18n";
 import { recordPath } from "@/lib/nav-history";
@@ -55,6 +56,7 @@ export function Providers({
             <WelcomeModal />
             <UpdateNotifyModal />
             <DesktopTitleLock />
+            <DiscordIdlePresence />
             <Toaster />
             <Sonner />
             {children}

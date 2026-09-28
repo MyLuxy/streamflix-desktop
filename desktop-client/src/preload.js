@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("streamflixDesktop", {
   openExternal: (url) => ipcRenderer.invoke("streamflix:open-external", url),
   setPresence: (payload) => ipcRenderer.invoke("streamflix:presence-set", payload),
   clearPresence: () => ipcRenderer.invoke("streamflix:presence-clear"),
+  setIdlePresence: (state) => ipcRenderer.invoke("streamflix:presence-idle", state),
   openDebugTerminal: (locale) => ipcRenderer.invoke("streamflix:open-debug-terminal", locale),
   saveDebugLog: (content) => ipcRenderer.invoke("streamflix:save-debug-log", content),
   onUpdateEvent: (callback) => {

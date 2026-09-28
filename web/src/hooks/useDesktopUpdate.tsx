@@ -21,6 +21,7 @@ interface StreamflixDesktopBridge {
   openExternal: (url: string) => Promise<void>;
   setPresence: (payload: Record<string, unknown>) => Promise<void>;
   clearPresence: () => Promise<void>;
+  setIdlePresence: (state: string | null) => Promise<void>;
   saveDebugLog: (content: string) => Promise<{ success: boolean; filePath?: string }>;
 }
 
