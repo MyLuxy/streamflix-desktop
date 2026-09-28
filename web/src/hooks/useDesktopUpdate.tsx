@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 interface UpdateEventPayload {
   type: "available" | "not-available" | "progress" | "downloaded" | "error";
@@ -62,6 +62,8 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isDebug, setIsDebug] = useState(false); // TEMPORARY
   const [state, setState] = useState<UpdateState>({ status: "idle" });
+  const statusRef = useRef(state.status);
+  statusRef.current = state.status;
 
   useEffect(() => {
     const debugState = debugStateFromUrl(); // TEMPORARY
@@ -76,7 +78,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     if (!bridge) return;
     setIsDesktop(true);
 
-    return bridge.onUpdateEvent((payload) => {
+    const unsubscribe = bridge.onUpdateEvent((payload) => {
       if (payload.type === "available") {
         setState({ status: "available", version: payload.version });
       } else if (payload.type === "progress") {
@@ -84,10 +86,25 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       } else if (payload.type === "downloaded") {
         setState({ status: "downloaded", version: payload.version });
       } else if (payload.type === "error") {
-        setState((prev) => ({ status: "error", version: prev.version, message: payload.message }));
+        // a failed check (offline, feed unreachable) isnt worth surfacing, the next check just tries again.
+        // only a download that breaks midway is shown, that one the user actually started
+        setState((prev) =>
+          prev.status === "downloading" ? { status: "error", version: prev.version, message: payload.message } : prev,
+        );
       }
       // "not-available" is deliberately ignored, nothing new to show
     });
+
+    // the main process only re-checks every few hours, so a check that failed offline would otherwise wait that long
+    const recheckWhenBackOnline = () => {
+      if (statusRef.current === "idle") bridge.checkForUpdates();
+    };
+    window.addEventListener("online", recheckWhenBackOnline);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", recheckWhenBackOnline);
+    };
   }, []);
 
   const download = useCallback(() => {
