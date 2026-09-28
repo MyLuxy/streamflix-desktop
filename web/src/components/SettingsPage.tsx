@@ -32,12 +32,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function SettingsPage() {
   const { t } = useTranslation();
   const pathname = usePathname();
   const router = useRouter();
   const currentLocale = useLocale();
+  const [debugOpen, setDebugOpen] = useState(false);
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const { isDesktop, state: updateState, download: downloadUpdate, restart: restartToInstall } = useDesktopUpdate();
   const appVersion = useAppVersion();
@@ -458,41 +460,59 @@ export function SettingsPage() {
                 <p className="text-sm md:text-base text-muted-foreground">{t('settings.debugDesc')}</p>
               </div>
             </div>
-            <Button
-              onClick={() => {
-                if (window.streamflixDesktop) window.streamflixDesktop.openDebugTerminal(currentLocale);
-                else window.open(`/${currentLocale}/debug`, "_blank", "width=900,height=640");
-              }}
-              variant="outline"
-              size="lg"
-              className="gap-3 h-14 px-8 text-lg [&_svg]:size-6"
-            >
-              <TerminalSquare />
-              {t('settings.debugOpen')}
+            <Button onClick={() => setDebugOpen(true)} variant="outline" size="lg" className="h-14 px-8 text-lg">
+              {t('settings.open')}
             </Button>
           </div>
         </section>
 
-        {isDesktop && appVersion && (
-          <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Info className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
-                <p className="font-semibold text-2xl md:text-3xl text-foreground">{t('settings.version')}</p>
-              </div>
-              <div className="flex items-baseline gap-3">
-                <p className="text-2xl md:text-3xl text-muted-foreground">v{appVersion}</p>
-                <span
-                  className={`relative -top-[4px] flex items-center gap-1.5 text-sm md:text-base font-medium ${
-                    updateState.status === "idle" ? "text-muted-foreground" : "text-primary"
-                  }`}
+        <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
+          <DialogContent className="max-w-3xl px-8 pt-10 pb-14 md:px-12 md:pt-12 md:pb-16 [&>button:last-child]:right-3 [&>button:last-child]:top-3 [&>button:last-child]:p-2 [&>button:last-child]:opacity-100 [&>button:last-child_svg]:h-8 [&>button:last-child_svg]:w-8">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{t('settings.debug')}</DialogTitle>
+            </DialogHeader>
+            <div className="divide-y divide-border">
+              <div className="flex items-center justify-between gap-4 flex-wrap py-7">
+                <div className="flex items-center gap-4">
+                  <TerminalSquare className="w-10 h-10 text-primary flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-xl md:text-2xl text-foreground">{t('settings.debugTerminal')}</p>
+                    <p className="text-base md:text-lg text-muted-foreground">{t('settings.debugDesc')}</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (window.streamflixDesktop) window.streamflixDesktop.openDebugTerminal(currentLocale);
+                    else window.open(`/${currentLocale}/debug`, "_blank", "width=900,height=640");
+                  }}
+                  variant="outline"
+                  size="lg"
+                  className="h-14 px-8 text-lg"
                 >
-                  {updateState.status === "idle" ? t('settings.versionUpToDate') : t('settings.versionUpdateAvailable')}
-                </span>
+                  {t('settings.debugOpen')}
+                </Button>
               </div>
+              {isDesktop && appVersion && (
+                <div className="flex items-center justify-between gap-4 pt-7">
+                  <div className="flex items-center gap-4">
+                    <Info className="w-10 h-10 text-primary flex-shrink-0" />
+                    <p className="font-semibold text-xl md:text-2xl text-foreground">{t('settings.version')}</p>
+                  </div>
+                  <div className="flex items-baseline gap-4">
+                    <p className="text-xl md:text-2xl text-muted-foreground">v{appVersion}</p>
+                    <span
+                      className={`text-base md:text-lg font-medium ${
+                        updateState.status === "idle" ? "text-muted-foreground" : "text-primary"
+                      }`}
+                    >
+                      {updateState.status === "idle" ? t('settings.versionUpToDate') : t('settings.versionUpdateAvailable')}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-          </section>
-        )}
+          </DialogContent>
+        </Dialog>
 
         <section className="relative overflow-hidden bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
           <div

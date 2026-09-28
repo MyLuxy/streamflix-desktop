@@ -47,6 +47,8 @@
       "credits": "Credits",
       "creditsDesc": "Desktop-Port von StreamFlix, mit Liebe gemacht.",
       "creditsLink": "Auf GitHub ansehen",
+      "open": "Werkzeuge öffnen",
+      "debugTerminal": "Debug-Terminal",
       "madeWith": "Erstellt mit",
       "dataSource": "Datenquelle",
       "dataSourceDesc": "Dieses Produkt verwendet die TMDB-API, wird jedoch nicht von TMDB unterstützt oder zertifiziert.",
