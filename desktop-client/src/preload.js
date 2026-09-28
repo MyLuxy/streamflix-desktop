@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 // narrow bridge, just the update flow and app version, page checks window.streamflixDesktop to know it's desktop
 contextBridge.exposeInMainWorld("streamflixDesktop", {
   checkForUpdates: () => ipcRenderer.invoke("streamflix:check-for-updates"),
+  getUpdateState: () => ipcRenderer.invoke("streamflix:get-update-state"),
   downloadUpdate: () => ipcRenderer.invoke("streamflix:download-update"),
   quitAndInstall: () => ipcRenderer.invoke("streamflix:quit-and-install"),
   getVersion: () => ipcRenderer.invoke("streamflix:get-version"),

@@ -11,6 +11,7 @@ interface UpdateEventPayload {
 
 interface StreamflixDesktopBridge {
   checkForUpdates: () => Promise<void>;
+  getUpdateState: () => Promise<UpdateEventPayload | null>;
   downloadUpdate: () => Promise<void>;
   quitAndInstall: () => Promise<void>;
   getVersion: () => Promise<string>;
@@ -78,11 +79,11 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     if (!bridge) return;
     setIsDesktop(true);
 
-    const unsubscribe = bridge.onUpdateEvent((payload) => {
+    const apply = (payload: UpdateEventPayload) => {
       if (payload.type === "available") {
         setState({ status: "available", version: payload.version });
       } else if (payload.type === "progress") {
-        setState((prev) => ({ status: "downloading", version: prev.version, percent: payload.percent }));
+        setState((prev) => ({ status: "downloading", version: payload.version ?? prev.version, percent: payload.percent }));
       } else if (payload.type === "downloaded") {
         setState({ status: "downloaded", version: payload.version });
       } else if (payload.type === "error") {
@@ -93,11 +94,17 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         );
       }
       // "not-available" is deliberately ignored, nothing new to show
-    });
+    };
+
+    const unsubscribe = bridge.onUpdateEvent(apply);
+
+    // the page reloads on language change and the main process only sends each event once, so pick up where it left off.
+    // rejects in dev where auto update isnt registered, nothing to restore there
+    bridge.getUpdateState().then((saved) => { if (saved) apply(saved); }).catch(() => {});
 
     // the main process only re-checks every few hours, so a check that failed offline would otherwise wait that long
     const recheckWhenBackOnline = () => {
-      if (statusRef.current === "idle") bridge.checkForUpdates();
+      if (statusRef.current === "idle") bridge.checkForUpdates().catch(() => {});
     };
     window.addEventListener("online", recheckWhenBackOnline);
 
