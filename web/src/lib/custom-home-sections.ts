@@ -150,16 +150,6 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Crime", genreId: "crime" },
     { label: "Animation", genreId: "animation" },
   ],
-  FshareTV: [
-    { label: "Action", genreId: "Action" },
-    { label: "Comedy", genreId: "Comedy" },
-    { label: "Horror", genreId: "Horror" },
-    { label: "Romance", genreId: "Romance" },
-    { label: "Thriller", genreId: "Thriller" },
-    { label: "Sci-Fi", genreId: "Sci-Fi" },
-    { label: "Crime", genreId: "Crime" },
-    { label: "Animation", genreId: "Animation" },
-  ],
   // kids' cartoon site organized by network/studio brand rather than genre
   "La Cartoons": [
     { label: "Nickelodeon", genreId: "1" },
@@ -290,17 +280,6 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Mystery", genreId: "Mystery" },
     { label: "Horror", genreId: "Horror" },
     { label: "Thriller", genreId: "Thriller" },
-  ],
-  // getGenre delegates to /films/{genre}/{page}, genreId is the site's own genre name, title-case with accents
-  CineStream: [
-    { label: "Action", genreId: "Action" },
-    { label: "Comédie", genreId: "Comédie" },
-    { label: "Drame", genreId: "Drame" },
-    { label: "Thriller", genreId: "Thriller" },
-    { label: "Horreur", genreId: "Horreur" },
-    { label: "Animation", genreId: "Animation" },
-    { label: "Aventure", genreId: "Aventure" },
-    { label: "Science-Fiction", genreId: "Science-Fiction" },
   ],
   // genreId maps to /xfsearch/manga_genre/{name}/, straight off the site's own "Par Genre" menu
   FrenchManga: [
