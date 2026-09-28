@@ -20,6 +20,7 @@ export function DownloadedPlayer({ item, onClose }: DownloadedPlayerProps) {
         directSource={`/api/download/file?path=${encodeURIComponent(item.filePath ?? "")}`}
         directSubtitles={item.subtitles}
         title={item.title}
+        posterPath={item.posterPath}
         seasonEpisodeLabel={item.mediaType === "tv" ? `S${item.season}:Ep${item.episode}` : undefined}
         onBack={onClose}
       />

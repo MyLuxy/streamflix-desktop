@@ -361,6 +361,7 @@ export function DetailView({ data, mediaType, provider, realId, recommendations 
             itemId={realId}
             mediaType={mediaType}
             title={title}
+            posterPath={data.poster_path}
             seasonEpisodeLabel={mediaType === "tv" ? `S${startSeason}:Ep${startEpisode}` : undefined}
             seasonNumber={mediaType === "tv" ? startSeason : undefined}
             episodeId={startEpisodeId}

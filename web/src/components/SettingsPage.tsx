@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare, Radio } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -33,6 +33,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { openExternalLink } from "@/lib/open-external";
+import { Switch } from "@/components/ui/switch";
+import { isDiscordPresenceEnabled, setDiscordPresenceEnabled } from "@/lib/discord-presence";
 import { useImagePreload } from "@/hooks/useImagePreload";
 import { allLanguageFlagUrls } from "@/lib/content-languages";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -45,6 +47,9 @@ export function SettingsPage() {
   const router = useRouter();
   const currentLocale = useLocale();
   const [debugOpen, setDebugOpen] = useState(false);
+  // real value read in the effect below, localStorage isnt there on the server render
+  const [discordPresence, setDiscordPresence] = useState(true);
+  useEffect(() => setDiscordPresence(isDiscordPresenceEnabled()), []);
   const { data: providers, isLoading: loadingProviders } = useProviders();
   const { isDesktop, state: updateState, download: downloadUpdate, restart: restartToInstall } = useDesktopUpdate();
   const appVersion = useAppVersion();
@@ -488,6 +493,29 @@ export function SettingsPage() {
             </div>
           )}
         </section>
+
+        {isDesktop && (
+          <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Radio className="w-9 h-9 md:w-11 md:h-11 text-primary flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-lg md:text-xl text-foreground">{t('settings.discord')}</p>
+                  <p className="text-sm md:text-base text-muted-foreground">{t('settings.discordDesc')}</p>
+                </div>
+              </div>
+              <Switch
+                checked={discordPresence}
+                onCheckedChange={(on) => {
+                  setDiscordPresence(on);
+                  setDiscordPresenceEnabled(on);
+                }}
+                aria-label={t('settings.discord')}
+                className="scale-125"
+              />
+            </div>
+          </section>
+        )}
 
         <section className="bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
           <div className="flex items-center justify-between gap-3 flex-wrap">

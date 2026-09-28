@@ -22,6 +22,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "@/lib/backend";
 import { resolveStream, useProviders, type StreamServer, type StreamResult } from "@/hooks/useStreamflix";
+import { useDiscordPresence } from "@/hooks/useDiscordPresence";
 import { languageLabel } from "@/lib/content-languages";
 import { PlayIcon, PauseIcon, SkipIcon, NextIcon } from "@/components/MediaIcons";
 
@@ -38,6 +39,8 @@ interface HlsPlayerProps {
   directSubtitles?: { label: string; url: string; default: boolean }[];
   title: string;
   seasonEpisodeLabel?: string;
+  // only used for the discord presence artwork
+  posterPath?: string | null;
   // ignored if too close to zero, not worth resuming from
   startTime?: number;
   // audio label saved from a previous session (see audioLabel), resumes in the same track
@@ -88,6 +91,7 @@ export function HlsPlayer({
   directSubtitles,
   title,
   seasonEpisodeLabel,
+  posterPath,
   startTime,
   preferredAudioTrack,
   onProgress,
@@ -110,6 +114,7 @@ export function HlsPlayer({
   const [buffering, setBuffering] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  useDiscordPresence({ provider, title, seasonEpisodeLabel, posterPath, isPlaying, currentTime, duration });
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);

@@ -8,6 +8,7 @@ const { startBackend, BACKEND_PORT } = require("./backend-manager");
 const { startFrontend } = require("./frontend-manager");
 const { createMainWindow } = require("./window");
 const { initAutoUpdate } = require("./auto-update");
+require("./discord-presence");
 
 let children = [];
 let mainWindow = null;
