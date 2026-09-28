@@ -1,4 +1,4 @@
-import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare } from "lucide-react";
+import { Languages, Server, Check, Search, Loader2, ExternalLink, Download, RotateCw, AlertTriangle, Info, TerminalSquare, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -493,6 +493,48 @@ export function SettingsPage() {
             </div>
           </section>
         )}
+
+        <section className="relative overflow-hidden bg-card rounded-2xl p-5 md:p-8 mt-6 md:mt-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl"
+          />
+          <div className="relative flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
+            <div className="relative flex-shrink-0 self-start sm:self-auto">
+              <div className="rounded-full p-[3px] bg-gradient-to-br from-primary via-primary/40 to-transparent">
+                <img
+                  src="https://github.com/MyLuxy.png?size=160"
+                  alt="MyLuxy"
+                  className="h-16 w-16 md:h-20 md:w-20 rounded-full object-cover bg-muted"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.visibility = "hidden";
+                  }}
+                />
+              </div>
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-background ring-2 ring-card">
+                <Heart className="h-4 w-4 fill-primary text-primary" />
+              </span>
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs md:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                {t('settings.credits')}
+              </p>
+              <p className="mt-1 font-semibold text-2xl md:text-3xl text-foreground">MyLuxy</p>
+              <p className="mt-1 text-base md:text-lg text-muted-foreground">{t('settings.creditsDesc')}</p>
+            </div>
+
+            <a
+              href="https://github.com/MyLuxy"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 self-start sm:self-auto rounded-lg border border-border px-4 py-2.5 text-sm md:text-base font-medium text-foreground transition-colors hover:border-primary/60 hover:bg-primary/10"
+            >
+              {t('settings.creditsLink')}
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
+        </section>
       </motion.div>
     </div>
   );
