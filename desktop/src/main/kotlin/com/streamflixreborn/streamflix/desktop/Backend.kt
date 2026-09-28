@@ -10,6 +10,7 @@ import com.streamflixreborn.streamflix.models.Video
 import com.streamflixreborn.streamflix.extractors.ContentNotFoundException
 import com.streamflixreborn.streamflix.providers.IptvProvider
 import com.streamflixreborn.streamflix.providers.Provider
+import com.streamflixreborn.streamflix.utils.NetworkClient
 import com.streamflixreborn.streamflix.utils.TMDb3
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import com.sun.net.httpserver.HttpExchange
@@ -698,6 +699,49 @@ private fun stripArtworkFragment(rawUrl: String): String {
     return if (remaining.isBlank()) base else "$base#$remaining"
 }
 
+// some cdns 403 a bare request, faking referer as the img's own domain usually works
+private const val IMAGE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+private fun fetchImage(url: String, headers: Map<String, String>): CachedImage? {
+    return try {
+        val builder = HttpRequest.newBuilder(URI.create(url)).GET()
+        if (headers.isNotEmpty()) {
+            applyHeaders(builder, headers)
+        } else {
+            runCatching {
+                val target = URI.create(url)
+                builder.header("Referer", "${target.scheme}://${target.host}/")
+            }
+            builder.header("User-Agent", IMAGE_USER_AGENT)
+        }
+        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        val contentType = response.headers().firstValue("content-type").orElse("image/jpeg")
+        // a missing wp upload 301s to the homepage, lands here as a 200 with html not an image
+        if (response.statusCode() in 200..299 && contentType.startsWith("image/")) CachedImage(response.body(), contentType) else null
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// the client above uses the system resolver, which is exactly what an isp block poisons (a blocked image cdn ends up on
+// 127.0.0.1 and the poster comes back as a 502). the providers already go through doh, so a retry through the same client
+private fun fetchImageDoh(url: String, headers: Map<String, String>): CachedImage? {
+    return try {
+        val requestHeaders = headers.ifEmpty {
+            buildMap {
+                runCatching {
+                    val target = URI.create(url)
+                    put("Referer", "${target.scheme}://${target.host}/")
+                }
+                put("User-Agent", IMAGE_USER_AGENT)
+            }
+        }
+        NetworkClient.fetchImageBytes(url, requestHeaders)?.let { (bytes, contentType) -> CachedImage(bytes, contentType) }
+    } catch (e: Exception) {
+        null
+    }
+}
+
 private fun serveImage(exchange: HttpExchange) {
     val params = queryParams(exchange)
     val rawUrl = params["url"]
@@ -719,27 +763,13 @@ private fun serveImage(exchange: HttpExchange) {
     }
 
     runCatching {
-        val builder = HttpRequest.newBuilder(URI.create(cleanUrl)).GET()
-        if (headers.isNotEmpty()) {
-            applyHeaders(builder, headers)
-        } else {
-            // some cdns 403 a bare request, faking referer as the img's own domain usually works
-            runCatching {
-                val target = URI.create(cleanUrl)
-                builder.header("Referer", "${target.scheme}://${target.host}/")
-            }
-            builder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        }
-        val response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
-        val contentType = response.headers().firstValue("content-type").orElse("image/jpeg")
-        // a missing wp upload 301s to the homepage, lands here as a 200 with html not an image
-        val isRealImage = response.statusCode() in 200..299 && contentType.startsWith("image/")
-        if (isRealImage) {
-            exchange.responseHeaders.add("Content-Type", contentType)
+        val image = fetchImage(cleanUrl, headers) ?: fetchImageDoh(cleanUrl, headers)
+        if (image != null) {
+            exchange.responseHeaders.add("Content-Type", image.contentType)
             exchange.responseHeaders.add("Cache-Control", "public, max-age=86400")
-            synchronized(imageCache) { imageCache[cleanUrl] = CachedImage(response.body(), contentType) }
-            exchange.sendResponseHeaders(200, response.body().size.toLong())
-            exchange.responseBody.use { it.write(response.body()) }
+            synchronized(imageCache) { imageCache[cleanUrl] = image }
+            exchange.sendResponseHeaders(200, image.bytes.size.toLong())
+            exchange.responseBody.use { it.write(image.bytes) }
         } else {
             exchange.responseHeaders.add("Cache-Control", "no-store")
             exchange.sendResponseHeaders(404, -1)

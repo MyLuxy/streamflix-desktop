@@ -32,6 +32,17 @@ object NetworkClient {
     val systemDns: OkHttpClient by lazy { buildClient(Dns.SYSTEM) }
     val noRedirects: OkHttpClient by lazy { buildClient(DnsResolver.doh) { it.followRedirects(false).followSslRedirects(false) } }
 
+    // bytes + content type of an image, resolved through doh. null unless it really came back as an image
+    fun fetchImageBytes(url: String, headers: Map<String, String>): Pair<ByteArray, String>? {
+        val request = okhttp3.Request.Builder().url(url).get()
+        headers.forEach { (name, value) -> request.header(name, value) }
+        return default.newCall(request.build()).execute().use { response ->
+            val contentType = response.header("content-type") ?: "image/jpeg"
+            val body = response.body?.bytes()
+            if (response.isSuccessful && contentType.startsWith("image/") && body != null) body to contentType else null
+        }
+    }
+
     val trustAll: OkHttpClient by lazy {
         val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
