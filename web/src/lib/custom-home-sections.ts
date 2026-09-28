@@ -281,6 +281,18 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Horror", genreId: "Horror" },
     { label: "Thriller", genreId: "Thriller" },
   ],
+  AnimeAV1: [
+    { label: "Acción", genreId: "accion" },
+    { label: "Aventuras", genreId: "aventuras" },
+    { label: "Comedia", genreId: "comedia" },
+    { label: "Drama", genreId: "drama" },
+    { label: "Fantasía", genreId: "fantasia" },
+    { label: "Romance", genreId: "romance" },
+    { label: "Ciencia Ficción", genreId: "ciencia-ficcion" },
+    { label: "Sobrenatural", genreId: "sobrenatural" },
+    { label: "Isekai", genreId: "isekai" },
+    { label: "Terror", genreId: "terror" },
+  ],
   // genreId maps to /xfsearch/manga_genre/{name}/, straight off the site's own "Par Genre" menu
   FrenchManga: [
     { label: "Action", genreId: "Action" },
