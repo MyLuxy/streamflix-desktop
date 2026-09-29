@@ -15,8 +15,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
-// the site rebuilt itself as a React SPA backed by this JSON api, keyed by tmdb id instead of the
-// old wordpress slugs - no more html scraping needed, and only one embed (vimeos.net) per title now
+// site is a React SPA over this JSON api keyed by tmdb id, embeds come from /v1/playback not the item payload
 object CuevanaEuProvider : Provider {
 
     override val name = "Cuevana 3"
@@ -50,7 +49,6 @@ object CuevanaEuProvider : Provider {
     private data class ApiShow(
         val tmdb_id: Int,
         val kind: String,
-        val code: String? = null,
         val title: String = "",
         val poster_path: String? = null,
         val backdrop_path: String? = null,
@@ -75,7 +73,6 @@ object CuevanaEuProvider : Provider {
         val overview: String? = null,
         val air_date: String? = null,
         val still_path: String? = null,
-        val code: String? = null,
     )
 
     @Serializable
@@ -91,7 +88,10 @@ object CuevanaEuProvider : Provider {
     private data class SeasonEnvelope(val season: ApiSeasonDetail)
 
     @Serializable
-    private data class EpisodeEnvelope(val episode: ApiEpisode)
+    private data class ApiEmbed(val url: String, val host: String? = null, val lang: String? = null, val quality: String? = null)
+
+    @Serializable
+    private data class PlaybackEnvelope(val embeds: List<ApiEmbed> = emptyList())
 
     @Serializable
     private data class TaxonomyEnvelope(val items: List<ApiRef> = emptyList())
@@ -267,19 +267,27 @@ object CuevanaEuProvider : Provider {
     }
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
-        val code = when (videoType) {
+        val playback = when (videoType) {
             is Video.Type.Movie -> {
                 val (kind, tmdbId) = kindAndId(id)
-                getApi<ItemEnvelope>("/v1/items/$kind/$tmdbId")?.item?.code
+                getApi<PlaybackEnvelope>("/v1/playback/$kind/$tmdbId")
             }
             is Video.Type.Episode -> {
                 val (kind, tmdbId) = kindAndId(videoType.tvShow.id)
-                getApi<EpisodeEnvelope>("/v1/items/$kind/$tmdbId/seasons/${videoType.season.number}/episodes/${videoType.number}")
-                    ?.episode?.code
+                getApi<PlaybackEnvelope>(
+                    "/v1/playback/$kind/$tmdbId",
+                    mapOf("season" to videoType.season.number.toString(), "episode" to videoType.number.toString()),
+                )
             }
         } ?: return emptyList()
 
-        return listOf(Video.Server(id = code, name = "Vimeos", src = "https://vimeos.net/embed-$code.html"))
+        return playback.embeds.map { embed ->
+            val host = embed.host ?: embed.url.toHttpUrlOrNull()?.host.orEmpty()
+            val label = listOfNotNull(host.substringBefore(".").replaceFirstChar { it.uppercaseChar() }, embed.lang, embed.quality)
+                .filter { it.isNotBlank() }
+                .joinToString(" · ")
+            Video.Server(id = embed.url, name = label, src = embed.url)
+        }
     }
 
     override suspend fun getVideo(server: Video.Server): Video = Extractor.extract(server.src, server)
