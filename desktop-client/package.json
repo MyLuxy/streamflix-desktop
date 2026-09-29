@@ -1,6 +1,6 @@
 {
   "name": "streamflix-desktop",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "private": true,
   "description": "StreamFlix desktop app (Electron shell around the Kotlin backend + Next.js frontend)",
   "homepage": "https://github.com/MyLuxy/streamflix-desktop",
@@ -35,8 +35,14 @@
       "package.json"
     ],
     "extraResources": [
-      { "from": "resources/backend", "to": "backend" },
-      { "from": "resources/web", "to": "web" }
+      {
+        "from": "resources/backend",
+        "to": "backend"
+      },
+      {
+        "from": "resources/web",
+        "to": "web"
+      }
     ],
     "asarUnpack": [],
     "publish": {
