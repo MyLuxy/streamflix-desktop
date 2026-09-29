@@ -68,7 +68,7 @@ ipcMain.handle("streamflix:open-debug-terminal", (_event, locale) => {
   });
   win.on("page-title-updated", (event) => event.preventDefault());
   win.setTitle("StreamFlix Debug");
-  win.loadURL(`http://127.0.0.1:${frontendPort}/${locale || "en"}/debug`);
+  win.loadURL(`http://localhost:${frontendPort}/${locale || "en"}/debug`);
   debugWindow = win;
   win.on("closed", () => {
     if (debugWindow === win) debugWindow = null;
@@ -158,7 +158,8 @@ async function boot() {
     frontendPort = frontend.port;
 
     if (win.isDestroyed()) return;
-    await win.loadURL(`http://127.0.0.1:${frontend.port}/`);
+    // not 127.0.0.1: next rewrites redirects to localhost anyway, and cookies (NEXT_LOCALE) are per host
+    await win.loadURL(`http://localhost:${frontend.port}/`);
 
     initAutoUpdate(win, killChildrenAndWait);
   } catch (err) {
