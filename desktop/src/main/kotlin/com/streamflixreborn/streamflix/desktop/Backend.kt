@@ -451,7 +451,7 @@ fun resolveVideoBlocking(provider: Provider, request: StreamRequest): Pair<Video
                         val video = provider.getVideo(server)
                         // an extractor can hand back a url that "resolves" but is dead on arrival (expired token, downed mirror),
                         // catching that here means it gets treated as a failed server instead of surfacing as a broken player later
-                        if (video.source.isNotBlank() && !isPlayable(video)) error("source unreachable")
+                        if (video.source.isNotBlank() && !video.bypassProxy && !isPlayable(video)) error("source unreachable")
                         video
                     }
                     resultChannel.send(server to result)
@@ -539,7 +539,9 @@ private fun handleStream(exchange: HttpExchange) {
         video.type?.startsWith("video/", ignoreCase = true) == true ||
         Regex("""\.(mp4|mkv|avi|webm|mov|m4v)(?:\?.*)?$""", RegexOption.IGNORE_CASE).containsMatchIn(video.source)
     )
-    val url = if (isDirectFile) {
+    val url = if (video.bypassProxy) {
+        video.source
+    } else if (isDirectFile) {
         "/direct?token=$token&url=" + URLEncoder.encode(video.source, "UTF-8")
     } else {
         "/manifest.m3u8?token=$token"

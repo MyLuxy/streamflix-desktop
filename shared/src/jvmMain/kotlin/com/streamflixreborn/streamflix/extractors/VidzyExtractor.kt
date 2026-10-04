@@ -16,15 +16,21 @@ class VidzyExtractor : Extractor() {
 
     override val name = "Vidzy"
     override val mainUrl = "https://vidzy.org"
+    override val aliasUrls = listOf("https://vidzy.live")
 
-    // the source used to hide behind eval() packed js, now it's an inline iife that
-    // xor-decodes a base64 blob with a key derived from the embed page's own hostname
-    private fun decodeXorSource(encoded: String, host: String): String {
-        val hostSum = host.sumOf { it.code } and 0xFF
+    // key offset is hostname char sum + width of a 1in div (96 in any browser), brute force covers them tweaking it again
+    private fun decodeXorSource(encoded: String, host: String): String? {
         val reversedBytes = Base64.decode(encoded, Base64.DEFAULT).reversedArray()
+        val guess = (host.sumOf { it.code } + 96) and 0xFF
+        return (listOf(guess) + (0..255))
+            .map { decodeXor(reversedBytes, it) }
+            .firstOrNull { it.startsWith("http") && it.all { c -> c.code in 0x21..0x7e } }
+    }
+
+    private fun decodeXor(reversedBytes: ByteArray, offset: Int): String {
         return buildString {
             reversedBytes.forEachIndexed { i, b ->
-                val key = (0x3d + i * 89 + hostSum) and 0xFF
+                val key = (0x3d + i * 89 + offset) and 0xFF
                 append(((b.toInt() and 0xFF) xor key).toChar())
             }
         }
@@ -56,14 +62,14 @@ class VidzyExtractor : Extractor() {
             ?: throw Exception("Packed JS not found")
 
         val host = runCatching { URL(link).host }.getOrDefault("")
-        val streamUrl = decodeXorSource(encoded, host).takeIf { it.startsWith("http") }
-            ?: throw Exception("No src found")
+        val streamUrl = decodeXorSource(encoded, host) ?: throw Exception("No src found")
 
         return Video(
             source = streamUrl,
             headers = mapOf("Referer" to mainUrl),
             subtitles = extractSubtitles(html),
-            useServerSubtitleSetting = true
+            useServerSubtitleSetting = true,
+            bypassProxy = true,
         )
     }
 

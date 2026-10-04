@@ -8,6 +8,8 @@ data class Video(
     val extraBuffering: Boolean = false,
     val useServerSubtitleSetting: Boolean = false,
     val maintainToken: Boolean = false,
+    // cdn rejects java's tls fingerprint, the player has to hit it directly
+    val bypassProxy: Boolean = false,
 ) {
 
     sealed class Type {

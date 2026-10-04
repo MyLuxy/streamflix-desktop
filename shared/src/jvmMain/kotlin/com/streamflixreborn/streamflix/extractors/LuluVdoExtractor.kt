@@ -2,6 +2,7 @@ package com.streamflixreborn.streamflix.extractors
 
 import com.tanasi.retrofit_jsoup.converter.JsoupConverterFactory
 import com.streamflixreborn.streamflix.models.Video
+import com.streamflixreborn.streamflix.utils.JsUnpacker
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import retrofit2.Retrofit
@@ -14,18 +15,21 @@ class LuluVdoExtractor : Extractor() {
 
     override val name = "LuluVdo"
     override val mainUrl = "https://luluvdo.com/"
-    override val aliasUrls = listOf("https://luluvdoo.com", "https://luluvid.com")
+    override val aliasUrls = listOf("https://luluvdoo.com", "https://luluvid.com", "https://lulust.com", "https://luluvido.com")
     override suspend fun extract(link: String): Video {
         val service = Service.build(mainUrl)
 
         val document = service.get(link)
+        val script = document.select("script")
+            .firstNotNullOfOrNull { JsUnpacker(it.html()).unpack()?.takeIf { js -> js.contains("sources") } }
+            ?: document.toString()
 
-        val source = Regex("sources: \\[\\{file:\"(.*?)\"\\}").find(document.toString())
+        val source = Regex("sources:\\s*\\[\\{file:\\s*\"(.*?)\"").find(script)
             ?.groupValues?.get(1)
             ?: throw Exception("Can't retrieve source")
 
-        val subtitles = Regex("file: \"(.*?)\", label: \"(.*?)\"").findAll(
-            Regex("tracks: \\[(.*?)]").find(document.toString())
+        val subtitles = Regex("file:\\s*\"(.*?)\",\\s*label:\\s*\"(.*?)\"").findAll(
+            Regex("tracks:\\s*\\[(.*?)]").find(script)
                 ?.groupValues?.get(1)
                 ?: ""
         )

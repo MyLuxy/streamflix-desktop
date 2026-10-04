@@ -326,7 +326,7 @@ export function HlsPlayer({
       const activeServer = resultServers.find((s) => s.id === activeServerId);
       if (activeServer) onAudioTrackChangeRef.current?.(audioLabel(activeServer.name, dubLanguageRef.current));
 
-      const manifestUrl = `${BACKEND_URL}${result.manifestUrl}`;
+      const manifestUrl = /^https?:\/\//.test(result.manifestUrl) ? result.manifestUrl : `${BACKEND_URL}${result.manifestUrl}`;
 
       const applyStartTime = () => {
         const resume = resumeTimeRef.current ?? startTime;
