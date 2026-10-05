@@ -7,14 +7,9 @@
   <br />
   An open-source desktop app for educational streaming interface, with a Kotlin backend and a Next.js/Electron frontend
   <br />
-  <a href="https://github.com/MyLuxy/streamflix-desktop/releases/latest">
-    <strong>Download app »</strong>
-  </a>
   <br />
-  <br />
-  <a href="https://github.com/MyLuxy/streamflix-desktop/issues">Report Bug</a>
-  ·
-  <a href="https://github.com/MyLuxy/streamflix-desktop/issues">Request Feature</a>
+   <a href="https://github.com/MyLuxy/streamflix-desktop/releases/latest"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/MyLuxy/streamflix-desktop/badges/downloads.json&style=for-the-badge" alt="Downloads" width="216" /></a>
+  <a href="https://github.com/sponsors/MyLuxy"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor MyLuxy on GitHub" width="171" /></a>
 </p>
 
 <details>
@@ -58,7 +53,7 @@ This app is designed for educational purposes and personal use only. Users are r
 - Open-source and ad-free interface
 - Aggregates content from multiple third-party providers
 - No account required for the app interface
-- Educational and personal use only
+- Download the contents
 - Resume from last playback position
 - Runs as a native desktop app (Windows/macOS/Linux)
 
