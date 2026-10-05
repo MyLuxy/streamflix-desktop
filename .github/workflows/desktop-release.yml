@@ -83,3 +83,29 @@ jobs:
             desktop-client/build/*.AppImage
             desktop-client/build/*.deb
           if-no-files-found: ignore
+
+  # draft assets go to the vps staging feed, so the fallback can be tried before the release is public
+  mirror-staging:
+    needs: [build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the draft release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release download "${{ github.ref_name }}" --repo "${{ github.repository }}" --dir assets
+
+      - name: Set up SSH for the VPS
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_DEPLOY_KEY" > ~/.ssh/streamflix_deploy
+          chmod 600 ~/.ssh/streamflix_deploy
+          printf '%s\n' "$VPS_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+
+      - name: Upload to the staging feed
+        run: sh desktop-client/scripts/vps-publish.sh upload assets
