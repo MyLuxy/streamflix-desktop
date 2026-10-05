@@ -15,7 +15,7 @@ import { BACKEND_URL } from "@/lib/backend";
 import { setCustomTmdbKeyClient } from "@/lib/tmdb-key";
 import { openExternalLink } from "@/lib/open-external";
 
-const WELCOME_STORAGE_KEY = "streamflix_welcome_accepted";
+export const WELCOME_STORAGE_KEY = "streamflix_welcome_accepted";
 
 type Step = "welcome" | "language" | "tmdb" | "provider";
 const STEPS: Step[] = ["welcome", "language", "tmdb", "provider"];

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { useDesktopUpdate } from "@/hooks/useDesktopUpdate";
+import { useStarPromptOpen } from "@/lib/star-prompt-lock";
 import { useLocale } from "@/hooks/useLocale";
 import { localePath } from "@/lib/links";
 import {
@@ -36,12 +37,13 @@ export function UpdateNotifyModal() {
   const locale = useLocale();
   const { isDesktop, state } = useDesktopUpdate();
   const [open, setOpen] = useState(false);
+  const starPromptOpen = useStarPromptOpen();
 
   useEffect(() => {
-    if (!isDesktop || state.status !== "available" || open || wasDismissed()) return;
+    if (!isDesktop || state.status !== "available" || open || starPromptOpen || wasDismissed()) return;
     const timer = setTimeout(() => setOpen(true), 2500);
     return () => clearTimeout(timer);
-  }, [isDesktop, state.status, open]);
+  }, [isDesktop, state.status, open, starPromptOpen]);
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);

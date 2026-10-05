@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { UpdateNotifyModal } from "@/components/UpdateNotifyModal";
+import { StarPromptModal } from "@/components/StarPromptModal";
 import { UpdateProvider } from "@/hooks/useDesktopUpdate";
 import { DesktopTitleLock } from "@/components/DesktopTitleLock";
 import { DiscordIdlePresence } from "@/components/DiscordIdlePresence";
@@ -55,6 +56,7 @@ export function Providers({
             </Suspense>
             <WelcomeModal />
             <UpdateNotifyModal />
+            <StarPromptModal />
             <DesktopTitleLock />
             <DiscordIdlePresence />
             <Toaster />

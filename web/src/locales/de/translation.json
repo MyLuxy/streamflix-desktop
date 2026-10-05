@@ -295,6 +295,12 @@
         "noProviders": "Keine Anbieter für diese Sprache.",
         "showAllLanguages": "Alle Sprachen anzeigen"
       }
+    },
+    "starPrompt": {
+      "title": "Gefällt dir StreamFlix?",
+      "desc": "Wenn dir StreamFlix gefällt, hilft ein Stern auf GitHub dem Projekt zu wachsen. Das dauert nur eine Sekunde.",
+      "never": "Nicht mehr fragen",
+      "yes": "Ja, Stern vergeben"
     }
   }
 }
