@@ -16,3 +16,5 @@ app/src/main/cpp/native-lib.cpp
 /segment_test.ts
 CLAUDE.md
 .claude/
+brag-output*/
+/vps-deploy/
