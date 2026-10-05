@@ -1,0 +1,45 @@
+name: Update downloads badge
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count installer downloads
+        id: count
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # .yml assets get hit by the auto-updater on every check, not real downloads
+          total=$(gh api --paginate "repos/${{ github.repository }}/releases" \
+            --jq '.[].assets[] | select(.name | test("[.](exe|dmg|AppImage|deb)$")) | .download_count' \
+            | awk '{ s += $1 } END { print s + 0 }')
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+
+      - name: Push badge json to the badges branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOTAL: ${{ steps.count.outputs.total }}
+        run: |
+          url="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          if ! git clone -q --depth 1 --branch badges "$url" badges; then
+            git init -q badges
+            git -C badges checkout -q --orphan badges
+            git -C badges remote add origin "$url"
+          fi
+          cd badges
+          printf '{"schemaVersion":1,"label":"downloads","message":"%s","color":"blue","namedLogo":"github"}\n' "$TOTAL" > downloads.json
+          git add downloads.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Update downloads badge"
+          git push -q origin badges
