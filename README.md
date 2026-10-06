@@ -35,7 +35,7 @@
   <img src="./.github/docs/StreamFlixDesktop.png" alt="Streamflix Preview">
 </p>
 
-**Streamflix Desktop** is a standalone desktop port of [Streamflix Reborn](https://github.com/streamflix-reborn2/streamflix), itself a community continuation of the original Streamflix project created by [Lory-Stan TANASI](https://github.com/stantanasi). This port swaps the Android app shell for a Kotlin/JVM backend and a Next.js web UI, packaged as a native desktop app with Electron.
+**Streamflix Desktop** is a standalone desktop port of [Streamflix Reborn](https://git.gay/streamflix-reborn2/streamflix), itself a community continuation of the original Streamflix project created by [Lory-Stan TANASI](https://github.com/stantanasi). This port swaps the Android app shell for a Kotlin/JVM backend and a Next.js web UI, packaged as a native desktop app with Electron.
 
 Streamflix Desktop provides a user interface for accessing publicly available streaming content from various third-party providers, aggregated behind a single local backend.
 
@@ -133,7 +133,7 @@ This application is provided "as is" for educational purposes. The developers:
 - **[Lory-Stan TANASI](https://github.com/stantanasi)** - Original Streamflix project creator
 
 ### Streamflix Reborn
-- **Independent Developer** - Streamflix Reborn maintainer (Android version)
+- **[streamflix-reborn2](https://github.com/streamflix-reborn2)** - Streamflix Reborn maintainer (Android version)
 
 ### Desktop Port
 - **[MyLuxy](https://github.com/MyLuxy)** - Desktop port maintainer
