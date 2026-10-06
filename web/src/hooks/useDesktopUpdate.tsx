@@ -49,35 +49,15 @@ interface UpdateContextValue {
 // state lives above every consumer, a component mounting after the main process's one-time event would otherwise miss it
 const UpdateContext = createContext<UpdateContextValue | null>(null);
 
-// TEMPORARY: lets ?debugUpdate=available|downloading|downloaded be tried in a plain browser, remove later
-function debugStateFromUrl(): UpdateState | null {
-  if (typeof window === "undefined") return null;
-  const requested = new URLSearchParams(window.location.search).get("debugUpdate");
-  if (requested === "available") return { status: "available", version: "1.1.0" };
-  if (requested === "downloading") return { status: "downloading", version: "1.1.0", percent: 42 };
-  if (requested === "downloaded") return { status: "downloaded", version: "1.1.0" };
-  if (requested === "error") return { status: "error", version: "1.1.0" };
-  return null;
-}
-
 // notify-only, never triggers a download/install without the user explicitly calling download()/restart()
 export function UpdateProvider({ children }: { children: ReactNode }) {
   // starts false so ssr/first client render match, flips true in the effect below if present
   const [isDesktop, setIsDesktop] = useState(false);
-  const [isDebug, setIsDebug] = useState(false); // TEMPORARY
   const [state, setState] = useState<UpdateState>({ status: "idle" });
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
 
   useEffect(() => {
-    const debugState = debugStateFromUrl(); // TEMPORARY
-    if (debugState) {
-      setIsDesktop(true);
-      setIsDebug(true);
-      setState(debugState);
-      return;
-    }
-
     const bridge = window.streamflixDesktop;
     if (!bridge) return;
     setIsDesktop(true);
@@ -119,30 +99,12 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   const download = useCallback(() => {
     setState((prev) => ({ status: "downloading", version: prev.version, percent: 0 }));
-    if (isDebug) {
-      // temporary: fake a download finishing in ~2s so the "downloaded" state is reachable too
-      let percent = 0;
-      const iv = setInterval(() => {
-        percent += 20;
-        if (percent >= 100) {
-          clearInterval(iv);
-          setState((prev) => ({ status: "downloaded", version: prev.version }));
-        } else {
-          setState((prev) => ({ status: "downloading", version: prev.version, percent }));
-        }
-      }, 400);
-      return;
-    }
     window.streamflixDesktop?.downloadUpdate();
-  }, [isDebug]);
+  }, []);
 
   const restart = useCallback(() => {
-    if (isDebug) {
-      alert("(debug) qui l'app si riavvierebbe e installerebbe l'aggiornamento"); // TEMPORARY
-      return;
-    }
     window.streamflixDesktop?.quitAndInstall();
-  }, [isDebug]);
+  }, []);
 
   return (
     <UpdateContext.Provider value={{ isDesktop, state, download, restart }}>

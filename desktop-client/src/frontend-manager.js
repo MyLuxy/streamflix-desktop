@@ -5,6 +5,7 @@ const net = require("node:net");
 const path = require("node:path");
 const fs = require("node:fs");
 const { waitForReady } = require("./backend-manager");
+const { openLogStream } = require("./log-file");
 const { TMDB_PERSONAL_API_KEY } = require("./build-secrets");
 
 function findFreePort(startPort) {
@@ -30,7 +31,7 @@ async function startFrontend(resourcesDir, logDir, backendPort) {
   }
 
   const port = await findFreePort(8080);
-  const logStream = fs.createWriteStream(path.join(logDir, "frontend.log"), { flags: "a" });
+  const logStream = openLogStream(logDir, "frontend.log");
 
   // real OS child process, not required in-process, so it tears down reliably on quit
   const child = spawn(process.execPath, [serverJs], {

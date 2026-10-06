@@ -5,6 +5,7 @@ const net = require("node:net");
 const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
+const { openLogStream } = require("./log-file");
 
 const BACKEND_PORT = 3001; // baked into the frontend's client bundle at build time, see copy-frontend.mjs
 
@@ -71,7 +72,7 @@ async function startBackend(resourcesDir, logDir, downloadsDir) {
   }
 
   const bundledFfmpeg = ffmpegPath(resourcesDir);
-  const logStream = fs.createWriteStream(path.join(logDir, "backend.log"), { flags: "a" });
+  const logStream = openLogStream(logDir, "backend.log");
   const child = spawn(launcher, [], {
     env: {
       ...process.env,
