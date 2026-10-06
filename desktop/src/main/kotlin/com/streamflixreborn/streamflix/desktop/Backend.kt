@@ -171,8 +171,13 @@ private fun Show.toDto(includeRecommendations: Boolean = true): ShowDto = when (
     )
 }
 
-fun providerByName(name: String?): Provider? =
-    Provider.providers.keys.firstOrNull { it.name == name }
+// removed providers that were a mirror of another one, so a saved provider cookie doesnt end up on an empty home
+private val MERGED_PROVIDERS = mapOf("Fanpelis" to "Cuevana 3")
+
+fun providerByName(name: String?): Provider? {
+    val target = MERGED_PROVIDERS[name] ?: name
+    return Provider.providers.keys.firstOrNull { it.name == target }
+}
 
 // these fire nonstop during normal playback, only their failures are worth a terminal line
 private val NOISY_PATHS = setOf("/manifest.m3u8", "/segment", "/direct", "/image", "/assets", "/api/download/status", "/api/debug/stream")

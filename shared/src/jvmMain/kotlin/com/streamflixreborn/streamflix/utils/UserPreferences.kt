@@ -101,7 +101,7 @@ object UserPreferences {
         set(value) = set("doh_provider_url", value)
 
     var cuevanaDomain: String
-        get() = get("cuevana_domain")?.ifEmpty { null } ?: "cuevana.gs"
+        get() = get("cuevana_domain")?.ifEmpty { null } ?: "cuevana3.gs"
         set(value) = set("cuevana_domain", value)
 
     var poseidonDomain: String

@@ -56,16 +56,6 @@ export const CUSTOM_HOME_SECTIONS: Record<string, CustomSection[]> = {
     { label: "Crime", genreId: "crime" },
     { label: "Animation", genreId: "animation" },
   ],
-  Fanpelis: [
-    { label: "Acción", genreId: "accion" },
-    { label: "Comedia", genreId: "comedia" },
-    { label: "Terror", genreId: "terror" },
-    { label: "Romance", genreId: "romance" },
-    { label: "Suspenso", genreId: "suspense" },
-    { label: "Ciencia Ficción", genreId: "ciencia-ficcion" },
-    { label: "Crimen", genreId: "crimen" },
-    { label: "Animación", genreId: "animacion" },
-  ],
   // getGenre maps to /generos/{slug}, straight off the site's own genre menu
   Pelisplusto: [
     { label: "Acción", genreId: "generos/accion" },
