@@ -121,7 +121,12 @@
         "title": "Estás sin conexión",
         "description": "Las películas y episodios descargados siguen disponibles.",
         "action": "Ir a descargas"
-      }
+      },
+      "providerError": {
+        "title": "No se puede conectar con \"{{provider}}\"",
+        "description": "El proveedor seleccionado no ha respondido. Elige otro en Ajustes o vuelve a intentarlo más tarde."
+      },
+      "empty": "No hay contenido disponible para este proveedor."
     },
     "anime": {
       "label": "Para verdaderos fans",

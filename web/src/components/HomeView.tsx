@@ -101,10 +101,10 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
               <div className="flex flex-col items-center gap-3 text-center">
                 <AlertTriangle className="w-10 h-10 text-destructive" />
                 <p className="text-lg font-semibold text-foreground">
-                  Impossibile contattare &quot;{provider}&quot;
+                  {t("home.providerError.title", { provider })}
                 </p>
                 <p className="text-sm text-muted-foreground max-w-md">
-                  Il provider selezionato non ha risposto. Prova a selezionarne un altro dalle Impostazioni, o riprova più tardi.
+                  {t("home.providerError.description")}
                 </p>
                 <p className="text-xs text-muted-foreground/70 font-mono max-w-md break-words">{error}</p>
               </div>
@@ -117,7 +117,7 @@ export function HomeView({ rows, error, provider, isIptv }: HomeViewProps) {
 
               {restRows.length === 0 && !heroRow ? (
                 <p className="text-center text-muted-foreground py-16">
-                  Nessun contenuto disponibile per questo provider.
+                  {t("home.empty")}
                 </p>
               ) : (
                 restRows.map((row) => (

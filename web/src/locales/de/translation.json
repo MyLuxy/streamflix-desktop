@@ -121,7 +121,12 @@
         "title": "Du bist offline",
         "description": "Heruntergeladene Filme und Episoden sind weiterhin verfügbar.",
         "action": "Zu den Downloads"
-      }
+      },
+      "providerError": {
+        "title": "„{{provider}}“ ist nicht erreichbar",
+        "description": "Der ausgewählte Anbieter hat nicht geantwortet. Wähle in den Einstellungen einen anderen aus oder versuche es später erneut."
+      },
+      "empty": "Für diesen Anbieter sind keine Inhalte verfügbar."
     },
     "anime": {
       "label": "Für echte Fans",

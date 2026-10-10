@@ -121,7 +121,12 @@
         "title": "Sei offline",
         "description": "I film e gli episodi che hai scaricato sono sempre disponibili.",
         "action": "Vai ai download"
-      }
+      },
+      "providerError": {
+        "title": "Impossibile contattare \"{{provider}}\"",
+        "description": "Il provider selezionato non ha risposto. Prova a selezionarne un altro dalle Impostazioni, o riprova più tardi."
+      },
+      "empty": "Nessun contenuto disponibile per questo provider."
     },
     "anime": {
       "label": "Per veri appassionati",

@@ -121,7 +121,12 @@
         "title": "You're offline",
         "description": "Movies and episodes you downloaded are still available.",
         "action": "Go to downloads"
-      }
+      },
+      "providerError": {
+        "title": "Can't reach \"{{provider}}\"",
+        "description": "The selected provider didn't respond. Pick another one in Settings, or try again later."
+      },
+      "empty": "No content available for this provider."
     },
     "anime": {
       "label": "For true fans",

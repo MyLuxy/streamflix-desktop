@@ -121,7 +121,12 @@
         "title": "Vous êtes hors ligne",
         "description": "Les films et épisodes téléchargés restent disponibles.",
         "action": "Aller aux téléchargements"
-      }
+      },
+      "providerError": {
+        "title": "Impossible de joindre « {{provider}} »",
+        "description": "Le fournisseur sélectionné n'a pas répondu. Choisissez-en un autre dans les Paramètres, ou réessayez plus tard."
+      },
+      "empty": "Aucun contenu disponible pour ce fournisseur."
     },
     "anime": {
       "label": "Pour les vrais passionnés",
