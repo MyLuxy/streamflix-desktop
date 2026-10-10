@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Hls from "hls.js";
+import Hls, { FetchLoader } from "hls.js";
 import {
   Loader2,
   TriangleAlert,
@@ -351,7 +351,12 @@ export function HlsPlayer({
           setErrorMessage(t("player.streamError"));
         });
       } else if (Hls.isSupported()) {
-        const hls = new Hls();
+        // unproxied cdns (vidzy) 403 on our localhost referer, xhr cant drop it per request but fetch can
+        const isUnproxied = /^https?:\/\//.test(result.manifestUrl);
+        const hls = new Hls(isUnproxied ? {
+          loader: FetchLoader,
+          fetchSetup: (context, init) => new Request(context.url, { ...init, referrerPolicy: "no-referrer" }),
+        } : undefined);
         hlsRef.current = hls;
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (data.fatal) {
