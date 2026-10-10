@@ -41,7 +41,7 @@ object KidrazProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
             return cachePortalURL.ifEmpty{ field }
         }
 
-    override val defaultBaseUrl: String = "https://www.kidraz.com/saby1jy/home/kidraz"
+    override val defaultBaseUrl: String = "https://yakmov.com/0003909/home/yakmov"
     override val baseUrl: String = defaultBaseUrl
         get() {
             val cacheURL = UserPreferences.getProviderCache(this, UserPreferences.PROVIDER_URL)
@@ -51,7 +51,7 @@ object KidrazProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
     override val logo: String
         get() {
             var cacheLogo = UserPreferences.getProviderCache(this,UserPreferences.PROVIDER_LOGO)
-            return cacheLogo.ifEmpty { "https://www.kidraz.com/favicon.png" }
+            return cacheLogo.ifEmpty { "https://yakmov.com/favicon.png" }
         }
 
     const val user_agent = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:147.0) Gecko/20100101 Firefox/147.0"
@@ -370,10 +370,16 @@ object KidrazProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                         newUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
 
                         document = addressService.loadPage(newUrl)
-                        var newPath = document.selectFirst("a#kidrazc")?.attr("href")?:""
+                        // portal still lists the old domain, it just shows a "kidraz devient X" page now
+                        val movedTo = document.selectFirst("a.nom[href^=http]")?.attr("href")
+                        if (!movedTo.isNullOrEmpty()) {
+                            newUrl = if (movedTo.endsWith("/")) movedTo else "$movedTo/"
+                            document = addressService.loadPage(newUrl)
+                        }
+                        val newPath = document.selectFirst("a#kidrazc, a[aria-label^=Entrer]")?.attr("href") ?: ""
                         val raw = addressService.loadPageRaw(newUrl+newPath)
-                        if (raw.isSuccessful) {
-                            val homeUrl = raw.raw().request.url
+                        val homeUrl = raw.raw().request.url
+                        if (raw.isSuccessful && homeUrl.encodedPath.contains("/home/")) {
                             homePath = homeUrl.encodedPath //.removePrefix("/")
 
                             UserPreferences.setProviderCache(this,

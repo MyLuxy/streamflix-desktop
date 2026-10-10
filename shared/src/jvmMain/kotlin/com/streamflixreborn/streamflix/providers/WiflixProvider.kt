@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -129,6 +130,21 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
         if (arrayOf("netu", "vudeo").any { it.equals(source, true)})
             return true
         return false
+    }
+
+    // data-v is base64 of the rot13'd url, same as the site's own decodeStream()
+    private fun serverSrc(a: Element): String {
+        val raw = a.attr("data-v")
+        if (raw.isEmpty()) return a.attr("onclick").substringAfter("loadVideo('").substringBeforeLast("'")
+        if (raw.startsWith("http") || raw.startsWith("//")) return raw
+        val decoded = runCatching { String(java.util.Base64.getDecoder().decode(raw)) }.getOrDefault(raw)
+        return decoded.map { c ->
+            when (c) {
+                in 'a'..'z' -> 'a' + (c - 'a' + 13) % 26
+                in 'A'..'Z' -> 'A' + (c - 'A' + 13) % 26
+                else -> c
+            }
+        }.joinToString("")
     }
 
     override suspend fun search(query: String, page: Int): List<ListItem> {
@@ -573,8 +589,7 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                             name = it.selectFirst("span")
                                 ?.text()
                                 ?: "",
-                            src = it.attr("onclick")
-                                .substringAfter("loadVideo('").substringBeforeLast("'"),
+                            src = serverSrc(it),
                     )
                 }
             }
@@ -592,8 +607,7 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                             name = it.selectFirst("span")
                                 ?.text()
                                 ?: "",
-                            src = it.attr("onclick")
-                                .substringAfter("loadVideo('").substringBeforeLast("'"),
+                            src = serverSrc(it),
                     )
                 }
             }
