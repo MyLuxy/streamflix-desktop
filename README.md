@@ -78,6 +78,7 @@ Clone the project to your local machine:
 
 ```bash
 git clone https://github.com/MyLuxy/streamflix-desktop.git
+cd streamflix-desktop
 ```
 
 ## Development
