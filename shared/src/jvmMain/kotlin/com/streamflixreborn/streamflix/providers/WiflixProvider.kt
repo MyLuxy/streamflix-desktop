@@ -40,7 +40,7 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
             return cachePortalURL.ifEmpty{ field }
         }
 
-    override val defaultBaseUrl: String = "https://flemmix.team/"
+    override val defaultBaseUrl: String = "https://flemmix.land/"
     override val baseUrl: String = defaultBaseUrl
         get() {
             val cacheURL = UserPreferences.getProviderCache(this, UserPreferences.PROVIDER_URL)
@@ -635,21 +635,27 @@ object WiflixProvider : Provider, ProviderPortalUrl, ProviderConfigUrl {
                 try {
                     val document = addressService.getHome()
 
-                    val newUrl = document.select("div.card-featured-wrap a.card-featured, div.alert-success a, div.alert-info a, a.btn-success, div.entry-content a")
+                    // real domain is base64'd in an inline script now, hrefs are all href="#"
+                    val newUrl = Regex(""""([A-Za-z0-9+/]{16,}=?=?)"""")
+                        .findAll(document.html())
+                        .mapNotNull { runCatching { String(java.util.Base64.getDecoder().decode(it.groupValues[1])) }.getOrNull() }
+                        .firstOrNull { it.startsWith("http") && !it.contains("wiflix-adresses") }
+                        ?: document.select("div.card-featured-wrap a.card-featured, div.alert-success a, div.alert-info a, a.btn-success, div.entry-content a")
                         .map { it.attr("href").trim() }
                         .firstOrNull { link ->
                             link.startsWith("http") &&
-                            !link.contains("wiflix-adresses") && 
-                            !link.contains("facebook") && 
+                            !link.contains("wiflix-adresses") &&
+                            !link.contains("facebook") &&
                             !link.contains("twitter") &&
                             !link.contains("t.me") &&
                             !link.contains("instagram") &&
                             !link.contains("pinterest")
                         }
-                        ?.replace("http://", "https://")
 
-                    if (!newUrl.isNullOrEmpty()) {
-                        val formattedUrl = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+                    val resolvedUrl = newUrl?.replace("http://", "https://")
+
+                    if (!resolvedUrl.isNullOrEmpty()) {
+                        val formattedUrl = if (resolvedUrl.endsWith("/")) resolvedUrl else "$resolvedUrl/"
                         UserPreferences.setProviderCache(this, UserPreferences.PROVIDER_URL, formattedUrl)
                         UserPreferences.setProviderCache(
                             this,

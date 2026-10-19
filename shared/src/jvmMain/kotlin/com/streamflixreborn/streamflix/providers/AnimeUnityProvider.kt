@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit
 
 object AnimeUnityProvider : Provider {
     override val name = "AnimeUnity"
-    override val baseUrl = "https://www.animeunity.so"
+    override val baseUrl = "https://www.animeunity.to"
     override val logo: String get() = "$baseUrl/images/scritta2.png"
     override val language = "it"
     
