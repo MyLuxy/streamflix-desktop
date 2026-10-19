@@ -70,6 +70,11 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     private val tmdbFallback by lazy { TmdbProvider(LANG) }
     private var usingFallback = false
 
+    // a title/episode id built by this provider always carries "-slug" or "?episode_id=", the fallback's own ids are bare
+    // tmdb numbers. an unrelated listing call can flip usingFallback for the whole session, but that shouldnt stop an id
+    // we already resolved from the real site from being played through it
+    private fun isNativeId(id: String) = id.contains("-") || id.contains("?episode_id=")
+
     private val RECOVERY_COOLDOWN_MS = 5 * 60 * 1000L
     private val DEFAULT_DOMAIN: String = "streamingcommunityz.pictures"
     private val BLOCKED_DOMAINS = setOf("streamingcommunityz.green", "streamingunity.club", "streamingunity.bike", "streamingcommunityz.buzz", "streamingunity.cc")
@@ -481,7 +486,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getMovie(id: String): Movie {
-        if (usingFallback) return tmdbFallback.getMovie(id)
+        if (usingFallback && !isNativeId(id)) return tmdbFallback.getMovie(id)
         return getMovieReal(id)
     }
 
@@ -532,7 +537,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getTvShow(id: String): TvShow {
-        if (usingFallback) return tmdbFallback.getTvShow(id)
+        if (usingFallback && !isNativeId(id)) return tmdbFallback.getTvShow(id)
         return getTvShowReal(id)
     }
 
@@ -585,7 +590,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getEpisodesBySeason(seasonId: String): List<Episode> {
-        if (usingFallback) return tmdbFallback.getEpisodesBySeason(seasonId)
+        if (usingFallback && !seasonId.contains("/")) return tmdbFallback.getEpisodesBySeason(seasonId)
         val currentVersion = ensureVersion()
         val res: StreamingCommunityService.SeasonRes = try {
             withSslFallback { it.getSeasonDetails(seasonId, version = currentVersion, language = LANG) }.also {
@@ -652,7 +657,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getServers(id: String, videoType: Video.Type): List<Video.Server> {
-        if (usingFallback) return tmdbFallback.getServers(id, videoType)
+        if (usingFallback && !isNativeId(id)) return tmdbFallback.getServers(id, videoType)
         Log.i("StreamFlixES", "[PROV] -> StreamingCommunity: getServers for $id")
         val base = "https://$domain/"
         
@@ -677,7 +682,7 @@ class StreamingCommunityProvider(private val _language: String? = null) : Provid
     }
 
     override suspend fun getVideo(server: Video.Server): Video {
-        if (usingFallback) return tmdbFallback.getVideo(server)
+        if (usingFallback && !isNativeId(server.id)) return tmdbFallback.getVideo(server)
         Log.i("StreamFlixES", "[SERVER] -> StreamingCommunity: Using ${server.name} (Src: ${server.src})")
         
         val base = "https://$domain/"
