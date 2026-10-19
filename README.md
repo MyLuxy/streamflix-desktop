@@ -12,11 +12,6 @@
   <a href="https://github.com/sponsors/MyLuxy"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor MyLuxy on GitHub" width="171" /></a>
 </p>
 
-<p align="center">
-  <b>English</b> ·
-  <a href="README.ru.md">Русский</a>
-</p>
-
 <details>
   <summary>Table of Contents</summary>
 
